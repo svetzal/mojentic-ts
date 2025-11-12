@@ -1,3 +1,0 @@
-# Contributing
-
-{{ CONTRIBUTING.md contents }}

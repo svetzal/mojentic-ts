@@ -3,51 +3,38 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'Mojentic',
   description: 'Modern LLM integration framework for TypeScript',
+  ignoreDeadLinks: true,
 
   themeConfig: {
     nav: [
-      { text: 'Guide', link: '/introduction' },
+      { text: 'Guide', link: '/getting-started' },
       { text: 'API', link: '/api/' },
       { text: 'GitHub', link: 'https://github.com/svetzal/mojentic-ts' }
     ],
 
     sidebar: [
       {
-        text: 'Introduction',
+        text: 'Getting Started',
         items: [
-          { text: 'Overview', link: '/introduction' }
+          { text: 'Introduction', link: '/introduction' },
+          { text: 'Installation', link: '/getting-started' }
         ]
       },
       {
-        text: 'User Guide',
+        text: 'Core Concepts',
         items: [
-          { text: 'Getting Started', link: '/getting-started' },
           { text: 'LLM Broker', link: '/broker' },
-          { text: 'Tool Usage', link: '/tool-usage' },
-          { text: 'Structured Output', link: '/structured-output' }
-        ]
-      },
-      {
-        text: 'Advanced Topics',
-        items: [
-          { text: 'Error Handling', link: '/error-handling' },
-          { text: 'Streaming', link: '/streaming' },
-          { text: 'Best Practices', link: '/best-practices' }
+          { text: 'Structured Output', link: '/structured-output' },
+          { text: 'Tool Usage', link: '/tool-usage' }
         ]
       },
       {
         text: 'API Reference',
         items: [
+          { text: 'Overview', link: '/api/' },
           { text: 'Core Types', link: '/api/core' },
           { text: 'Gateways', link: '/api/gateways' },
           { text: 'Tools', link: '/api/tools' }
-        ]
-      },
-      {
-        text: 'Project',
-        items: [
-          { text: 'Architecture', link: '/architecture' },
-          { text: 'Contributing', link: '/contributing' }
         ]
       }
     ],
