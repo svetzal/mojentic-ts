@@ -3,6 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'Mojentic',
   description: 'Modern LLM integration framework for TypeScript',
+  base: '/mojentic-ts/',
   ignoreDeadLinks: true,
 
   themeConfig: {
