@@ -57,9 +57,7 @@ describe('OllamaGateway', () => {
         json: async () => mockResponse,
       });
 
-      const messages = [
-        { role: MessageRole.User, content: 'Hello' },
-      ];
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
 
       const result = await gateway.generate('llama2', messages);
 
@@ -83,9 +81,7 @@ describe('OllamaGateway', () => {
         text: async () => 'Server error occurred',
       });
 
-      const messages = [
-        { role: MessageRole.User, content: 'Hello' },
-      ];
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
 
       const result = await gateway.generate('llama2', messages);
 
@@ -99,9 +95,7 @@ describe('OllamaGateway', () => {
     test('should handle network errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network connection failed'));
 
-      const messages = [
-        { role: MessageRole.User, content: 'Hello' },
-      ];
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
 
       const result = await gateway.generate('llama2', messages);
 
@@ -166,9 +160,7 @@ describe('OllamaGateway', () => {
         json: async () => mockResponse,
       });
 
-      const messages = [
-        { role: MessageRole.User, content: 'Hello' },
-      ];
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
 
       const config = {
         temperature: 0.7,
@@ -207,9 +199,7 @@ describe('OllamaGateway', () => {
         json: async () => mockResponse,
       });
 
-      const messages = [
-        { role: MessageRole.User, content: 'Analyze sentiment' },
-      ];
+      const messages = [{ role: MessageRole.User, content: 'Analyze sentiment' }];
 
       const schema = {
         type: 'object',
@@ -264,9 +254,7 @@ describe('OllamaGateway', () => {
         json: async () => mockResponse,
       });
 
-      const messages = [
-        { role: MessageRole.User, content: 'What is the weather in Tokyo?' },
-      ];
+      const messages = [{ role: MessageRole.User, content: 'What is the weather in Tokyo?' }];
 
       const tools = [
         {
@@ -292,11 +280,7 @@ describe('OllamaGateway', () => {
   describe('listModels', () => {
     test('should list available models', async () => {
       const mockResponse = {
-        models: [
-          { name: 'llama2' },
-          { name: 'mistral' },
-          { name: 'codellama' },
-        ],
+        models: [{ name: 'llama2' }, { name: 'mistral' }, { name: 'codellama' }],
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -395,9 +379,7 @@ describe('OllamaGateway', () => {
         ...mockResponse,
       });
 
-      const messages = [
-        { role: MessageRole.User, content: 'Hello' },
-      ];
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
 
       const chunks: string[] = [];
       for await (const result of gateway.generateStream('llama2', messages)) {
@@ -417,9 +399,7 @@ describe('OllamaGateway', () => {
         text: async () => 'Error',
       });
 
-      const messages = [
-        { role: MessageRole.User, content: 'Hello' },
-      ];
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
 
       const errors: Error[] = [];
       for await (const result of gateway.generateStream('llama2', messages)) {
@@ -439,9 +419,7 @@ describe('OllamaGateway', () => {
         body: null,
       });
 
-      const messages = [
-        { role: MessageRole.User, content: 'Hello' },
-      ];
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
 
       const errors: Error[] = [];
       for await (const result of gateway.generateStream('llama2', messages)) {

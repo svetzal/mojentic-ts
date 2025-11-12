@@ -30,7 +30,10 @@ class MockGateway implements LlmGateway {
     _model: string,
     _messages: LlmMessage[],
     _config?: CompletionConfig,
-    _tools?: Array<{ type: string; function: { name: string; description: string; parameters: Record<string, unknown> } }>
+    _tools?: Array<{
+      type: string;
+      function: { name: string; description: string; parameters: Record<string, unknown> };
+    }>
   ): Promise<Result<GatewayResponse, Error>> {
     if (this.callCount >= this.responses.length) {
       return Err(new GatewayError('No more mock responses'));
@@ -42,7 +45,10 @@ class MockGateway implements LlmGateway {
     _model: string,
     _messages: LlmMessage[],
     _config?: CompletionConfig,
-    _tools?: Array<{ type: string; function: { name: string; description: string; parameters: Record<string, unknown> } }>
+    _tools?: Array<{
+      type: string;
+      function: { name: string; description: string; parameters: Record<string, unknown> };
+    }>
   ): AsyncGenerator<Result<{ content?: string; done: boolean }, Error>> {
     for (const content of this.streamResponses) {
       yield Ok({ content, done: false });
@@ -114,9 +120,7 @@ describe('LlmBroker', () => {
 
   describe('generate', () => {
     test('should generate simple text response', async () => {
-      const messages: LlmMessage[] = [
-        { role: MessageRole.User, content: 'Hello' },
-      ];
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Hello' }];
 
       gateway.setResponse(
         Ok({
@@ -135,9 +139,7 @@ describe('LlmBroker', () => {
     });
 
     test('should handle gateway errors', async () => {
-      const messages: LlmMessage[] = [
-        { role: MessageRole.User, content: 'Hello' },
-      ];
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Hello' }];
 
       gateway.setResponse(Err(new GatewayError('Connection failed', 500)));
 
@@ -151,9 +153,7 @@ describe('LlmBroker', () => {
     });
 
     test('should execute tool calls', async () => {
-      const messages: LlmMessage[] = [
-        { role: MessageRole.User, content: 'Use the tool' },
-      ];
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Use the tool' }];
 
       const tool = new MockTool('test_tool');
       tool.setResult(Ok({ result: 'Tool executed successfully' }));
@@ -192,9 +192,7 @@ describe('LlmBroker', () => {
     });
 
     test('should handle tool not found', async () => {
-      const messages: LlmMessage[] = [
-        { role: MessageRole.User, content: 'Use unknown tool' },
-      ];
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Use unknown tool' }];
 
       gateway.setResponses([
         // Response with unknown tool call
@@ -231,9 +229,7 @@ describe('LlmBroker', () => {
     });
 
     test('should handle tool execution errors', async () => {
-      const messages: LlmMessage[] = [
-        { role: MessageRole.User, content: 'Use the tool' },
-      ];
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Use the tool' }];
 
       const tool = new MockTool('test_tool');
       tool.setResult(Err(new Error('Tool execution failed')));
@@ -272,9 +268,7 @@ describe('LlmBroker', () => {
     });
 
     test('should limit tool iterations', async () => {
-      const messages: LlmMessage[] = [
-        { role: MessageRole.User, content: 'Keep using tool' },
-      ];
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Keep using tool' }];
 
       const tool = new MockTool('test_tool');
 
@@ -308,9 +302,7 @@ describe('LlmBroker', () => {
     });
 
     test('should handle tool calls without tools provided', async () => {
-      const messages: LlmMessage[] = [
-        { role: MessageRole.User, content: 'Use tool' },
-      ];
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Use tool' }];
 
       gateway.setResponse(
         Ok({
@@ -341,9 +333,7 @@ describe('LlmBroker', () => {
 
   describe('generateObject', () => {
     test('should generate structured object', async () => {
-      const messages: LlmMessage[] = [
-        { role: MessageRole.User, content: 'Analyze sentiment' },
-      ];
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Analyze sentiment' }];
 
       const schema = {
         type: 'object',
@@ -374,9 +364,7 @@ describe('LlmBroker', () => {
     });
 
     test('should handle invalid JSON in response', async () => {
-      const messages: LlmMessage[] = [
-        { role: MessageRole.User, content: 'Analyze sentiment' },
-      ];
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Analyze sentiment' }];
 
       const schema = {
         type: 'object',
@@ -402,9 +390,7 @@ describe('LlmBroker', () => {
     });
 
     test('should handle gateway errors', async () => {
-      const messages: LlmMessage[] = [
-        { role: MessageRole.User, content: 'Analyze' },
-      ];
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Analyze' }];
 
       gateway.setResponse(Err(new GatewayError('Network error')));
 
@@ -419,9 +405,7 @@ describe('LlmBroker', () => {
 
   describe('generateStream', () => {
     test('should stream text chunks', async () => {
-      const messages: LlmMessage[] = [
-        { role: MessageRole.User, content: 'Hello' },
-      ];
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Hello' }];
 
       gateway.setStreamResponses(['Hello', ' there', '!']);
 
@@ -436,9 +420,7 @@ describe('LlmBroker', () => {
     });
 
     test('should handle stream errors', async () => {
-      const messages: LlmMessage[] = [
-        { role: MessageRole.User, content: 'Hello' },
-      ];
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Hello' }];
 
       // Mock a stream with an error
       gateway.setStreamResponses([]);
