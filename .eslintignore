@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+coverage/
+*.tsbuildinfo
+
+# Documentation
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# Config files
+*.config.js
+*.config.ts
+jest.config.js
+
+# Example outputs
+examples/**/*.js

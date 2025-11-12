@@ -27,7 +27,7 @@ export class LlmBroker {
   ): Promise<Result<string, Error>> {
     try {
       const toolDescriptors = tools?.map((t) => t.descriptor());
-      let currentMessages = [...messages];
+      const currentMessages = [...messages];
       let iterations = 0;
 
       while (iterations < maxToolIterations) {
@@ -50,9 +50,7 @@ export class LlmBroker {
         }
 
         // Add assistant message with tool calls
-        currentMessages.push(
-          Message.assistant(response.content || '', response.toolCalls)
-        );
+        currentMessages.push(Message.assistant(response.content || '', response.toolCalls));
 
         // Execute tools
         if (!tools) {
@@ -89,11 +87,7 @@ export class LlmBroker {
             }
 
             currentMessages.push(
-              Message.tool(
-                JSON.stringify(toolResult.value),
-                toolCall.id,
-                toolCall.function.name
-              )
+              Message.tool(JSON.stringify(toolResult.value), toolCall.id, toolCall.function.name)
             );
           } catch (error) {
             currentMessages.push(
@@ -111,14 +105,10 @@ export class LlmBroker {
         iterations++;
       }
 
-      return Err(
-        new ToolError(`Maximum tool iterations (${maxToolIterations}) exceeded`)
-      );
+      return Err(new ToolError(`Maximum tool iterations (${maxToolIterations}) exceeded`));
     } catch (error) {
       return Err(
-        new Error(
-          `Failed to generate: ${error instanceof Error ? error.message : String(error)}`
-        )
+        new Error(`Failed to generate: ${error instanceof Error ? error.message : String(error)}`)
       );
     }
   }

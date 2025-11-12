@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+coverage/
+*.tsbuildinfo
+
+# Documentation
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# Examples (optional - include if you want examples formatted)
+# examples/
+
+# Config files
+*.json
+*.yml
+*.yaml
+
+# Markdown files (optional - prettier can format these well)
+# *.md

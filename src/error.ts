@@ -6,7 +6,10 @@
  * Base error class for all Mojentic errors
  */
 export class MojenticError extends Error {
-  constructor(message: string, public readonly code?: string) {
+  constructor(
+    message: string,
+    public readonly code?: string
+  ) {
     super(message);
     this.name = 'MojenticError';
     Object.setPrototypeOf(this, MojenticError.prototype);
@@ -17,7 +20,10 @@ export class MojenticError extends Error {
  * Error for gateway-related issues (network, API, etc.)
  */
 export class GatewayError extends MojenticError {
-  constructor(message: string, public readonly statusCode?: number) {
+  constructor(
+    message: string,
+    public readonly statusCode?: number
+  ) {
     super(message, 'GATEWAY_ERROR');
     this.name = 'GatewayError';
     Object.setPrototypeOf(this, GatewayError.prototype);
@@ -28,7 +34,10 @@ export class GatewayError extends MojenticError {
  * Error for tool execution failures
  */
 export class ToolError extends MojenticError {
-  constructor(message: string, public readonly toolName?: string) {
+  constructor(
+    message: string,
+    public readonly toolName?: string
+  ) {
     super(message, 'TOOL_ERROR');
     this.name = 'ToolError';
     Object.setPrototypeOf(this, ToolError.prototype);
@@ -39,7 +48,10 @@ export class ToolError extends MojenticError {
  * Error for validation failures
  */
 export class ValidationError extends MojenticError {
-  constructor(message: string, public readonly field?: string) {
+  constructor(
+    message: string,
+    public readonly field?: string
+  ) {
     super(message, 'VALIDATION_ERROR');
     this.name = 'ValidationError';
     Object.setPrototypeOf(this, ValidationError.prototype);
@@ -72,9 +84,7 @@ export class TimeoutError extends MojenticError {
  * Result type for operations that can fail
  * Inspired by Rust's Result<T, E> but adapted for TypeScript
  */
-export type Result<T, E = Error> =
-  | { ok: true; value: T }
-  | { ok: false; error: E };
+export type Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };
 
 /**
  * Create a successful Result
@@ -127,10 +137,7 @@ export function unwrapOr<T, E>(result: Result<T, E>, defaultValue: T): T {
 /**
  * Map a Result's value if it's Ok
  */
-export function mapResult<T, U, E>(
-  result: Result<T, E>,
-  fn: (value: T) => U
-): Result<U, E> {
+export function mapResult<T, U, E>(result: Result<T, E>, fn: (value: T) => U): Result<U, E> {
   if (isOk(result)) {
     return Ok(fn(result.value));
   }
@@ -140,10 +147,7 @@ export function mapResult<T, U, E>(
 /**
  * Map a Result's error if it's Err
  */
-export function mapError<T, E, F>(
-  result: Result<T, E>,
-  fn: (error: E) => F
-): Result<T, F> {
+export function mapError<T, E, F>(result: Result<T, E>, fn: (error: E) => F): Result<T, F> {
   if (isErr(result)) {
     return Err(fn(result.error));
   }

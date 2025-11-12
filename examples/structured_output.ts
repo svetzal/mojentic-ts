@@ -45,9 +45,7 @@ async function main() {
 
   // Create a message for sentiment analysis
   const messages = [
-    Message.system(
-      'You are a sentiment analysis expert. Analyze the sentiment of user messages.'
-    ),
+    Message.system('You are a sentiment analysis expert. Analyze the sentiment of user messages.'),
     Message.user('I absolutely love this new framework! It makes development so much easier.'),
   ];
 

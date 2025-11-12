@@ -100,15 +100,15 @@ async function main() {
     required: ['label', 'confidence'],
   };
 
-  const messages2 = [
-    Message.user("I love this product! It's amazing and works perfectly."),
-  ];
+  const messages2 = [Message.user("I love this product! It's amazing and works perfectly.")];
 
   const result2 = await textBroker.generateObject<SentimentAnalysis>(messages2, schema);
 
   if (isOk(result2)) {
     console.log('Structured output:');
-    console.log(`✅ Success: label: ${result2.value.label}, confidence: ${result2.value.confidence}\n`);
+    console.log(
+      `✅ Success: label: ${result2.value.label}, confidence: ${result2.value.confidence}\n`
+    );
   } else {
     console.log('Structured output:');
     console.log(`❌ Error: ${result2.error.message}\n`);

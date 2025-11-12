@@ -17,7 +17,7 @@ import {
   unwrapOr,
   mapResult,
   mapError,
-} from '../error';
+} from './error';
 
 describe('Error classes', () => {
   test('MojenticError should extend Error', () => {
@@ -120,7 +120,7 @@ describe('Result type', () => {
 
   test('mapResult should transform Ok value', () => {
     const result = Ok(42);
-    const mapped = mapResult(result, (x) => x * 2);
+    const mapped = mapResult(result, (x: number) => x * 2);
     expect(isOk(mapped)).toBe(true);
     if (isOk(mapped)) {
       expect(mapped.value).toBe(84);
@@ -139,7 +139,7 @@ describe('Result type', () => {
 
   test('mapError should transform Err error', () => {
     const result = Err(new Error('Original'));
-    const mapped = mapError(result, (e) => new Error('Wrapped: ' + e.message));
+    const mapped = mapError(result, (e: Error) => new Error('Wrapped: ' + e.message));
     expect(isErr(mapped)).toBe(true);
     if (isErr(mapped)) {
       expect(mapped.error.message).toBe('Wrapped: Original');
@@ -148,7 +148,7 @@ describe('Result type', () => {
 
   test('mapError should pass through Ok', () => {
     const result = Ok(42);
-    const mapped = mapError(result, (e: Error) => new Error('Should not see this'));
+    const mapped = mapError(result, (_e: Error) => new Error('Should not see this'));
     expect(isOk(mapped)).toBe(true);
     if (isOk(mapped)) {
       expect(mapped.value).toBe(42);

@@ -106,6 +106,56 @@ describe('MyComponent', () => {
 });
 ```
 
+### Code Quality Standards
+
+We maintain high code quality standards across all Mojentic ports:
+
+#### Quick Quality Check
+```bash
+npm run quality  # Runs lint, format:check, test:coverage, and audit
+```
+
+#### Individual Quality Checks
+
+**Linting (ESLint)**
+```bash
+npm run lint          # Check for linting errors
+npm run lint:fix      # Auto-fix linting errors
+```
+
+**Formatting (Prettier)**
+```bash
+npm run format:check  # Check formatting
+npm run format        # Auto-format files
+```
+
+**Testing with Coverage**
+```bash
+npm test              # Run tests
+npm run test:coverage # Run tests with coverage report
+```
+- Minimum 70% coverage required for: lines, branches, functions, statements
+
+**Security Audit**
+```bash
+npm run audit         # Check for vulnerabilities
+npm run audit:fix     # Attempt to auto-fix vulnerabilities
+```
+
+#### Before Submitting a PR
+
+Always run the full quality check:
+```bash
+npm run quality
+```
+
+All checks must pass:
+- ✅ No ESLint errors
+- ✅ Code properly formatted
+- ✅ All tests passing
+- ✅ Coverage thresholds met (70%)
+- ✅ No moderate+ security vulnerabilities
+
 ### Documentation
 
 Good documentation is crucial:

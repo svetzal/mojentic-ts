@@ -3,13 +3,7 @@
  */
 
 import { LlmGateway } from '../gateway';
-import {
-  LlmMessage,
-  CompletionConfig,
-  GatewayResponse,
-  StreamChunk,
-  ToolCall,
-} from '../models';
+import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk, ToolCall } from '../models';
 import { ToolDescriptor } from '../tools';
 import { Result, Ok, Err, GatewayError } from '../../error';
 
