@@ -4,6 +4,7 @@
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended"
   ],
+  "plugins": ["security"],
   "parserOptions": {
     "ecmaVersion": 2022,
     "sourceType": "module"
@@ -20,6 +21,18 @@
     "prefer-const": "error",
     "prefer-arrow-callback": "warn",
     "no-multiple-empty-lines": ["error", { "max": 1 }],
-    "no-trailing-spaces": "error"
+    "no-trailing-spaces": "error",
+    "security/detect-object-injection": "warn",
+    "security/detect-non-literal-regexp": "warn",
+    "security/detect-unsafe-regex": "error",
+    "security/detect-buffer-noassert": "error",
+    "security/detect-child-process": "warn",
+    "security/detect-disable-mustache-escape": "error",
+    "security/detect-eval-with-expression": "error",
+    "security/detect-no-csrf-before-method-override": "error",
+    "security/detect-non-literal-fs-filename": "warn",
+    "security/detect-non-literal-require": "warn",
+    "security/detect-possible-timing-attacks": "warn",
+    "security/detect-pseudoRandomBytes": "error"
   }
 }
