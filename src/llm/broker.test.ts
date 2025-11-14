@@ -4,7 +4,7 @@
 
 import { LlmBroker } from './broker';
 import { LlmGateway } from './gateway';
-import { GatewayResponse, LlmMessage, CompletionConfig, MessageRole } from './models';
+import { GatewayResponse, LlmMessage, CompletionConfig, MessageRole, ToolCall } from './models';
 import { LlmTool } from './tools';
 import { Result, Ok, Err, isOk, GatewayError } from '../error';
 
@@ -58,6 +58,10 @@ class MockGateway implements LlmGateway {
 
   async listModels(): Promise<Result<string[], Error>> {
     return Ok(['model1', 'model2']);
+  }
+
+  async calculateEmbeddings(_text: string, _model?: string): Promise<Result<number[], Error>> {
+    return Ok(Array(768).fill(0).map(() => Math.random()));
   }
 
   reset(): void {
@@ -432,6 +436,246 @@ describe('LlmBroker', () => {
 
       // Should at least yield the final 'done' chunk
       expect(results.length).toBeGreaterThanOrEqual(0);
+    });
+
+    test('should handle tool calls during streaming', async () => {
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Use tool' }];
+
+      const tool = new MockTool('test_tool');
+      tool.setResult(Ok({ result: 'Tool executed' }));
+
+      // Create custom mock gateway for this test
+      class CustomGateway implements LlmGateway {
+        private callCount = 0;
+
+        async generate(): Promise<Result<GatewayResponse, Error>> {
+          return Ok({ content: '', finishReason: 'stop', model: 'test' });
+        }
+
+        async *generateStream(): AsyncGenerator<
+          Result<{ content?: string; done: boolean; toolCalls?: ToolCall[] }, Error>
+        > {
+          const currentCall = this.callCount++;
+
+          if (currentCall === 0) {
+            // First call - yield content and tool calls
+            yield Ok({ content: 'Calling', done: false });
+            yield Ok({ content: ' tool', done: false });
+            yield Ok({
+              content: '',
+              done: true,
+              toolCalls: [
+                {
+                  id: 'call_123',
+                  type: 'function',
+                  function: {
+                    name: 'test_tool',
+                    arguments: JSON.stringify({ input: 'test' }),
+                  },
+                },
+              ],
+            });
+          } else {
+            // Second call - yield content without tool calls
+            yield Ok({ content: 'Tool', done: false });
+            yield Ok({ content: ' completed', done: false });
+            yield Ok({ done: true });
+          }
+        }
+
+        async listModels(): Promise<Result<string[], Error>> {
+          return Ok([]);
+        }
+
+        async calculateEmbeddings(_text: string, _model?: string): Promise<Result<number[], Error>> {
+          return Ok([]);
+        }
+      }
+
+      const customGateway = new CustomGateway();
+      const customBroker = new LlmBroker('test-model', customGateway);
+
+      const chunks: string[] = [];
+      for await (const result of customBroker.generateStream(messages, undefined, [tool])) {
+        if (isOk(result)) {
+          chunks.push(result.value);
+        }
+      }
+
+      expect(chunks).toEqual(['Calling', ' tool', 'Tool', ' completed']);
+    });
+
+    test('should handle tool errors during streaming', async () => {
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Use tool' }];
+
+      const tool = new MockTool('test_tool');
+      tool.setResult(Err(new Error('Tool failed')));
+
+      class CustomGateway implements LlmGateway {
+        private callCount = 0;
+
+        async generate(): Promise<Result<GatewayResponse, Error>> {
+          return Ok({ content: '', finishReason: 'stop', model: 'test' });
+        }
+
+        async *generateStream(): AsyncGenerator<
+          Result<{ content?: string; done: boolean; toolCalls?: ToolCall[] }, Error>
+        > {
+          const currentCall = this.callCount++;
+
+          if (currentCall === 0) {
+            yield Ok({
+              content: '',
+              done: true,
+              toolCalls: [
+                {
+                  id: 'call_123',
+                  type: 'function',
+                  function: {
+                    name: 'test_tool',
+                    arguments: JSON.stringify({ input: 'test' }),
+                  },
+                },
+              ],
+            });
+          } else {
+            yield Ok({ content: 'Error handled', done: false });
+            yield Ok({ done: true });
+          }
+        }
+
+        async listModels(): Promise<Result<string[], Error>> {
+          return Ok([]);
+        }
+
+        async calculateEmbeddings(_text: string, _model?: string): Promise<Result<number[], Error>> {
+          return Ok([]);
+        }
+      }
+
+      const customGateway = new CustomGateway();
+      const customBroker = new LlmBroker('test-model', customGateway);
+
+      const chunks: string[] = [];
+      for await (const result of customBroker.generateStream(messages, undefined, [tool])) {
+        if (isOk(result)) {
+          chunks.push(result.value);
+        }
+      }
+
+      expect(chunks).toEqual(['Error handled']);
+    });
+
+    test('should handle tool not found during streaming', async () => {
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Use unknown tool' }];
+
+      const tool = new MockTool('different_tool');
+
+      class CustomGateway implements LlmGateway {
+        private callCount = 0;
+
+        async generate(): Promise<Result<GatewayResponse, Error>> {
+          return Ok({ content: '', finishReason: 'stop', model: 'test' });
+        }
+
+        async *generateStream(): AsyncGenerator<
+          Result<{ content?: string; done: boolean; toolCalls?: ToolCall[] }, Error>
+        > {
+          const currentCall = this.callCount++;
+
+          if (currentCall === 0) {
+            yield Ok({
+              content: '',
+              done: true,
+              toolCalls: [
+                {
+                  id: 'call_123',
+                  type: 'function',
+                  function: {
+                    name: 'unknown_tool',
+                    arguments: JSON.stringify({ input: 'test' }),
+                  },
+                },
+              ],
+            });
+          } else {
+            yield Ok({ content: 'Tool not found', done: false });
+            yield Ok({ done: true });
+          }
+        }
+
+        async listModels(): Promise<Result<string[], Error>> {
+          return Ok([]);
+        }
+
+        async calculateEmbeddings(_text: string, _model?: string): Promise<Result<number[], Error>> {
+          return Ok([]);
+        }
+      }
+
+      const customGateway = new CustomGateway();
+      const customBroker = new LlmBroker('test-model', customGateway);
+
+      const chunks: string[] = [];
+      for await (const result of customBroker.generateStream(messages, undefined, [tool])) {
+        if (isOk(result)) {
+          chunks.push(result.value);
+        }
+      }
+
+      expect(chunks).toEqual(['Tool not found']);
+    });
+
+    test('should handle streaming without tools when tool calls requested', async () => {
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Use tool' }];
+
+      class CustomGateway implements LlmGateway {
+        async generate(): Promise<Result<GatewayResponse, Error>> {
+          return Ok({ content: '', finishReason: 'stop', model: 'test' });
+        }
+
+        async *generateStream(): AsyncGenerator<
+          Result<{ content?: string; done: boolean; toolCalls?: ToolCall[] }, Error>
+        > {
+          yield Ok({
+            content: 'Trying to call tool',
+            done: true,
+            toolCalls: [
+              {
+                id: 'call_123',
+                type: 'function',
+                function: {
+                  name: 'test_tool',
+                  arguments: JSON.stringify({ input: 'test' }),
+                },
+              },
+            ],
+          });
+        }
+
+        async listModels(): Promise<Result<string[], Error>> {
+          return Ok([]);
+        }
+
+        async calculateEmbeddings(_text: string, _model?: string): Promise<Result<number[], Error>> {
+          return Ok([]);
+        }
+      }
+
+      const customGateway = new CustomGateway();
+      const customBroker = new LlmBroker('test-model', customGateway);
+
+      const results: Array<Result<string, Error>> = [];
+      for await (const result of customBroker.generateStream(messages)) {
+        results.push(result);
+      }
+
+      expect(results.length).toBeGreaterThan(0);
+      const lastResult = results[results.length - 1];
+      expect(isOk(lastResult)).toBe(false);
+      if (!isOk(lastResult)) {
+        expect(lastResult.error.message).toContain('no tools provided');
+      }
     });
   });
 

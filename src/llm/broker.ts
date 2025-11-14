@@ -3,7 +3,7 @@
  */
 
 import { LlmGateway } from './gateway';
-import { LlmMessage, CompletionConfig, Message } from './models';
+import { LlmMessage, CompletionConfig, Message, ToolCall } from './models';
 import { LlmTool } from './tools';
 import { Result, Ok, Err, isOk, ParseError, ToolError } from '../error';
 
@@ -158,7 +158,11 @@ export class LlmBroker {
   }
 
   /**
-   * Generate a streaming completion
+   * Generate a streaming completion with full tool calling support
+   *
+   * Yields content chunks as they arrive, and handles tool calls automatically.
+   * When tool calls are detected, the broker executes them and recursively
+   * streams the LLM's follow-up response.
    */
   async *generateStream(
     messages: LlmMessage[],
@@ -166,10 +170,14 @@ export class LlmBroker {
     tools?: LlmTool[]
   ): AsyncGenerator<Result<string, Error>> {
     const toolDescriptors = tools?.map((t) => t.descriptor());
+    const currentMessages = [...messages];
+    let accumulatedContent = '';
+    const accumulatedToolCalls: ToolCall[] = [];
 
+    // Stream from gateway and accumulate
     for await (const chunkResult of this.gateway.generateStream(
       this.model,
-      messages,
+      currentMessages,
       config,
       toolDescriptors
     )) {
@@ -180,13 +188,77 @@ export class LlmBroker {
 
       const chunk = chunkResult.value;
 
+      // Yield content chunks immediately
       if (chunk.content) {
+        accumulatedContent += chunk.content;
         yield Ok(chunk.content);
       }
 
-      // Note: Tool calling in streaming mode is more complex
-      // and would require accumulating chunks and then processing
-      // For now, we just yield the content
+      // Accumulate tool calls
+      if (chunk.toolCalls) {
+        accumulatedToolCalls.push(...chunk.toolCalls);
+      }
+
+      // Check if stream is done
+      if (chunk.done && accumulatedToolCalls.length > 0) {
+        // Tool calls present - execute and recursively stream
+        if (!tools) {
+          yield Err(new ToolError('LLM requested tool calls but no tools provided'));
+          return;
+        }
+
+        // Add assistant message with tool calls
+        currentMessages.push(Message.assistant(accumulatedContent, accumulatedToolCalls));
+
+        // Execute all tool calls
+        for (const toolCall of accumulatedToolCalls) {
+          const tool = tools.find((t) => t.name() === toolCall.function.name);
+
+          if (!tool) {
+            currentMessages.push(
+              Message.tool(
+                JSON.stringify({ error: `Tool ${toolCall.function.name} not found` }),
+                toolCall.id,
+                toolCall.function.name
+              )
+            );
+            continue;
+          }
+
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            const toolResult = await tool.run(args);
+
+            if (!isOk(toolResult)) {
+              currentMessages.push(
+                Message.tool(
+                  JSON.stringify({ error: toolResult.error.message }),
+                  toolCall.id,
+                  toolCall.function.name
+                )
+              );
+              continue;
+            }
+
+            currentMessages.push(
+              Message.tool(JSON.stringify(toolResult.value), toolCall.id, toolCall.function.name)
+            );
+          } catch (error) {
+            currentMessages.push(
+              Message.tool(
+                JSON.stringify({
+                  error: error instanceof Error ? error.message : String(error),
+                }),
+                toolCall.id,
+                toolCall.function.name
+              )
+            );
+          }
+        }
+
+        // Recursively stream with updated messages
+        yield* this.generateStream(currentMessages, config, tools);
+      }
     }
   }
 

@@ -34,4 +34,9 @@ export interface LlmGateway {
    * List available models
    */
   listModels(): Promise<Result<string[], Error>>;
+
+  /**
+   * Calculate embeddings for the given text
+   */
+  calculateEmbeddings(text: string, model?: string): Promise<Result<number[], Error>>;
 }

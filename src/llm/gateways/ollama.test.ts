@@ -432,4 +432,150 @@ describe('OllamaGateway', () => {
       expect(errors[0].message).toContain('No response body');
     });
   });
+
+  describe('calculateEmbeddings', () => {
+    test('should calculate embeddings for text', async () => {
+      const mockEmbeddings = Array(768)
+        .fill(0)
+        .map(() => Math.random());
+
+      const mockResponse = {
+        embedding: mockEmbeddings,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const text = 'Hello, world!';
+      const result = await gateway.calculateEmbeddings(text);
+
+      expect(isOk(result)).toBe(true);
+      if (isOk(result)) {
+        expect(result.value).toEqual(mockEmbeddings);
+        expect(result.value.length).toBe(768);
+      }
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:11434/api/embeddings',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'nomic-embed-text',
+            prompt: text,
+          }),
+        })
+      );
+    });
+
+    test('should use custom model for embeddings', async () => {
+      const mockEmbeddings = Array(384)
+        .fill(0)
+        .map(() => Math.random());
+
+      const mockResponse = {
+        embedding: mockEmbeddings,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const text = 'Test text';
+      const customModel = 'mxbai-embed-large';
+      const result = await gateway.calculateEmbeddings(text, customModel);
+
+      expect(isOk(result)).toBe(true);
+      if (isOk(result)) {
+        expect(result.value).toEqual(mockEmbeddings);
+      }
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:11434/api/embeddings',
+        expect.objectContaining({
+          body: expect.stringContaining(`"model":"${customModel}"`),
+        })
+      );
+    });
+
+    test('should handle API errors when calculating embeddings', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: async () => 'Model not found',
+      });
+
+      const result = await gateway.calculateEmbeddings('Test text');
+
+      expect(isOk(result)).toBe(false);
+      if (!isOk(result)) {
+        expect(result.error.message).toContain('404');
+        expect(result.error.message).toContain('Model not found');
+      }
+    });
+
+    test('should handle network errors when calculating embeddings', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network timeout'));
+
+      const result = await gateway.calculateEmbeddings('Test text');
+
+      expect(isOk(result)).toBe(false);
+      if (!isOk(result)) {
+        expect(result.error.message).toContain('Network timeout');
+      }
+    });
+
+    test('should handle empty text', async () => {
+      const mockEmbeddings = Array(768)
+        .fill(0)
+        .map(() => Math.random());
+
+      const mockResponse = {
+        embedding: mockEmbeddings,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const result = await gateway.calculateEmbeddings('');
+
+      expect(isOk(result)).toBe(true);
+      if (isOk(result)) {
+        expect(result.value).toEqual(mockEmbeddings);
+      }
+    });
+
+    test('should handle long text', async () => {
+      const longText = 'Lorem ipsum '.repeat(1000);
+      const mockEmbeddings = Array(768)
+        .fill(0)
+        .map(() => Math.random());
+
+      const mockResponse = {
+        embedding: mockEmbeddings,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const result = await gateway.calculateEmbeddings(longText);
+
+      expect(isOk(result)).toBe(true);
+      if (isOk(result)) {
+        expect(result.value.length).toBe(768);
+      }
+    });
+  });
 });

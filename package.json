@@ -19,6 +19,7 @@
     "example:simple": "ts-node examples/simple_llm.ts",
     "example:structured": "ts-node examples/structured_output.ts",
     "example:tool": "ts-node examples/tool_usage.ts",
+    "example:streaming": "ts-node examples/streaming.ts",
     "example:image": "ts-node examples/image_analysis.ts",
     "example:broker": "ts-node examples/broker_examples.ts",
     "docs:dev": "vitepress dev docs",

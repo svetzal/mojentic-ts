@@ -333,4 +333,41 @@ export class OllamaGateway implements LlmGateway {
       },
     };
   }
+
+  async calculateEmbeddings(text: string, model?: string): Promise<Result<number[], Error>> {
+    try {
+      const embeddingModel = model || 'nomic-embed-text';
+
+      const response = await fetch(`${this.baseUrl}/api/embeddings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: embeddingModel,
+          prompt: text,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return Err(
+          new GatewayError(
+            `Ollama embeddings API error: ${response.status} ${response.statusText} - ${errorText}`,
+            response.status
+          )
+        );
+      }
+
+      const data = (await response.json()) as { embedding: number[] };
+
+      return Ok(data.embedding);
+    } catch (error) {
+      return Err(
+        new GatewayError(
+          `Failed to calculate embeddings: ${error instanceof Error ? error.message : String(error)}`
+        )
+      );
+    }
+  }
 }
