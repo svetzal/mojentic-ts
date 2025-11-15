@@ -134,6 +134,48 @@ if (isOk(result)) {
 }
 ```
 
+### ToolWrapper
+
+Wraps an Agent as a tool, enabling agent delegation patterns.
+
+```typescript
+class ToolWrapper extends BaseTool
+```
+
+**Usage:**
+```typescript
+import { Agent, ToolWrapper, LlmBroker, OllamaGateway, DateResolverTool } from 'mojentic';
+
+// Create a specialist agent
+const specialist = new Agent(
+  new LlmBroker('qwen3:7b', new OllamaGateway()),
+  [new DateResolverTool()],
+  'You are a temporal specialist.'
+);
+
+// Wrap it as a tool
+const wrappedSpecialist = new ToolWrapper(
+  specialist,
+  'temporal_specialist',
+  'Expert in date and time queries.'
+);
+
+// Use in a coordinator agent
+const coordinator = new Agent(
+  new LlmBroker('qwen3:32b', gateway),
+  [wrappedSpecialist],
+  'You are a coordinator that delegates to specialists.'
+);
+```
+
+**Parameters:**
+- `agent`: The Agent instance to wrap
+- `toolName`: Name for the tool (used in function calls)
+- `toolDescription`: Description of what the agent does
+
+**See Also:**
+- [Agent Delegation Guide](/agent-delegation)
+
 ## Types
 
 ### ToolArgs

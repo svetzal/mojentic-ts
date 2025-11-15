@@ -22,6 +22,7 @@
     "example:streaming": "ts-node examples/streaming.ts",
     "example:image": "ts-node examples/image_analysis.ts",
     "example:broker": "ts-node examples/broker_examples.ts",
+    "example:broker-as-tool": "ts-node examples/broker_as_tool.ts",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"

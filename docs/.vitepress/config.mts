@@ -26,7 +26,8 @@ export default defineConfig({
         items: [
           { text: 'LLM Broker', link: '/broker' },
           { text: 'Structured Output', link: '/structured-output' },
-          { text: 'Tool Usage', link: '/tool-usage' }
+          { text: 'Tool Usage', link: '/tool-usage' },
+          { text: 'Agent Delegation', link: '/agent-delegation' }
         ]
       },
       {

@@ -93,11 +93,9 @@ export class ChatSession {
     });
 
     // Generate response
-    const result = await this.llm.generate(
-      this.messages as LlmMessage[],
-      this.tools,
-      { temperature: this.temperature }
-    );
+    const result = await this.llm.generate(this.messages as LlmMessage[], this.tools, {
+      temperature: this.temperature,
+    });
 
     if (!result.ok) {
       throw result.error;
