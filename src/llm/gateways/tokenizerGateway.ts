@@ -26,7 +26,7 @@ export class TokenizerGateway {
    *                Other options include "p50k_base" (GPT-3), "r50k_base" (older models), etc.
    */
   constructor(model: string = 'cl100k_base') {
-    this.tokenizer = get_encoding(model as any);
+    this.tokenizer = get_encoding(model as 'cl100k_base' | 'p50k_base' | 'r50k_base' | 'gpt2');
   }
 
   /**

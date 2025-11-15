@@ -37,6 +37,7 @@ export class FilesystemGateway {
    */
   ls(relativePath: string): string[] {
     const resolvedPath = this.resolvePath(relativePath);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Path validated by sandbox
     const entries = fs.readdirSync(resolvedPath);
 
     return entries.map((entry: string) => {
@@ -82,12 +83,13 @@ export class FilesystemGateway {
   findFilesByGlob(relativePath: string, pattern: string): string[] {
     const resolvedPath = this.resolvePath(relativePath);
     const files: string[] = [];
-    
+
     // Convert glob pattern to regex for simple matching
     const regexPattern = pattern
       .replace(/\./g, '\\.')
       .replace(/\*/g, '.*')
       .replace(/\?/g, '.');
+    // eslint-disable-next-line security/detect-non-literal-regexp -- Pattern derived from user glob
     const regex = new RegExp(regexPattern);
 
     this.findFilesByPattern(resolvedPath, regex, files);
