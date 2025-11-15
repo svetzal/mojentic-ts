@@ -61,7 +61,11 @@ class MockGateway implements LlmGateway {
   }
 
   async calculateEmbeddings(_text: string, _model?: string): Promise<Result<number[], Error>> {
-    return Ok(Array(768).fill(0).map(() => Math.random()));
+    return Ok(
+      Array(768)
+        .fill(0)
+        .map(() => Math.random())
+    );
   }
 
   reset(): void {
@@ -487,7 +491,10 @@ describe('LlmBroker', () => {
           return Ok([]);
         }
 
-        async calculateEmbeddings(_text: string, _model?: string): Promise<Result<number[], Error>> {
+        async calculateEmbeddings(
+          _text: string,
+          _model?: string
+        ): Promise<Result<number[], Error>> {
           return Ok([]);
         }
       }
@@ -548,7 +555,10 @@ describe('LlmBroker', () => {
           return Ok([]);
         }
 
-        async calculateEmbeddings(_text: string, _model?: string): Promise<Result<number[], Error>> {
+        async calculateEmbeddings(
+          _text: string,
+          _model?: string
+        ): Promise<Result<number[], Error>> {
           return Ok([]);
         }
       }
@@ -608,7 +618,10 @@ describe('LlmBroker', () => {
           return Ok([]);
         }
 
-        async calculateEmbeddings(_text: string, _model?: string): Promise<Result<number[], Error>> {
+        async calculateEmbeddings(
+          _text: string,
+          _model?: string
+        ): Promise<Result<number[], Error>> {
           return Ok([]);
         }
       }
@@ -657,7 +670,10 @@ describe('LlmBroker', () => {
           return Ok([]);
         }
 
-        async calculateEmbeddings(_text: string, _model?: string): Promise<Result<number[], Error>> {
+        async calculateEmbeddings(
+          _text: string,
+          _model?: string
+        ): Promise<Result<number[], Error>> {
           return Ok([]);
         }
       }

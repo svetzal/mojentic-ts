@@ -85,10 +85,7 @@ export class FilesystemGateway {
     const files: string[] = [];
 
     // Convert glob pattern to regex for simple matching
-    const regexPattern = pattern
-      .replace(/\./g, '\\.')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.');
+    const regexPattern = pattern.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\?/g, '.');
     // eslint-disable-next-line security/detect-non-literal-regexp -- Pattern derived from user glob
     const regex = new RegExp(regexPattern);
 
@@ -159,20 +156,24 @@ export class FilesystemGateway {
   /**
    * Finds all lines in a file matching a regex pattern.
    */
-  findLinesMatching(relativePath: string, fileName: string, pattern: string): Array<{line_number: number, content: string}> {
+  findLinesMatching(
+    relativePath: string,
+    fileName: string,
+    pattern: string
+  ): Array<{ line_number: number; content: string }> {
     const resolvedPath = this.resolvePath(relativePath);
     const filePath = path.join(resolvedPath, fileName);
     const regex = new RegExp(pattern);
 
     const content = fs.readFileSync(filePath, 'utf-8');
     const lines = content.split('\n');
-    const matchingLines: Array<{line_number: number, content: string}> = [];
+    const matchingLines: Array<{ line_number: number; content: string }> = [];
 
     lines.forEach((line: string, index: number) => {
       if (regex.test(line)) {
         matchingLines.push({
           line_number: index + 1,
-          content: line
+          content: line,
         });
       }
     });
@@ -212,23 +213,26 @@ export class ListFilesTool extends BaseTool {
       type: 'function',
       function: {
         name: 'list_files',
-        description: 'List files in the specified directory (non-recursive), optionally filtered by extension. Use this when you need to see what files are available in a specific directory without including subdirectories.',
+        description:
+          'List files in the specified directory (non-recursive), optionally filtered by extension. Use this when you need to see what files are available in a specific directory without including subdirectories.',
         parameters: {
           type: 'object',
           properties: {
             path: {
               type: 'string',
-              description: "The path relative to the sandbox root to list files from. For example, '.' for the root directory, 'src' for the src directory, or 'docs/images' for a nested directory."
+              description:
+                "The path relative to the sandbox root to list files from. For example, '.' for the root directory, 'src' for the src directory, or 'docs/images' for a nested directory.",
             },
             extension: {
               type: 'string',
-              description: "The file extension to filter by (e.g., '.py', '.txt', '.md'). If not provided, all files will be listed. For example, using '.py' will only list Python files in the directory."
-            }
+              description:
+                "The file extension to filter by (e.g., '.py', '.txt', '.md'). If not provided, all files will be listed. For example, using '.py' will only list Python files in the directory.",
+            },
           },
           additionalProperties: false,
-          required: ['path']
-        }
-      }
+          required: ['path'],
+        },
+      },
     };
   }
 
@@ -240,7 +244,7 @@ export class ListFilesTool extends BaseTool {
       let files = this.fs.ls(relativePath);
 
       if (extension) {
-        files = files.filter(f => f.endsWith(extension));
+        files = files.filter((f) => f.endsWith(extension));
       }
 
       return Ok(JSON.stringify(files));
@@ -263,19 +267,21 @@ export class ReadFileTool extends BaseTool {
       type: 'function',
       function: {
         name: 'read_file',
-        description: 'Read the entire content of a file as a string. Use this when you need to access or analyze the complete contents of a file.',
+        description:
+          'Read the entire content of a file as a string. Use this when you need to access or analyze the complete contents of a file.',
         parameters: {
           type: 'object',
           properties: {
             path: {
               type: 'string',
-              description: "The full relative path including the filename of the file to read. For example, 'README.md' for a file in the root directory, 'src/main.py' for a file in the src directory, or 'docs/images/diagram.png' for a file in a nested directory."
-            }
+              description:
+                "The full relative path including the filename of the file to read. For example, 'README.md' for a file in the root directory, 'src/main.py' for a file in the src directory, or 'docs/images/diagram.png' for a file in a nested directory.",
+            },
           },
           additionalProperties: false,
-          required: ['path']
-        }
-      }
+          required: ['path'],
+        },
+      },
     };
   }
 
@@ -310,23 +316,26 @@ export class WriteFileTool extends BaseTool {
       type: 'function',
       function: {
         name: 'write_file',
-        description: 'Write content to a file, completely overwriting any existing content. Use this when you want to replace the entire contents of a file with new content.',
+        description:
+          'Write content to a file, completely overwriting any existing content. Use this when you want to replace the entire contents of a file with new content.',
         parameters: {
           type: 'object',
           properties: {
             path: {
               type: 'string',
-              description: "The full relative path including the filename where the file should be written. For example, 'output.txt' for a file in the root directory, 'src/main.py' for a file in the src directory, or 'docs/images/diagram.png' for a file in a nested directory."
+              description:
+                "The full relative path including the filename where the file should be written. For example, 'output.txt' for a file in the root directory, 'src/main.py' for a file in the src directory, or 'docs/images/diagram.png' for a file in a nested directory.",
             },
             content: {
               type: 'string',
-              description: "The content to write to the file. This will completely replace any existing content in the file. For example, 'Hello, world!' for a simple text file, or a JSON string for a configuration file."
-            }
+              description:
+                "The content to write to the file. This will completely replace any existing content in the file. For example, 'Hello, world!' for a simple text file, or a JSON string for a configuration file.",
+            },
           },
           additionalProperties: false,
-          required: ['path', 'content']
-        }
-      }
+          required: ['path', 'content'],
+        },
+      },
     };
   }
 
@@ -362,19 +371,21 @@ export class ListAllFilesTool extends BaseTool {
       type: 'function',
       function: {
         name: 'list_all_files',
-        description: 'List all files recursively in the specified directory, including files in subdirectories. Use this when you need a complete inventory of all files in a directory and its subdirectories.',
+        description:
+          'List all files recursively in the specified directory, including files in subdirectories. Use this when you need a complete inventory of all files in a directory and its subdirectories.',
         parameters: {
           type: 'object',
           properties: {
             path: {
               type: 'string',
-              description: "The path relative to the sandbox root to list files from recursively. For example, '.' for the root directory and all subdirectories, 'src' for the src directory and all its subdirectories, or 'docs/images' for a nested directory and its subdirectories."
-            }
+              description:
+                "The path relative to the sandbox root to list files from recursively. For example, '.' for the root directory and all subdirectories, 'src' for the src directory and all its subdirectories, or 'docs/images' for a nested directory and its subdirectories.",
+            },
           },
           additionalProperties: false,
-          required: ['path']
-        }
-      }
+          required: ['path'],
+        },
+      },
     };
   }
 
@@ -402,23 +413,26 @@ export class FindFilesByGlobTool extends BaseTool {
       type: 'function',
       function: {
         name: 'find_files_by_glob',
-        description: "Find files matching a glob pattern in the specified directory. Use this when you need to locate files with specific patterns in their names or paths (e.g., all Python files with '*.py' or all text files in any subdirectory with '**/*.txt').",
+        description:
+          "Find files matching a glob pattern in the specified directory. Use this when you need to locate files with specific patterns in their names or paths (e.g., all Python files with '*.py' or all text files in any subdirectory with '**/*.txt').",
         parameters: {
           type: 'object',
           properties: {
             path: {
               type: 'string',
-              description: "The path relative to the sandbox root to search in. For example, '.' for the root directory, 'src' for the src directory, or 'docs/images' for a nested directory."
+              description:
+                "The path relative to the sandbox root to search in. For example, '.' for the root directory, 'src' for the src directory, or 'docs/images' for a nested directory.",
             },
             pattern: {
               type: 'string',
-              description: "The glob pattern to match files against. Examples: '*.py' for all Python files in the specified directory, '**/*.txt' for all text files in the specified directory and any subdirectory, or '**/*test*.py' for all Python files with 'test' in their name in the specified directory and any subdirectory."
-            }
+              description:
+                "The glob pattern to match files against. Examples: '*.py' for all Python files in the specified directory, '**/*.txt' for all text files in the specified directory and any subdirectory, or '**/*test*.py' for all Python files with 'test' in their name in the specified directory and any subdirectory.",
+            },
           },
           additionalProperties: false,
-          required: ['path', 'pattern']
-        }
-      }
+          required: ['path', 'pattern'],
+        },
+      },
     };
   }
 
@@ -447,23 +461,26 @@ export class FindFilesContainingTool extends BaseTool {
       type: 'function',
       function: {
         name: 'find_files_containing',
-        description: 'Find files containing text matching a regex pattern in the specified directory. Use this when you need to search for specific content across multiple files, such as finding all files that contain a particular function name or text string.',
+        description:
+          'Find files containing text matching a regex pattern in the specified directory. Use this when you need to search for specific content across multiple files, such as finding all files that contain a particular function name or text string.',
         parameters: {
           type: 'object',
           properties: {
             path: {
               type: 'string',
-              description: "The path relative to the sandbox root to search in. For example, '.' for the root directory, 'src' for the src directory, or 'docs/images' for a nested directory."
+              description:
+                "The path relative to the sandbox root to search in. For example, '.' for the root directory, 'src' for the src directory, or 'docs/images' for a nested directory.",
             },
             pattern: {
               type: 'string',
-              description: "The regex pattern to search for in files. Examples: 'function\\s+main' to find files containing a main function, 'import\\s+os' to find files importing the os module, or 'TODO|FIXME' to find files containing TODO or FIXME comments. The pattern uses JavaScript's RegExp syntax."
-            }
+              description:
+                "The regex pattern to search for in files. Examples: 'function\\s+main' to find files containing a main function, 'import\\s+os' to find files importing the os module, or 'TODO|FIXME' to find files containing TODO or FIXME comments. The pattern uses JavaScript's RegExp syntax.",
+            },
           },
           additionalProperties: false,
-          required: ['path', 'pattern']
-        }
-      }
+          required: ['path', 'pattern'],
+        },
+      },
     };
   }
 
@@ -492,23 +509,26 @@ export class FindLinesMatchingTool extends BaseTool {
       type: 'function',
       function: {
         name: 'find_lines_matching',
-        description: 'Find all lines in a file matching a regex pattern, returning both line numbers and content. Use this when you need to locate specific patterns within a single file and need to know exactly where they appear.',
+        description:
+          'Find all lines in a file matching a regex pattern, returning both line numbers and content. Use this when you need to locate specific patterns within a single file and need to know exactly where they appear.',
         parameters: {
           type: 'object',
           properties: {
             path: {
               type: 'string',
-              description: "The full relative path including the filename of the file to search in. For example, 'README.md' for a file in the root directory, 'src/main.py' for a file in the src directory, or 'docs/images/diagram.png' for a file in a nested directory."
+              description:
+                "The full relative path including the filename of the file to search in. For example, 'README.md' for a file in the root directory, 'src/main.py' for a file in the src directory, or 'docs/images/diagram.png' for a file in a nested directory.",
             },
             pattern: {
               type: 'string',
-              description: "The regex pattern to match lines against. Examples: 'def\\s+\\w+' to find all function definitions, 'class\\s+\\w+' to find all class definitions, or 'TODO|FIXME' to find all TODO or FIXME comments. The pattern uses JavaScript's RegExp syntax."
-            }
+              description:
+                "The regex pattern to match lines against. Examples: 'def\\s+\\w+' to find all function definitions, 'class\\s+\\w+' to find all class definitions, or 'TODO|FIXME' to find all TODO or FIXME comments. The pattern uses JavaScript's RegExp syntax.",
+            },
           },
           additionalProperties: false,
-          required: ['path', 'pattern']
-        }
-      }
+          required: ['path', 'pattern'],
+        },
+      },
     };
   }
 
@@ -544,19 +564,21 @@ export class CreateDirectoryTool extends BaseTool {
       type: 'function',
       function: {
         name: 'create_directory',
-        description: "Create a new directory at the specified path. If the directory already exists, this operation will succeed without error. Use this when you need to create a directory structure before writing files to it.",
+        description:
+          'Create a new directory at the specified path. If the directory already exists, this operation will succeed without error. Use this when you need to create a directory structure before writing files to it.',
         parameters: {
           type: 'object',
           properties: {
             path: {
               type: 'string',
-              description: "The relative path where the directory should be created. For example, 'new_folder' for a directory in the root, 'src/new_folder' for a directory in the src directory, or 'docs/images/new_folder' for a nested directory. Parent directories will be created automatically if they don't exist."
-            }
+              description:
+                "The relative path where the directory should be created. For example, 'new_folder' for a directory in the root, 'src/new_folder' for a directory in the src directory, or 'docs/images/new_folder' for a nested directory. Parent directories will be created automatically if they don't exist.",
+            },
           },
           additionalProperties: false,
-          required: ['path']
-        }
-      }
+          required: ['path'],
+        },
+      },
     };
   }
 

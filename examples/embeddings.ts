@@ -44,7 +44,12 @@ async function main(): Promise<void> {
 
     // Display results
     console.log(`Embedding dimensions: ${embedding.length}`);
-    console.log(`First 10 values: ${embedding.slice(0, 10).map((v) => v.toFixed(6)).join(', ')}`);
+    console.log(
+      `First 10 values: ${embedding
+        .slice(0, 10)
+        .map((v) => v.toFixed(6))
+        .join(', ')}`
+    );
 
     // Demonstrate with a different text to show variation
     const text2 = 'Machine learning models process numerical data.';
@@ -54,7 +59,10 @@ async function main(): Promise<void> {
       const embedding2 = result2.value;
       console.log(`\nSecond embedding dimensions: ${embedding2.length}`);
       console.log(
-        `First 10 values: ${embedding2.slice(0, 10).map((v) => v.toFixed(6)).join(', ')}`
+        `First 10 values: ${embedding2
+          .slice(0, 10)
+          .map((v) => v.toFixed(6))
+          .join(', ')}`
       );
 
       // Calculate cosine similarity between the two embeddings
