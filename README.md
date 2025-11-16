@@ -12,6 +12,7 @@ A modern LLM integration framework for TypeScript with tool support, structured 
 - **🛠️ Tool System**: Extensible function calling for LLMs
 - **📊 Structured Output**: Type-safe response parsing with JSON schemas
 - **🌊 Streaming Support**: Real-time streaming completions
+- **🔍 Tracer System**: Complete observability for debugging and monitoring
 - **🔒 Type-Safe**: Full TypeScript support with comprehensive type definitions
 - **🎯 Result Type Pattern**: Rust-inspired error handling for robust code
 - **🏗️ Modular Design**: Clean architecture with pluggable gateways
