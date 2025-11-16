@@ -6,6 +6,8 @@ import { LlmGateway } from './gateway';
 import { LlmMessage, CompletionConfig, Message, ToolCall } from './models';
 import { LlmTool } from './tools';
 import { Result, Ok, Err, isOk, ParseError, ToolError } from '../error';
+import { TracerSystem } from '../tracer';
+import { randomUUID } from 'crypto';
 
 /**
  * Main broker for LLM interactions with automatic tool execution and streaming support.
@@ -22,16 +24,22 @@ import { Result, Ok, Err, isOk, ParseError, ToolError } from '../error';
  * ```
  */
 export class LlmBroker {
+  private readonly tracer?: TracerSystem;
+
   /**
    * Creates a new LLM broker instance.
    *
    * @param model - The model name to use (e.g., 'qwen3:32b', 'gpt-4')
    * @param gateway - The gateway implementation for the LLM provider
+   * @param tracer - Optional tracer system for recording LLM calls and responses
    */
   constructor(
     private readonly model: string,
-    private readonly gateway: LlmGateway
-  ) {}
+    private readonly gateway: LlmGateway,
+    tracer?: TracerSystem
+  ) {
+    this.tracer = tracer;
+  }
 
   /**
    * Generate a text completion from the LLM with automatic recursive tool execution.
@@ -62,26 +70,56 @@ export class LlmBroker {
     messages: LlmMessage[],
     tools?: LlmTool[],
     config?: CompletionConfig,
-    maxToolIterations: number = 10
+    maxToolIterations: number = 10,
+    correlationId?: string
   ): Promise<Result<string, Error>> {
     try {
       const toolDescriptors = tools?.map((t) => t.descriptor());
       const currentMessages = [...messages];
       let iterations = 0;
 
+      // Generate correlationId if not provided
+      const corrId = correlationId || randomUUID();
+
       while (iterations < maxToolIterations) {
+        // Record LLM call in tracer
+        if (this.tracer) {
+          this.tracer.recordLlmCall(
+            this.model,
+            currentMessages,
+            config?.temperature ?? 1.0,
+            toolDescriptors as Record<string, unknown>[] | undefined,
+            corrId,
+            'LlmBroker.generate'
+          );
+        }
+
+        const startTime = Date.now();
         const result = await this.gateway.generate(
           this.model,
           currentMessages,
           config,
           toolDescriptors
         );
+        const callDurationMs = Date.now() - startTime;
 
         if (!isOk(result)) {
           return result;
         }
 
         const response = result.value;
+
+        // Record LLM response in tracer
+        if (this.tracer) {
+          this.tracer.recordLlmResponse(
+            this.model,
+            response.content,
+            response.toolCalls,
+            callDurationMs,
+            corrId,
+            'LlmBroker.generate'
+          );
+        }
 
         // If no tool calls, we're done
         if (!response.toolCalls || response.toolCalls.length === 0) {
@@ -112,7 +150,11 @@ export class LlmBroker {
 
           try {
             const args = JSON.parse(toolCall.function.arguments);
+
+            // Record tool call with timing
+            const toolStartTime = Date.now();
             const toolResult = await tool.run(args);
+            const toolDurationMs = Date.now() - toolStartTime;
 
             if (!isOk(toolResult)) {
               currentMessages.push(
@@ -122,7 +164,33 @@ export class LlmBroker {
                   toolCall.function.name
                 )
               );
+
+              // Record tool call error in tracer
+              if (this.tracer) {
+                this.tracer.recordToolCall(
+                  toolCall.function.name,
+                  args,
+                  { error: toolResult.error.message },
+                  'LlmBroker',
+                  toolDurationMs,
+                  corrId,
+                  'LlmBroker.generate'
+                );
+              }
               continue;
+            }
+
+            // Record successful tool call in tracer
+            if (this.tracer) {
+              this.tracer.recordToolCall(
+                toolCall.function.name,
+                args,
+                toolResult.value,
+                'LlmBroker',
+                toolDurationMs,
+                corrId,
+                'LlmBroker.generate'
+              );
             }
 
             currentMessages.push(
@@ -161,6 +229,7 @@ export class LlmBroker {
    * @param messages - Conversation history as an array of messages
    * @param schema - JSON schema the response must conform to
    * @param config - Optional completion configuration
+   * @param correlationId - UUID for tracing related events
    * @returns Result containing the parsed object or an error
    *
    * @example
@@ -188,9 +257,12 @@ export class LlmBroker {
   async generateObject<T = Record<string, unknown>>(
     messages: LlmMessage[],
     schema: Record<string, unknown>,
-    config?: CompletionConfig
+    config?: CompletionConfig,
+    correlationId?: string
   ): Promise<Result<T, Error>> {
     try {
+      const corrId = correlationId || randomUUID();
+
       const objectConfig: CompletionConfig = {
         ...config,
         responseFormat: {
@@ -199,13 +271,39 @@ export class LlmBroker {
         },
       };
 
+      // Record LLM call in tracer
+      if (this.tracer) {
+        this.tracer.recordLlmCall(
+          this.model,
+          messages,
+          config?.temperature ?? 1.0,
+          undefined,
+          corrId,
+          'LlmBroker.generateObject'
+        );
+      }
+
+      const startTime = Date.now();
       const result = await this.gateway.generate(this.model, messages, objectConfig);
+      const callDurationMs = Date.now() - startTime;
 
       if (!isOk(result)) {
         return result;
       }
 
       const response = result.value;
+
+      // Record LLM response in tracer
+      if (this.tracer) {
+        this.tracer.recordLlmResponse(
+          this.model,
+          response.content,
+          undefined,
+          callDurationMs,
+          corrId,
+          'LlmBroker.generateObject'
+        );
+      }
 
       try {
         const parsed = JSON.parse(response.content) as T;
@@ -236,6 +334,7 @@ export class LlmBroker {
    * @param messages - Conversation history as an array of messages
    * @param config - Optional completion configuration
    * @param tools - Optional array of tools the LLM can call
+   * @param correlationId - UUID for tracing related events
    * @yields Result containing content chunks or errors
    *
    * @example
@@ -254,12 +353,28 @@ export class LlmBroker {
   async *generateStream(
     messages: LlmMessage[],
     config?: CompletionConfig,
-    tools?: LlmTool[]
+    tools?: LlmTool[],
+    correlationId?: string
   ): AsyncGenerator<Result<string, Error>> {
+    const corrId = correlationId || randomUUID();
     const toolDescriptors = tools?.map((t) => t.descriptor());
     const currentMessages = [...messages];
     let accumulatedContent = '';
     const accumulatedToolCalls: ToolCall[] = [];
+
+    // Record LLM call in tracer
+    if (this.tracer) {
+      this.tracer.recordLlmCall(
+        this.model,
+        currentMessages,
+        config?.temperature ?? 1.0,
+        toolDescriptors as Record<string, unknown>[] | undefined,
+        corrId,
+        'LlmBroker.generateStream'
+      );
+    }
+
+    const startTime = Date.now();
 
     // Stream from gateway and accumulate
     for await (const chunkResult of this.gateway.generateStream(
@@ -288,6 +403,20 @@ export class LlmBroker {
 
       // Check if stream is done
       if (chunk.done && accumulatedToolCalls.length > 0) {
+        const callDurationMs = Date.now() - startTime;
+
+        // Record LLM response in tracer
+        if (this.tracer) {
+          this.tracer.recordLlmResponse(
+            this.model,
+            accumulatedContent,
+            accumulatedToolCalls,
+            callDurationMs,
+            corrId,
+            'LlmBroker.generateStream'
+          );
+        }
+
         // Tool calls present - execute and recursively stream
         if (!tools) {
           yield Err(new ToolError('LLM requested tool calls but no tools provided'));
@@ -314,7 +443,10 @@ export class LlmBroker {
 
           try {
             const args = JSON.parse(toolCall.function.arguments);
+
+            const toolStartTime = Date.now();
             const toolResult = await tool.run(args);
+            const toolDurationMs = Date.now() - toolStartTime;
 
             if (!isOk(toolResult)) {
               currentMessages.push(
@@ -324,7 +456,33 @@ export class LlmBroker {
                   toolCall.function.name
                 )
               );
+
+              // Record tool call error in tracer
+              if (this.tracer) {
+                this.tracer.recordToolCall(
+                  toolCall.function.name,
+                  args,
+                  { error: toolResult.error.message },
+                  'LlmBroker',
+                  toolDurationMs,
+                  corrId,
+                  'LlmBroker.generateStream'
+                );
+              }
               continue;
+            }
+
+            // Record successful tool call in tracer
+            if (this.tracer) {
+              this.tracer.recordToolCall(
+                toolCall.function.name,
+                args,
+                toolResult.value,
+                'LlmBroker',
+                toolDurationMs,
+                corrId,
+                'LlmBroker.generateStream'
+              );
             }
 
             currentMessages.push(
@@ -344,7 +502,22 @@ export class LlmBroker {
         }
 
         // Recursively stream with updated messages
-        yield* this.generateStream(currentMessages, config, tools);
+        yield* this.generateStream(currentMessages, config, tools, corrId);
+      } else if (chunk.done) {
+        // Stream done without tool calls
+        const callDurationMs = Date.now() - startTime;
+
+        // Record LLM response in tracer
+        if (this.tracer) {
+          this.tracer.recordLlmResponse(
+            this.model,
+            accumulatedContent,
+            undefined,
+            callDurationMs,
+            corrId,
+            'LlmBroker.generateStream'
+          );
+        }
       }
     }
   }

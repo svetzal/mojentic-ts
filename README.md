@@ -135,6 +135,49 @@ for await (const chunk of broker.generateStream(messages)) {
 }
 ```
 
+### Tracer System
+
+Monitor and debug your LLM applications:
+
+```typescript
+import { LlmBroker, OllamaGateway, Message, TracerSystem } from 'mojentic';
+import { DateResolverTool } from 'mojentic';
+import { isOk } from 'mojentic';
+
+// Create a tracer system
+const tracer = new TracerSystem();
+
+const gateway = new OllamaGateway();
+const broker = new LlmBroker('qwen3:32b', gateway, tracer);
+
+const tools = [new DateResolverTool()];
+
+// Generate unique correlation ID for tracing related events
+const correlationId = crypto.randomUUID();
+
+const messages = [
+  Message.user('What day is next Friday?'),
+];
+
+const result = await broker.generate(messages, tools, {}, 10, correlationId);
+
+// Query tracer events
+const allEvents = tracer.getEvents();
+console.log(`Recorded ${allEvents.length} events`);
+
+// Filter by correlation ID
+const relatedEvents = tracer.getEvents({
+  filterFunc: (e) => e.correlationId === correlationId
+});
+
+// Print event summaries
+relatedEvents.forEach(event => {
+  console.log(event.printableSummary());
+});
+```
+
+See [Tracer Documentation](docs/tracer.md) for comprehensive usage guide.
+
 ## 🏗️ Architecture
 
 Mojentic is structured in layers:
@@ -149,7 +192,14 @@ Mojentic is structured in layers:
 - **Tool System** - Extensible function calling
 - **Message Models** - Type-safe message handling
 
-### Layer 2: Agent System (Future)
+### Layer 2: Observability & Tracing (Current)
+
+- **TracerSystem** - Complete observability for debugging and monitoring (✅ Complete)
+- **TracerEvents** - LLM calls, responses, tool calls, agent interactions (✅ Complete)
+- **EventStore** - Flexible event storage and querying (✅ Complete)
+- **NullTracer** - Zero-overhead when tracing is disabled (✅ Complete)
+
+### Layer 3: Agent System (Future)
 
 - Event-driven agent coordination
 - Async event processing
@@ -349,18 +399,18 @@ npm run format
 - ✅ LlmBroker with tool support
 - ✅ Example tools (DateResolver)
 - ✅ Comprehensive examples
+- ✅ TracerSystem for observability
+- ✅ Complete test coverage (434 tests passing)
 
 ### Near Future (v0.2.0)
 - 🚧 OpenAI gateway
 - 🚧 Anthropic gateway
-- 🚧 ChatSession for conversation management
 - 🚧 More built-in tools
 - 🚧 Token counting utilities
 
 ### Future (v1.0.0)
 - 🔮 Agent system
 - 🔮 Event-driven architecture
-- 🔮 Tracer system for observability
 - 🔮 Embeddings support
 
 ## 🤝 Contributing

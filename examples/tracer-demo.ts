@@ -47,7 +47,7 @@ async function main() {
 
   // Create an LLM broker with the tracer
   const gateway = new OllamaGateway();
-  const broker = new LlmBroker('qwen2.5:3b', gateway);
+  const broker = new LlmBroker('qwen2.5:3b', gateway, tracer);
 
   // Create a date resolver tool that will also use the tracer
   const dateTool = new DateResolverTool();
@@ -90,13 +90,24 @@ async function main() {
     process.stdout.write('Assistant: ');
 
     try {
-      // For the demo, we'll manually record the broker call since ChatSession doesn't pass correlationId yet
-      // In a production system, you would modify ChatSession to accept and use correlationId
+      // Use the broker directly with correlationId for proper tracing
+      // ChatSession doesn't support correlationId yet, so we manage messages manually
+      const messages = session.getMessages();
+      messages.push(Message.user(query));
 
-      const result = await session.send(query);
+      const result = await broker.generate(
+        messages,
+        [dateTool],
+        { temperature: 0.7 },
+        10,
+        correlationId
+      );
 
       if (isOk(result)) {
         console.log(result.value);
+        // Update session history
+        session.addMessage(Message.user(query));
+        session.addMessage(Message.assistant(result.value));
       } else {
         console.log(`Error: ${result.error.message}`);
       }
@@ -161,7 +172,9 @@ async function main() {
 
       // Show how to use time-based filtering
       console.log('\nYou can also filter events by time range:');
-      console.log('Example: tracer.getEvents({ startTime: startTimestamp, endTime: endTimestamp })');
+      console.log(
+        'Example: tracer.getEvents({ startTime: startTimestamp, endTime: endTimestamp })'
+      );
 
       // Demonstrate filtering events by correlationId
       console.log('\nFiltering events by correlationId:');
@@ -195,10 +208,7 @@ async function main() {
             console.log('4. And any subsequent LLM calls with the tool results');
             console.log('\nThis creates a complete audit trail for debugging and observability.');
           } else {
-            console.log(
-              'No events found with this correlationId. This is expected since ChatSession'
-            );
-            console.log("doesn't pass correlationId yet. This would work with direct broker usage.");
+            console.log('No events found with this correlationId.');
           }
         }
       }
