@@ -9,6 +9,7 @@ A modern LLM integration framework for TypeScript with tool support, structured 
 ## 🚀 Features
 
 - **🔌 Multi-Provider Support**: Works with Ollama (OpenAI and Anthropic coming soon)
+- **🤖 Async Agent System**: Event-driven agent framework for complex LLM workflows
 - **🛠️ Tool System**: Extensible function calling for LLMs
 - **📊 Structured Output**: Type-safe response parsing with JSON schemas
 - **🌊 Streaming Support**: Real-time streaming completions
@@ -199,11 +200,13 @@ Mojentic is structured in layers:
 - **EventStore** - Flexible event storage and querying (✅ Complete)
 - **NullTracer** - Zero-overhead when tracing is disabled (✅ Complete)
 
-### Layer 3: Agent System (Future)
+### Layer 3: Agent System (Current)
 
-- Event-driven agent coordination
-- Async event processing
-- Router and dispatcher
+- **Event-driven agent coordination** (✅ Complete)
+- **AsyncLlmAgent** - LLM-powered agents (✅ Complete)
+- **AsyncAggregatorAgent** - Multi-event aggregation (✅ Complete)
+- **AsyncDispatcher** - Async event processing (✅ Complete)
+- **Router** - Event routing system (✅ Complete)
 
 ## 🛠️ Creating Custom Tools
 

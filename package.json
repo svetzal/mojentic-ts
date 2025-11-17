@@ -24,6 +24,8 @@
     "example:broker": "ts-node examples/broker_examples.ts",
     "example:broker-as-tool": "ts-node examples/broker_as_tool.ts",
     "example:tracer": "ts-node examples/tracer-demo.ts",
+    "example:async-llm": "ts-node examples/async-llm.ts",
+    "example:iterative-solver": "ts-node examples/iterative-solver.ts",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
