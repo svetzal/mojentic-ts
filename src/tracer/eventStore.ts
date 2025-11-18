@@ -2,7 +2,7 @@
  * Event store for capturing and querying tracer events.
  */
 
-import { TracerEvent } from './tracerEvents';
+import { TracerEvent, TracerEventConstructor } from './tracerEvents';
 
 /**
  * Filter options for querying events.
@@ -11,8 +11,7 @@ export interface FilterOptions {
   /**
    * Filter events by this specific event type
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  eventType?: new (...args: any[]) => TracerEvent;
+  eventType?: TracerEventConstructor;
 
   /**
    * Include events with timestamp >= startTime
@@ -98,17 +97,20 @@ export class EventStore {
     let result = [...this.events];
 
     // Filter by event type if specified
-    if (options.eventType) {
-      result = result.filter((e) => e instanceof options.eventType!);
+    const { eventType } = options;
+    if (eventType) {
+      result = result.filter((e) => e instanceof eventType);
     }
 
     // Filter by time range
-    if (options.startTime !== undefined) {
-      result = result.filter((e) => e.timestamp >= options.startTime!);
+    const { startTime } = options;
+    if (startTime !== undefined) {
+      result = result.filter((e) => e.timestamp >= startTime);
     }
 
-    if (options.endTime !== undefined) {
-      result = result.filter((e) => e.timestamp <= options.endTime!);
+    const { endTime } = options;
+    if (endTime !== undefined) {
+      result = result.filter((e) => e.timestamp <= endTime);
     }
 
     // Apply custom filter function if provided
@@ -142,8 +144,7 @@ export class EventStore {
    * const last5Responses = store.getLastNEvents(5, LLMResponseTracerEvent);
    * ```
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getLastNEvents(n: number, eventType?: new (...args: any[]) => TracerEvent): TracerEvent[] {
+  getLastNEvents(n: number, eventType?: TracerEventConstructor): TracerEvent[] {
     let filtered = this.events;
 
     if (eventType) {

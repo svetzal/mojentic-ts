@@ -84,6 +84,7 @@ async function main() {
     // Generate a unique correlationId for this conversation turn
     const correlationId = crypto.randomUUID();
     turnCounter++;
+    // eslint-disable-next-line security/detect-object-injection -- Safe: internal counter, not user input
     conversationCorrelationIds[turnCounter] = correlationId;
 
     console.log(`[Turn ${turnCounter}, correlation_id: ${correlationId.substring(0, 8)}...]`);
@@ -185,6 +186,7 @@ async function main() {
       // If we have any conversation turns, show events for the first turn
       if (Object.keys(conversationCorrelationIds).length > 0) {
         const firstTurnId = 1;
+        // eslint-disable-next-line security/detect-object-injection -- Safe: hardcoded literal key
         const firstCorrelationId = conversationCorrelationIds[firstTurnId];
 
         if (firstCorrelationId) {
@@ -220,6 +222,7 @@ async function main() {
         toolCalls.forEach((event) => {
           const toolEvent = event as ToolCallTracerEvent;
           const toolName = toolEvent.toolName;
+          // eslint-disable-next-line security/detect-object-injection -- Safe: tool name from trusted internal registry
           toolNames[toolName] = (toolNames[toolName] || 0) + 1;
         });
 

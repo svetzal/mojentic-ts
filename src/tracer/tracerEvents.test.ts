@@ -43,6 +43,30 @@ describe('TracerEvent', () => {
       expect(summary).toContain('correlation_id');
       expect(summary).toMatch(/\[\d{2}:\d{2}:\d{2}\.\d{3}\]/);
     });
+
+    it('should allow setting timestamp in test environment', () => {
+      const event = new LLMCallTracerEvent('gpt-4', [], 0.7);
+      const customTimestamp = 1234567890000;
+
+      event.setTimestampForTesting(customTimestamp);
+
+      expect(event.timestamp).toBe(customTimestamp);
+    });
+
+    it('should throw error when setting timestamp outside test environment', () => {
+      const event = new LLMCallTracerEvent('gpt-4', [], 0.7);
+      const originalEnv = process.env.NODE_ENV;
+
+      // Temporarily change environment
+      process.env.NODE_ENV = 'production';
+
+      expect(() => {
+        event.setTimestampForTesting(1234567890000);
+      }).toThrow('setTimestampForTesting can only be called in test environment');
+
+      // Restore environment
+      process.env.NODE_ENV = originalEnv;
+    });
   });
 
   describe('LLMCallTracerEvent', () => {

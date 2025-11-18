@@ -94,8 +94,11 @@ function cosineSimilarity(vec1: number[], vec2: number[]): number {
   let magnitude2 = 0;
 
   for (let i = 0; i < vec1.length; i++) {
+    // eslint-disable-next-line security/detect-object-injection -- Safe: bounded numeric array index
     dotProduct += vec1[i] * vec2[i];
+    // eslint-disable-next-line security/detect-object-injection -- Safe: bounded numeric array index
     magnitude1 += vec1[i] * vec1[i];
+    // eslint-disable-next-line security/detect-object-injection -- Safe: bounded numeric array index
     magnitude2 += vec2[i] * vec2[i];
   }
 

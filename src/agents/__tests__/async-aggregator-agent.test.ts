@@ -33,8 +33,8 @@ class TestAggregator extends AsyncAggregatorAgent {
   async processEvents(events: Event[]): Promise<Result<Event[], Error>> {
     this.processedEvents.push(events);
 
-    const eventA = events.find((e) => (e as any).type === 'TestEventA') as TestEventA | undefined;
-    const eventB = events.find((e) => (e as any).type === 'TestEventB') as TestEventB | undefined;
+    const eventA = events.find((e) => e.type === 'TestEventA') as TestEventA | undefined;
+    const eventB = events.find((e) => e.type === 'TestEventB') as TestEventB | undefined;
 
     if (eventA && eventB) {
       const combinedEvent: CombinedEvent = {
@@ -212,6 +212,7 @@ describe('AsyncAggregatorAgent', () => {
 
       // Add both events - this should NOT trigger processEvents since we're testing waitForEvents
       // We need to manually add to results
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Test accessing private property for setup
       (aggregator2 as any).results.set(correlationId, [eventA, eventB]);
 
       // waitForEvents should return immediately

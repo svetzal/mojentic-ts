@@ -272,7 +272,7 @@ describe('OllamaGateway', () => {
       expect(isOk(result)).toBe(true);
       if (isOk(result)) {
         expect(result.value.toolCalls).toHaveLength(1);
-        expect(result.value.toolCalls![0].function.name).toBe('get_weather');
+        expect(result.value.toolCalls?.[0].function.name).toBe('get_weather');
       }
     });
   });

@@ -5,7 +5,7 @@
  * but performs no operations, following the Null Object Pattern.
  */
 
-import { TracerEvent } from './tracerEvents';
+import { TracerEvent, TracerEventConstructor } from './tracerEvents';
 import { ToolCall } from '../llm/models';
 import { FilterOptions } from './eventStore';
 
@@ -150,11 +150,7 @@ export class NullTracer {
    * @param _eventType - Optional event type to filter by (ignored)
    * @returns An empty array
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getLastNTracerEvents(
-    _n: number,
-    _eventType?: new (...args: any[]) => TracerEvent
-  ): TracerEvent[] {
+  getLastNTracerEvents(_n: number, _eventType?: TracerEventConstructor): TracerEvent[] {
     return [];
   }
 

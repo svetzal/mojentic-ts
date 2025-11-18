@@ -38,9 +38,11 @@ async function main() {
   const sandboxDir = path.join(os.tmpdir(), 'mojentic_coding_example');
 
   // Clean up and recreate sandbox
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Example code setting up sandbox
   if (fs.existsSync(sandboxDir)) {
     fs.rmSync(sandboxDir, { recursive: true });
   }
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Example code setting up sandbox
   fs.mkdirSync(sandboxDir, { recursive: true });
 
   console.log('='.repeat(80));
@@ -201,10 +203,12 @@ Keep it simple but well-structured and properly tested.`;
 function listAllFilesRecursive(dir: string): string[] {
   const results: string[] = [];
 
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Example code traversing sandbox directory
   if (!fs.existsSync(dir)) {
     return results;
   }
 
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Example code traversing sandbox directory
   const entries = fs.readdirSync(dir, { withFileTypes: true });
 
   for (const entry of entries) {

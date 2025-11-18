@@ -27,7 +27,9 @@ describe('FilesystemGateway', () => {
   });
 
   afterEach(() => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -46,6 +48,7 @@ describe('FilesystemGateway', () => {
 
     it('should throw error if base path is not a directory', () => {
       const filePath = path.join(tempDir, 'file.txt');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.writeFileSync(filePath, 'content');
       expect(() => new FilesystemGateway(filePath)).toThrow(
         `Base path ${filePath} is not a directory`
@@ -70,9 +73,13 @@ describe('FilesystemGateway', () => {
 
   describe('ls', () => {
     beforeEach(() => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file1.txt'), 'content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file2.md'), 'content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.mkdirSync(path.join(tempDir, 'subdir'));
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'subdir', 'file3.txt'), 'content');
     });
 
@@ -92,6 +99,7 @@ describe('FilesystemGateway', () => {
 
     it('should return empty array for empty directory', () => {
       const emptyDir = path.join(tempDir, 'empty');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.mkdirSync(emptyDir);
       const files = gateway.ls('empty');
       expect(files).toHaveLength(0);
@@ -100,10 +108,15 @@ describe('FilesystemGateway', () => {
 
   describe('listAllFiles', () => {
     beforeEach(() => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file1.txt'), 'content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.mkdirSync(path.join(tempDir, 'subdir'));
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'subdir', 'file2.txt'), 'content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.mkdirSync(path.join(tempDir, 'subdir', 'nested'));
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'subdir', 'nested', 'file3.txt'), 'content');
     });
 
@@ -124,6 +137,7 @@ describe('FilesystemGateway', () => {
 
     it('should return empty array for empty directory', () => {
       const emptyDir = path.join(tempDir, 'empty');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.mkdirSync(emptyDir);
       const files = gateway.listAllFiles('empty');
       expect(files).toHaveLength(0);
@@ -137,10 +151,15 @@ describe('FilesystemGateway', () => {
 
   describe('findFilesByGlob', () => {
     beforeEach(() => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file1.txt'), 'content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file2.md'), 'content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.mkdirSync(path.join(tempDir, 'subdir'));
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'subdir', 'file3.txt'), 'content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'subdir', 'test.py'), 'content');
     });
 
@@ -175,9 +194,13 @@ describe('FilesystemGateway', () => {
 
   describe('findFilesContaining', () => {
     beforeEach(() => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file1.txt'), 'hello world\nfoo bar');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file2.txt'), 'just some text');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.mkdirSync(path.join(tempDir, 'subdir'));
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'subdir', 'file3.txt'), 'hello again');
     });
 
@@ -201,6 +224,7 @@ describe('FilesystemGateway', () => {
     it('should skip binary files gracefully', () => {
       // Create a file that might fail to read as text
       const binaryPath = path.join(tempDir, 'binary.bin');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.writeFileSync(binaryPath, Buffer.from([0xff, 0xfe, 0xfd]));
       const files = gateway.findFilesContaining('.', 'hello');
       expect(files).toHaveLength(2);
@@ -219,6 +243,7 @@ line 2: foo bar
 line 3: hello again
 line 4: just text
 line 5: HELLO uppercase`;
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.writeFileSync(path.join(tempDir, 'test.txt'), content);
     });
 
@@ -248,6 +273,7 @@ line 5: HELLO uppercase`;
   describe('read', () => {
     it('should read file content', () => {
       const content = 'test content';
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.writeFileSync(path.join(tempDir, 'test.txt'), content);
       const result = gateway.read('.', 'test.txt');
       expect(result).toBe(content);
@@ -255,7 +281,9 @@ line 5: HELLO uppercase`;
 
     it('should read file from subdirectory', () => {
       const content = 'nested content';
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.mkdirSync(path.join(tempDir, 'subdir'));
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'subdir', 'test.txt'), content);
       const result = gateway.read('subdir', 'test.txt');
       expect(result).toBe(content);
@@ -263,6 +291,7 @@ line 5: HELLO uppercase`;
 
     it('should read UTF-8 content correctly', () => {
       const content = 'Hello 世界 🌍';
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.writeFileSync(path.join(tempDir, 'utf8.txt'), content, 'utf-8');
       const result = gateway.read('.', 'utf8.txt');
       expect(result).toBe(content);
@@ -273,21 +302,26 @@ line 5: HELLO uppercase`;
     it('should write file content', () => {
       const content = 'test content';
       gateway.write('.', 'test.txt', content);
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test verification reading controlled path
       const result = fs.readFileSync(path.join(tempDir, 'test.txt'), 'utf-8');
       expect(result).toBe(content);
     });
 
     it('should write to subdirectory', () => {
       const content = 'nested content';
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.mkdirSync(path.join(tempDir, 'subdir'));
       gateway.write('subdir', 'test.txt', content);
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test verification reading controlled path
       const result = fs.readFileSync(path.join(tempDir, 'subdir', 'test.txt'), 'utf-8');
       expect(result).toBe(content);
     });
 
     it('should overwrite existing file', () => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.writeFileSync(path.join(tempDir, 'test.txt'), 'old content');
       gateway.write('.', 'test.txt', 'new content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test verification reading controlled path
       const result = fs.readFileSync(path.join(tempDir, 'test.txt'), 'utf-8');
       expect(result).toBe('new content');
     });
@@ -295,6 +329,7 @@ line 5: HELLO uppercase`;
     it('should write UTF-8 content correctly', () => {
       const content = 'Hello 世界 🌍';
       gateway.write('.', 'utf8.txt', content);
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test verification reading controlled path
       const result = fs.readFileSync(path.join(tempDir, 'utf8.txt'), 'utf-8');
       expect(result).toBe(content);
     });
@@ -313,7 +348,9 @@ describe('ListFilesTool', () => {
   });
 
   afterEach(() => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -340,8 +377,11 @@ describe('ListFilesTool', () => {
 
   describe('run', () => {
     beforeEach(() => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file1.txt'), 'content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file2.md'), 'content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file3.txt'), 'content');
     });
 
@@ -384,7 +424,9 @@ describe('ReadFileTool', () => {
   });
 
   afterEach(() => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -406,6 +448,7 @@ describe('ReadFileTool', () => {
   describe('run', () => {
     it('should read file content', async () => {
       const content = 'test content';
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.writeFileSync(path.join(tempDir, 'test.txt'), content);
       const result = await tool.run({ path: 'test.txt' });
       expect(result.ok).toBe(true);
@@ -415,8 +458,10 @@ describe('ReadFileTool', () => {
     });
 
     it('should read file from subdirectory', async () => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.mkdirSync(path.join(tempDir, 'subdir'));
       const content = 'nested content';
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'subdir', 'test.txt'), content);
       const result = await tool.run({ path: 'subdir/test.txt' });
       expect(result.ok).toBe(true);
@@ -449,7 +494,9 @@ describe('WriteFileTool', () => {
   });
 
   afterEach(() => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -474,23 +521,28 @@ describe('WriteFileTool', () => {
       const content = 'test content';
       const result = await tool.run({ path: 'test.txt', content });
       expect(result.ok).toBe(true);
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test verification reading controlled path
       const fileContent = fs.readFileSync(path.join(tempDir, 'test.txt'), 'utf-8');
       expect(fileContent).toBe(content);
     });
 
     it('should write to subdirectory', async () => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.mkdirSync(path.join(tempDir, 'subdir'));
       const content = 'nested content';
       const result = await tool.run({ path: 'subdir/test.txt', content });
       expect(result.ok).toBe(true);
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test verification reading controlled path
       const fileContent = fs.readFileSync(path.join(tempDir, 'subdir', 'test.txt'), 'utf-8');
       expect(fileContent).toBe(content);
     });
 
     it('should overwrite existing file', async () => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.writeFileSync(path.join(tempDir, 'test.txt'), 'old content');
       const result = await tool.run({ path: 'test.txt', content: 'new content' });
       expect(result.ok).toBe(true);
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test verification reading controlled path
       const fileContent = fs.readFileSync(path.join(tempDir, 'test.txt'), 'utf-8');
       expect(fileContent).toBe('new content');
     });
@@ -522,7 +574,9 @@ describe('ListAllFilesTool', () => {
   });
 
   afterEach(() => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -538,8 +592,11 @@ describe('ListAllFilesTool', () => {
 
   describe('run', () => {
     beforeEach(() => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file1.txt'), 'content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.mkdirSync(path.join(tempDir, 'subdir'));
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'subdir', 'file2.txt'), 'content');
     });
 
@@ -573,7 +630,9 @@ describe('FindFilesByGlobTool', () => {
   });
 
   afterEach(() => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -595,9 +654,13 @@ describe('FindFilesByGlobTool', () => {
 
   describe('run', () => {
     beforeEach(() => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file1.txt'), 'content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file2.md'), 'content');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.mkdirSync(path.join(tempDir, 'subdir'));
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'subdir', 'file3.txt'), 'content');
     });
 
@@ -629,7 +692,9 @@ describe('FindFilesContainingTool', () => {
   });
 
   afterEach(() => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -651,7 +716,9 @@ describe('FindFilesContainingTool', () => {
 
   describe('run', () => {
     beforeEach(() => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file1.txt'), 'hello world');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled paths
       fs.writeFileSync(path.join(tempDir, 'file2.txt'), 'goodbye world');
     });
 
@@ -684,7 +751,9 @@ describe('FindLinesMatchingTool', () => {
   });
 
   afterEach(() => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -709,6 +778,7 @@ describe('FindLinesMatchingTool', () => {
       const content = `line 1: hello world
 line 2: foo bar
 line 3: hello again`;
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.writeFileSync(path.join(tempDir, 'test.txt'), content);
     });
 
@@ -747,7 +817,9 @@ describe('CreateDirectoryTool', () => {
   });
 
   afterEach(() => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -770,16 +842,19 @@ describe('CreateDirectoryTool', () => {
     it('should create directory', async () => {
       const result = await tool.run({ path: 'newdir' });
       expect(result.ok).toBe(true);
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test verification using controlled path
       expect(fs.existsSync(path.join(tempDir, 'newdir'))).toBe(true);
     });
 
     it('should create nested directories', async () => {
       const result = await tool.run({ path: 'parent/child/grandchild' });
       expect(result.ok).toBe(true);
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test verification using controlled path
       expect(fs.existsSync(path.join(tempDir, 'parent', 'child', 'grandchild'))).toBe(true);
     });
 
     it('should succeed if directory already exists', async () => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled path
       fs.mkdirSync(path.join(tempDir, 'existing'));
       const result = await tool.run({ path: 'existing' });
       expect(result.ok).toBe(true);

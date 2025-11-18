@@ -172,8 +172,10 @@ export class ChatSession {
    */
   private ensureAllMessagesAreSized(): void {
     for (let i = 0; i < this.messages.length; i++) {
+      // eslint-disable-next-line security/detect-object-injection -- Safe: bounded numeric array index
       const msg = this.messages[i];
       if (!('tokenLength' in msg) || msg.tokenLength === undefined) {
+        // eslint-disable-next-line security/detect-object-injection -- Safe: bounded numeric array index
         this.messages[i] = this.buildSizedMessage(msg as LlmMessage);
       }
     }

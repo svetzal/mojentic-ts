@@ -8,6 +8,14 @@
 import { ToolCall } from '../llm/models';
 
 /**
+ * Type alias for TracerEvent constructor functions.
+ * Uses abstract new to indicate these are class constructors that can be instantiated.
+ * The never[] parameter list indicates we don't care about the specific constructor arguments
+ * when using this type for filtering/type-checking purposes.
+ */
+export type TracerEventConstructor = abstract new (...args: never[]) => TracerEvent;
+
+/**
  * Base class for all tracer-specific events.
  *
  * @example
@@ -49,6 +57,28 @@ export abstract class TracerEvent {
     this.timestamp = timestamp;
     this.correlationId = correlationId;
     this.source = source;
+  }
+
+  /**
+   * Set the timestamp for testing purposes only.
+   * This method allows tests to manipulate timestamps without type casting.
+   *
+   * @param timestamp - The timestamp to set (milliseconds since epoch)
+   * @throws Error if called outside of test environment
+   *
+   * @internal This method is only for testing and should not be used in production code.
+   */
+  setTimestampForTesting(timestamp: number): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error('setTimestampForTesting can only be called in test environment');
+    }
+    // Using Object.defineProperty to modify the readonly property
+    Object.defineProperty(this, 'timestamp', {
+      value: timestamp,
+      writable: false,
+      enumerable: true,
+      configurable: true,
+    });
   }
 
   /**

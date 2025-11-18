@@ -24,6 +24,7 @@ import { join } from 'path';
  * Read an image file and convert it to a base64 data URI
  */
 function imageToDataUri(filePath: string): string {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- User-provided image paths required for multimodal LLM input
   const imageBuffer = readFileSync(filePath);
   const base64 = imageBuffer.toString('base64');
 
@@ -48,6 +49,7 @@ async function main() {
   const imagePath = join(__dirname, 'images', 'flash_rom.jpg');
 
   // Check if image exists
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Example code checking for test image
   if (!existsSync(imagePath)) {
     console.error(`❌ Error: Image not found at ${imagePath}`);
     console.error('\nMake sure the test image exists:');

@@ -38,6 +38,7 @@ function printSection(title: string): void {
  * Read an image file and convert it to a base64 data URI
  */
 function imageToDataUri(filePath: string): string {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- User-provided image paths required for multimodal LLM input
   const imageBuffer = readFileSync(filePath);
   const base64 = imageBuffer.toString('base64');
 
@@ -142,6 +143,7 @@ async function main() {
 
   const imagePath = join(__dirname, 'images', 'flash_rom.jpg');
 
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Example code checking for test image
   if (existsSync(imagePath)) {
     console.log('Testing image analysis with model: qwen3-vl:30b');
     console.log(`Image path: ${imagePath}`);

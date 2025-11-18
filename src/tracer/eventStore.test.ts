@@ -93,10 +93,10 @@ describe('EventStore', () => {
       const now = Date.now();
       const event1 = new LLMCallTracerEvent('gpt-4', [], 0.7);
       // Manually set timestamp to past
-      (event1 as any).timestamp = now - 10000;
+      event1.setTimestampForTesting(now - 10000);
 
       const event2 = new LLMResponseTracerEvent('gpt-4', 'Response');
-      (event2 as any).timestamp = now;
+      event2.setTimestampForTesting(now);
 
       store.store(event1);
       store.store(event2);
@@ -109,10 +109,10 @@ describe('EventStore', () => {
     it('should filter events by end time', () => {
       const now = Date.now();
       const event1 = new LLMCallTracerEvent('gpt-4', [], 0.7);
-      (event1 as any).timestamp = now - 10000;
+      event1.setTimestampForTesting(now - 10000);
 
       const event2 = new LLMResponseTracerEvent('gpt-4', 'Response');
-      (event2 as any).timestamp = now;
+      event2.setTimestampForTesting(now);
 
       store.store(event1);
       store.store(event2);
@@ -125,13 +125,13 @@ describe('EventStore', () => {
     it('should filter events by time range', () => {
       const now = Date.now();
       const event1 = new LLMCallTracerEvent('gpt-4', [], 0.7);
-      (event1 as any).timestamp = now - 20000;
+      event1.setTimestampForTesting(now - 20000);
 
       const event2 = new LLMResponseTracerEvent('gpt-4', 'Response');
-      (event2 as any).timestamp = now - 10000;
+      event2.setTimestampForTesting(now - 10000);
 
       const event3 = new ToolCallTracerEvent('test_tool', {}, {});
-      (event3 as any).timestamp = now;
+      event3.setTimestampForTesting(now);
 
       store.store(event1);
       store.store(event2);
@@ -165,10 +165,10 @@ describe('EventStore', () => {
       const now = Date.now();
 
       const event1 = new LLMCallTracerEvent('gpt-4', [], 0.7, undefined, correlationId);
-      (event1 as any).timestamp = now - 10000;
+      event1.setTimestampForTesting(now - 10000);
 
       const event2 = new LLMCallTracerEvent('gpt-4', [], 0.7, undefined, correlationId);
-      (event2 as any).timestamp = now;
+      event2.setTimestampForTesting(now);
 
       const event3 = new LLMResponseTracerEvent(
         'gpt-4',
@@ -177,7 +177,7 @@ describe('EventStore', () => {
         undefined,
         correlationId
       );
-      (event3 as any).timestamp = now;
+      event3.setTimestampForTesting(now);
 
       store.store(event1);
       store.store(event2);

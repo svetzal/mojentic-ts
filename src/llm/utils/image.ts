@@ -12,7 +12,7 @@ import { extname } from 'node:path';
  * @returns Base64 data URI string (e.g., "data:image/jpeg;base64,...")
  */
 export function imageToDataUri(filePath: string): string {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- User-provided image paths expected for multimodal LLM input
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- User-provided image paths required for multimodal LLM input
   const imageBuffer = readFileSync(filePath);
   const base64 = imageBuffer.toString('base64');
 
@@ -37,6 +37,7 @@ function getMimeType(ext: string): string {
     '.svg': 'image/svg+xml',
   };
 
+  // eslint-disable-next-line security/detect-object-injection -- Safe dictionary lookup with known keys and fallback
   return mimeTypes[ext] || 'image/jpeg';
 }
 

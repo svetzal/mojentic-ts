@@ -7,6 +7,8 @@
  * Events are the primary mechanism for agents to communicate with each other.
  */
 export interface Event {
+  /** Event type discriminator for type guards */
+  type?: string;
   /** The type/class of the agent that created this event */
   source: string;
   /** Unique identifier linking related events in a conversation or workflow */

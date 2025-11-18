@@ -7,6 +7,7 @@
 import { EventStore, FilterOptions } from './eventStore';
 import {
   TracerEvent,
+  TracerEventConstructor,
   LLMCallTracerEvent,
   LLMResponseTracerEvent,
   ToolCallTracerEvent,
@@ -248,8 +249,7 @@ export class TracerSystem {
    * const last5 = tracer.getLastNTracerEvents(5, LLMResponseTracerEvent);
    * ```
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getLastNTracerEvents(n: number, eventType?: new (...args: any[]) => TracerEvent): TracerEvent[] {
+  getLastNTracerEvents(n: number, eventType?: TracerEventConstructor): TracerEvent[] {
     return this.eventStore.getLastNEvents(n, eventType);
   }
 

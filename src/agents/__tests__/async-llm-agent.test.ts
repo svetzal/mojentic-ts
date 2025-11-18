@@ -43,8 +43,10 @@ interface TestEvent extends Event {
   data: string;
 }
 
-interface TestResponse {
+interface TestResponse extends Event {
+  type: 'ResponseEvent';
   result: string;
+  data: string;
 }
 
 class TestAgent extends AsyncLlmAgent {
@@ -63,8 +65,8 @@ class TestAgent extends AsyncLlmAgent {
   }
 
   async receiveEventAsync(event: Event): Promise<Result<Event[], Error>> {
-    if ((event as TestEvent).type === 'TestEvent') {
-      const result = await this.generateResponse<TestResponse>('test input');
+    if (event.type === 'TestEvent') {
+      const result = await this.generateResponse<{ result: string }>('test input');
       if (isOk(result)) {
         return Ok([
           {
@@ -118,7 +120,7 @@ describe('AsyncLlmAgent', () => {
       expect(isOk(result)).toBe(true);
       if (isOk(result)) {
         expect(result.value).toHaveLength(1);
-        expect((result.value[0] as any).data).toBe('success');
+        expect((result.value[0] as TestResponse).data).toBe('success');
       }
     });
 
@@ -219,6 +221,7 @@ describe('AsyncLlmAgent', () => {
         run: async () => Ok({ result: 'tool result' }),
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Test tool mock with simplified interface
       agent.addTool(mockTool as any);
       // No error means success - tools are protected so we can't inspect them directly
     });
@@ -226,6 +229,11 @@ describe('AsyncLlmAgent', () => {
 
   describe('integration', () => {
     it('should work with text-only mode when no responseModel is set', async () => {
+      interface TextResponseEvent extends Event {
+        type: 'TextResponse';
+        text: string;
+      }
+
       class TextAgent extends AsyncLlmAgent {
         constructor(broker: LlmBroker) {
           super({
@@ -236,7 +244,7 @@ describe('AsyncLlmAgent', () => {
         }
 
         async receiveEventAsync(event: Event): Promise<Result<Event[], Error>> {
-          if ((event as TestEvent).type === 'TestEvent') {
+          if (event.type === 'TestEvent') {
             const result = await this.generateResponse<string>('test');
             if (isOk(result)) {
               return Ok([
@@ -267,7 +275,7 @@ describe('AsyncLlmAgent', () => {
       expect(isOk(result)).toBe(true);
       if (isOk(result)) {
         expect(result.value).toHaveLength(1);
-        expect((result.value[0] as any).text).toBe('Plain text response');
+        expect((result.value[0] as TextResponseEvent).text).toBe('Plain text response');
       }
     });
   });
