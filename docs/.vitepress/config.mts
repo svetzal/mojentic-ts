@@ -27,7 +27,10 @@ export default defineConfig({
           { text: 'LLM Broker', link: '/broker' },
           { text: 'Structured Output', link: '/structured-output' },
           { text: 'Tool Usage', link: '/tool-usage' },
-          { text: 'Agent Delegation', link: '/agent-delegation' }
+          { text: 'Agent Delegation', link: '/agent-delegation' },
+          { text: 'Async Agents', link: '/async-agents' },
+          { text: 'Simple Recursive Agent', link: '/simple-recursive-agent' },
+          { text: 'Tracer', link: '/tracer' }
         ]
       },
       {
