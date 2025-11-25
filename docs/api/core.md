@@ -374,9 +374,18 @@ Abstract base class for tools.
 interface CompletionConfig {
   temperature?: number;
   maxTokens?: number;
+  numPredict?: number;
   topP?: number;
+  topK?: number;
+  numCtx?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  stop?: string[];
   stream?: boolean;
-  [key: string]: any;
+  responseFormat?: {
+    type: 'json_object' | 'text';
+    schema?: Record<string, unknown>;
+  };
 }
 ```
 
@@ -384,10 +393,16 @@ Configuration for LLM generation.
 
 **Properties:**
 - `temperature`: Randomness (0.0-2.0, default varies by model)
-- `maxTokens`: Maximum tokens to generate
-- `topP`: Nucleus sampling threshold
+- `maxTokens`: Maximum tokens to generate (cross-provider compatibility)
+- `numPredict`: Ollama-specific maximum tokens (takes precedence over maxTokens)
+- `topP`: Nucleus sampling threshold (0.0-1.0)
+- `topK`: Top-K sampling parameter (limits token selection to top K choices)
+- `numCtx`: Context window size (number of tokens for context)
+- `frequencyPenalty`: Penalty for token frequency (reduces repetition)
+- `presencePenalty`: Penalty for token presence (encourages diversity)
+- `stop`: Array of strings that will stop generation
 - `stream`: Whether to stream responses
-- Additional provider-specific options
+- `responseFormat`: Structured output configuration for JSON responses
 
 ## Gateway Types
 

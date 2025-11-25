@@ -80,12 +80,23 @@ export class OllamaGateway implements LlmGateway {
         (requestBody.options as Record<string, unknown>).temperature = config.temperature;
       }
 
-      if (config?.maxTokens !== undefined) {
+      // numPredict takes precedence over maxTokens for Ollama-specific control
+      if (config?.numPredict !== undefined) {
+        (requestBody.options as Record<string, unknown>).num_predict = config.numPredict;
+      } else if (config?.maxTokens !== undefined) {
         (requestBody.options as Record<string, unknown>).num_predict = config.maxTokens;
       }
 
       if (config?.topP !== undefined) {
         (requestBody.options as Record<string, unknown>).top_p = config.topP;
+      }
+
+      if (config?.topK !== undefined) {
+        (requestBody.options as Record<string, unknown>).top_k = config.topK;
+      }
+
+      if (config?.numCtx !== undefined) {
+        (requestBody.options as Record<string, unknown>).num_ctx = config.numCtx;
       }
 
       if (config?.stop) {
@@ -167,8 +178,27 @@ export class OllamaGateway implements LlmGateway {
         (requestBody.options as Record<string, unknown>).temperature = config.temperature;
       }
 
-      if (config?.maxTokens !== undefined) {
+      // numPredict takes precedence over maxTokens for Ollama-specific control
+      if (config?.numPredict !== undefined) {
+        (requestBody.options as Record<string, unknown>).num_predict = config.numPredict;
+      } else if (config?.maxTokens !== undefined) {
         (requestBody.options as Record<string, unknown>).num_predict = config.maxTokens;
+      }
+
+      if (config?.topP !== undefined) {
+        (requestBody.options as Record<string, unknown>).top_p = config.topP;
+      }
+
+      if (config?.topK !== undefined) {
+        (requestBody.options as Record<string, unknown>).top_k = config.topK;
+      }
+
+      if (config?.numCtx !== undefined) {
+        (requestBody.options as Record<string, unknown>).num_ctx = config.numCtx;
+      }
+
+      if (config?.stop) {
+        (requestBody.options as Record<string, unknown>).stop = config.stop;
       }
 
       if (ollamaTools && ollamaTools.length > 0) {

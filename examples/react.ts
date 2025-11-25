@@ -44,13 +44,7 @@ import { LlmBroker } from '../src/llm/broker';
 import { OllamaGateway } from '../src/llm/gateways/ollama';
 import { AsyncDispatcher } from '../src/agents/async-dispatcher';
 import { Router } from '../src/agents/router';
-import {
-  InvokeThinking,
-  InvokeDecisioning,
-  InvokeToolCall,
-  FinishAndSummarize,
-  FailureOccurred,
-} from '../src/examples/react/events';
+import { InvokeThinking } from '../src/examples/react/events';
 import { CurrentContext } from '../src/examples/react/models';
 import { ThinkingAgent } from '../src/examples/react/thinking-agent';
 import { DecisioningAgent } from '../src/examples/react/decisioning-agent';

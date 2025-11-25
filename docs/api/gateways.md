@@ -234,12 +234,19 @@ Tool calls are converted to Ollama's format:
 ```typescript
 interface OllamaConfig extends CompletionConfig {
   temperature?: number;      // 0.0-2.0
-  maxTokens?: number;        // Max tokens to generate
-  topP?: number;             // 0.0-1.0
-  topK?: number;             // Top-K sampling
-  repeatPenalty?: number;    // Repetition penalty
-  seed?: number;             // Random seed for determinism
+  maxTokens?: number;        // Cross-provider max tokens to generate
+  numPredict?: number;       // Ollama-specific max tokens (takes precedence)
+  topP?: number;             // 0.0-1.0, nucleus sampling
+  topK?: number;             // Top-K sampling (limits token choices)
+  numCtx?: number;           // Context window size in tokens
+  frequencyPenalty?: number; // Penalty for token frequency
+  presencePenalty?: number;  // Penalty for token presence
+  stop?: string[];           // Stop sequences
   stream?: boolean;          // Enable streaming
+  responseFormat?: {         // Structured output
+    type: 'json_object' | 'text';
+    schema?: Record<string, unknown>;
+  };
 }
 ```
 
@@ -247,14 +254,14 @@ interface OllamaConfig extends CompletionConfig {
 ```typescript
 const config = {
   temperature: 0.7,
-  maxTokens: 2000,
+  numPredict: 2000,  // Ollama-specific, preferred over maxTokens
   topP: 0.9,
   topK: 40,
-  repeatPenalty: 1.1,
-  seed: 42
+  numCtx: 8192,      // Context window size
+  stop: ['END', 'STOP']
 };
 
-const result = await gateway.generate(messages, 'qwen3:32b', config);
+const result = await gateway.generate('qwen3:32b', messages, config);
 ```
 
 ### Temperature Guide

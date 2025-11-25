@@ -182,6 +182,206 @@ describe('OllamaGateway', () => {
       );
     });
 
+    test('should pass numPredict parameter', async () => {
+      const mockResponse = {
+        model: 'llama2',
+        created_at: '2023-01-01T00:00:00Z',
+        message: {
+          role: 'assistant',
+          content: 'Response',
+        },
+        done: true,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
+
+      const config = {
+        numPredict: 150,
+      };
+
+      const result = await gateway.generate('llama2', messages, config);
+
+      expect(isOk(result)).toBe(true);
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:11434/api/chat',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: expect.stringContaining('"num_predict":150'),
+        })
+      );
+    });
+
+    test('should prioritize numPredict over maxTokens', async () => {
+      const mockResponse = {
+        model: 'llama2',
+        created_at: '2023-01-01T00:00:00Z',
+        message: {
+          role: 'assistant',
+          content: 'Response',
+        },
+        done: true,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
+
+      const config = {
+        maxTokens: 100,
+        numPredict: 200,
+      };
+
+      const result = await gateway.generate('llama2', messages, config);
+
+      expect(isOk(result)).toBe(true);
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.options.num_predict).toBe(200);
+    });
+
+    test('should fallback to maxTokens when numPredict not provided', async () => {
+      const mockResponse = {
+        model: 'llama2',
+        created_at: '2023-01-01T00:00:00Z',
+        message: {
+          role: 'assistant',
+          content: 'Response',
+        },
+        done: true,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
+
+      const config = {
+        maxTokens: 100,
+      };
+
+      const result = await gateway.generate('llama2', messages, config);
+
+      expect(isOk(result)).toBe(true);
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.options.num_predict).toBe(100);
+    });
+
+    test('should pass topK parameter', async () => {
+      const mockResponse = {
+        model: 'llama2',
+        created_at: '2023-01-01T00:00:00Z',
+        message: {
+          role: 'assistant',
+          content: 'Response',
+        },
+        done: true,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
+
+      const config = {
+        topK: 40,
+      };
+
+      const result = await gateway.generate('llama2', messages, config);
+
+      expect(isOk(result)).toBe(true);
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.options.top_k).toBe(40);
+    });
+
+    test('should pass numCtx parameter', async () => {
+      const mockResponse = {
+        model: 'llama2',
+        created_at: '2023-01-01T00:00:00Z',
+        message: {
+          role: 'assistant',
+          content: 'Response',
+        },
+        done: true,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
+
+      const config = {
+        numCtx: 4096,
+      };
+
+      const result = await gateway.generate('llama2', messages, config);
+
+      expect(isOk(result)).toBe(true);
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.options.num_ctx).toBe(4096);
+    });
+
+    test('should pass multiple configuration parameters together', async () => {
+      const mockResponse = {
+        model: 'llama2',
+        created_at: '2023-01-01T00:00:00Z',
+        message: {
+          role: 'assistant',
+          content: 'Response',
+        },
+        done: true,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const messages = [{ role: MessageRole.User, content: 'Hello' }];
+
+      const config = {
+        temperature: 0.8,
+        topP: 0.95,
+        topK: 50,
+        numCtx: 8192,
+        numPredict: 256,
+      };
+
+      const result = await gateway.generate('llama2', messages, config);
+
+      expect(isOk(result)).toBe(true);
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.options.temperature).toBe(0.8);
+      expect(body.options.top_p).toBe(0.95);
+      expect(body.options.top_k).toBe(50);
+      expect(body.options.num_ctx).toBe(8192);
+      expect(body.options.num_predict).toBe(256);
+    });
+
     test('should handle structured output with schema', async () => {
       const mockResponse = {
         model: 'llama2',

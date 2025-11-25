@@ -88,7 +88,10 @@ export class Message {
 export interface CompletionConfig {
   temperature?: number;
   maxTokens?: number;
+  numPredict?: number;
   topP?: number;
+  topK?: number;
+  numCtx?: number;
   frequencyPenalty?: number;
   presencePenalty?: number;
   stop?: string[];

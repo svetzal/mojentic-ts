@@ -58,7 +58,7 @@ export class ToolCallAgent implements BaseAsyncAgent {
       console.log(`Result: ${JSON.stringify(toolResult, null, 2)}`);
 
       // Extract the text content from the result
-      let resultText = JSON.stringify(toolResult);
+      const resultText = JSON.stringify(toolResult);
 
       // Add to history
       toolCallEvent.context.history.push({
