@@ -2,6 +2,7 @@
  * Tests for event store
  */
 
+import { randomUUID } from 'crypto';
 import { EventStore } from './eventStore';
 import { LLMCallTracerEvent, LLMResponseTracerEvent, ToolCallTracerEvent } from './tracerEvents';
 
@@ -146,7 +147,7 @@ describe('EventStore', () => {
     });
 
     it('should filter events by custom function', () => {
-      const correlationId = crypto.randomUUID();
+      const correlationId = randomUUID();
       const event1 = new LLMCallTracerEvent('gpt-4', [], 0.7, undefined, correlationId);
       const event2 = new LLMResponseTracerEvent('gpt-4', 'Response');
 
@@ -161,7 +162,7 @@ describe('EventStore', () => {
     });
 
     it('should apply multiple filters', () => {
-      const correlationId = crypto.randomUUID();
+      const correlationId = randomUUID();
       const now = Date.now();
 
       const event1 = new LLMCallTracerEvent('gpt-4', [], 0.7, undefined, correlationId);

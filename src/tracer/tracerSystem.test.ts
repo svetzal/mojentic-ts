@@ -2,6 +2,7 @@
  * Tests for tracer system
  */
 
+import { randomUUID } from 'crypto';
 import { TracerSystem } from './tracerSystem';
 import { EventStore } from './eventStore';
 import {
@@ -117,7 +118,7 @@ describe('TracerSystem', () => {
     });
 
     it('should use provided correlation ID', () => {
-      const correlationId = crypto.randomUUID();
+      const correlationId = randomUUID();
       tracer.recordLlmCall('gpt-4', [], 0.7, undefined, correlationId);
 
       const events = tracer.getEvents();
@@ -176,7 +177,7 @@ describe('TracerSystem', () => {
     });
 
     it('should use provided correlation ID', () => {
-      const correlationId = crypto.randomUUID();
+      const correlationId = randomUUID();
       tracer.recordLlmResponse('gpt-4', 'Response', undefined, undefined, correlationId);
 
       const events = tracer.getEvents();
@@ -224,7 +225,7 @@ describe('TracerSystem', () => {
     });
 
     it('should use provided correlation ID', () => {
-      const correlationId = crypto.randomUUID();
+      const correlationId = randomUUID();
       tracer.recordToolCall('test_tool', {}, {}, undefined, undefined, correlationId);
 
       const events = tracer.getEvents();
@@ -262,7 +263,7 @@ describe('TracerSystem', () => {
     });
 
     it('should use provided correlation ID', () => {
-      const correlationId = crypto.randomUUID();
+      const correlationId = randomUUID();
       tracer.recordAgentInteraction(
         'coordinator',
         'specialist',
@@ -303,7 +304,7 @@ describe('TracerSystem', () => {
     });
 
     it('should filter by custom function', () => {
-      const correlationId = crypto.randomUUID();
+      const correlationId = randomUUID();
       tracer.recordLlmCall('gpt-4', [], 0.7, undefined, correlationId);
       tracer.recordLlmResponse('gpt-4', 'Response');
 

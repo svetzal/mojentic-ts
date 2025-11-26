@@ -40,6 +40,7 @@
  * ```
  */
 
+import { randomUUID } from 'crypto';
 import { LlmBroker } from '../src/llm/broker';
 import { OllamaGateway } from '../src/llm/gateways/ollama';
 import { AsyncDispatcher } from '../src/agents/async-dispatcher';
@@ -106,7 +107,7 @@ async function main(): Promise<void> {
     type: 'InvokeThinking',
     source: 'main',
     context: initialContext,
-    correlationId: crypto.randomUUID(),
+    correlationId: randomUUID(),
   };
 
   // Dispatch the initial event and let the ReAct loop run

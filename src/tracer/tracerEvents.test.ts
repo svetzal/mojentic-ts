@@ -2,6 +2,7 @@
  * Tests for tracer events
  */
 
+import { randomUUID } from 'crypto';
 import {
   LLMCallTracerEvent,
   LLMResponseTracerEvent,
@@ -14,7 +15,7 @@ describe('TracerEvent', () => {
   describe('base class', () => {
     it('should create event with timestamp and correlationId', () => {
       const now = Date.now();
-      const correlationId = crypto.randomUUID();
+      const correlationId = randomUUID();
       const event = new LLMCallTracerEvent('gpt-4', [], 0.7, undefined, correlationId);
 
       expect(event.timestamp).toBeGreaterThanOrEqual(now);

@@ -9,6 +9,7 @@
  * across the system, allowing you to track the flow of a request from start to finish.
  */
 
+import { randomUUID } from 'crypto';
 import * as readline from 'readline';
 import { LlmBroker } from '../src/llm/broker';
 import { ChatSession } from '../src/llm/chat-session';
@@ -82,7 +83,7 @@ async function main() {
     }
 
     // Generate a unique correlationId for this conversation turn
-    const correlationId = crypto.randomUUID();
+    const correlationId = randomUUID();
     turnCounter++;
     // eslint-disable-next-line security/detect-object-injection -- Safe: internal counter, not user input
     conversationCorrelationIds[turnCounter] = correlationId;

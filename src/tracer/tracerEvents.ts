@@ -5,6 +5,7 @@
  * They are distinct from regular events which are used for agent communication.
  */
 
+import { randomUUID } from 'crypto';
 import { ToolCall } from '../llm/models';
 
 /**
@@ -136,7 +137,7 @@ export class LLMCallTracerEvent extends TracerEvent {
     correlationId?: string,
     source?: string
   ) {
-    super(Date.now(), correlationId || crypto.randomUUID(), source);
+    super(Date.now(), correlationId || randomUUID(), source);
     this.model = model;
     this.messages = messages;
     this.temperature = temperature;
@@ -210,7 +211,7 @@ export class LLMResponseTracerEvent extends TracerEvent {
     correlationId?: string,
     source?: string
   ) {
-    super(Date.now(), correlationId || crypto.randomUUID(), source);
+    super(Date.now(), correlationId || randomUUID(), source);
     this.model = model;
     this.content = content;
     this.toolCalls = toolCalls;
@@ -290,7 +291,7 @@ export class ToolCallTracerEvent extends TracerEvent {
     correlationId?: string,
     source?: string
   ) {
-    super(Date.now(), correlationId || crypto.randomUUID(), source);
+    super(Date.now(), correlationId || randomUUID(), source);
     this.toolName = toolName;
     this.arguments = args;
     this.result = result;
@@ -368,7 +369,7 @@ export class AgentInteractionTracerEvent extends TracerEvent {
     correlationId?: string,
     source?: string
   ) {
-    super(Date.now(), correlationId || crypto.randomUUID(), source);
+    super(Date.now(), correlationId || randomUUID(), source);
     this.fromAgent = fromAgent;
     this.toAgent = toAgent;
     this.eventType = eventType;
