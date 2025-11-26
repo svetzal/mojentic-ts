@@ -1,8 +1,9 @@
 /**
- * Async agent system for event-driven LLM workflows
+ * Agent system for event-driven LLM workflows
  */
 
 export * from './event';
+export * from './base-agent';
 export * from './base-async-agent';
 export * from './async-llm-agent';
 export * from './async-llm-agent-with-memory';
