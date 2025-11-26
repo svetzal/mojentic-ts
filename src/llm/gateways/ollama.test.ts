@@ -141,6 +141,103 @@ describe('OllamaGateway', () => {
       if (isOk(result)) {
         expect(result.value.content).toBe('I see a cat in the image.');
       }
+
+      // Verify the request body includes the image
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:11434/api/chat',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.messages).toHaveLength(1);
+      expect(body.messages[0].content).toBe('What do you see?');
+      expect(body.messages[0].images).toEqual(['ABC123']);
+    });
+
+    test('should handle multiple images in one message', async () => {
+      const mockResponse = {
+        model: 'llava',
+        created_at: '2023-01-01T00:00:00Z',
+        message: {
+          role: 'assistant',
+          content: 'I see multiple items.',
+        },
+        done: true,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const messages = [
+        {
+          role: MessageRole.User,
+          content: [
+            { type: 'text' as const, text: 'Compare these images:' },
+            {
+              type: 'image_url' as const,
+              image_url: { url: 'data:image/jpeg;base64,IMAGE1DATA' },
+            },
+            {
+              type: 'image_url' as const,
+              image_url: { url: 'data:image/png;base64,IMAGE2DATA' },
+            },
+          ],
+        },
+      ];
+
+      const result = await gateway.generate('llava', messages);
+
+      expect(isOk(result)).toBe(true);
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.messages[0].images).toEqual(['IMAGE1DATA', 'IMAGE2DATA']);
+    });
+
+    test('should handle images with non-data-uri URLs', async () => {
+      const mockResponse = {
+        model: 'llava',
+        created_at: '2023-01-01T00:00:00Z',
+        message: {
+          role: 'assistant',
+          content: 'Image analyzed.',
+        },
+        done: true,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const messages = [
+        {
+          role: MessageRole.User,
+          content: [
+            { type: 'text' as const, text: 'Analyze this:' },
+            {
+              type: 'image_url' as const,
+              image_url: { url: 'RAWBASE64DATA' },
+            },
+          ],
+        },
+      ];
+
+      const result = await gateway.generate('llava', messages);
+
+      expect(isOk(result)).toBe(true);
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.messages[0].images).toEqual(['RAWBASE64DATA']);
     });
 
     test('should pass configuration options', async () => {
@@ -776,6 +873,324 @@ describe('OllamaGateway', () => {
       if (isOk(result)) {
         expect(result.value.length).toBe(768);
       }
+    });
+  });
+
+  describe('pullModel', () => {
+    test('should pull model with progress updates', async () => {
+      const progressUpdates: Array<{
+        status: string;
+        digest?: string;
+        total?: number;
+        completed?: number;
+      }> = [];
+
+      const mockResponse = {
+        body: {
+          getReader: () => ({
+            read: jest
+              .fn()
+              .mockResolvedValueOnce({
+                done: false,
+                value: new TextEncoder().encode(
+                  JSON.stringify({ status: 'pulling manifest' }) + '\n'
+                ),
+              })
+              .mockResolvedValueOnce({
+                done: false,
+                value: new TextEncoder().encode(
+                  JSON.stringify({
+                    status: 'downloading',
+                    digest: 'sha256:abc123',
+                    total: 1000,
+                    completed: 250,
+                  }) + '\n'
+                ),
+              })
+              .mockResolvedValueOnce({
+                done: false,
+                value: new TextEncoder().encode(
+                  JSON.stringify({
+                    status: 'downloading',
+                    digest: 'sha256:abc123',
+                    total: 1000,
+                    completed: 500,
+                  }) + '\n'
+                ),
+              })
+              .mockResolvedValueOnce({
+                done: false,
+                value: new TextEncoder().encode(
+                  JSON.stringify({
+                    status: 'downloading',
+                    digest: 'sha256:abc123',
+                    total: 1000,
+                    completed: 1000,
+                  }) + '\n'
+                ),
+              })
+              .mockResolvedValueOnce({
+                done: false,
+                value: new TextEncoder().encode(JSON.stringify({ status: 'success' }) + '\n'),
+              })
+              .mockResolvedValueOnce({
+                done: true,
+              }),
+          }),
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        ...mockResponse,
+      });
+
+      const result = await gateway.pullModel('llama2', (progress) => {
+        progressUpdates.push(progress);
+      });
+
+      expect(isOk(result)).toBe(true);
+      expect(progressUpdates.length).toBe(5);
+      expect(progressUpdates[0].status).toBe('pulling manifest');
+      expect(progressUpdates[1].status).toBe('downloading');
+      expect(progressUpdates[1].completed).toBe(250);
+      expect(progressUpdates[1].total).toBe(1000);
+      expect(progressUpdates[2].completed).toBe(500);
+      expect(progressUpdates[3].completed).toBe(1000);
+      expect(progressUpdates[4].status).toBe('success');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:11434/api/pull',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'llama2',
+            stream: true,
+          }),
+        })
+      );
+    });
+
+    test('should pull model without progress callback', async () => {
+      const mockResponse = {
+        body: {
+          getReader: () => ({
+            read: jest
+              .fn()
+              .mockResolvedValueOnce({
+                done: false,
+                value: new TextEncoder().encode(
+                  JSON.stringify({ status: 'pulling manifest' }) + '\n'
+                ),
+              })
+              .mockResolvedValueOnce({
+                done: false,
+                value: new TextEncoder().encode(JSON.stringify({ status: 'success' }) + '\n'),
+              })
+              .mockResolvedValueOnce({
+                done: true,
+              }),
+          }),
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        ...mockResponse,
+      });
+
+      const result = await gateway.pullModel('mistral');
+
+      expect(isOk(result)).toBe(true);
+    });
+
+    test('should handle HTTP errors when pulling model', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: async () => 'Model not found in registry',
+      });
+
+      const result = await gateway.pullModel('nonexistent-model');
+
+      expect(isOk(result)).toBe(false);
+      if (!isOk(result)) {
+        expect(result.error.message).toContain('404');
+        expect(result.error.message).toContain('Model not found in registry');
+      }
+    });
+
+    test('should handle missing response body', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: null,
+      });
+
+      const result = await gateway.pullModel('llama2');
+
+      expect(isOk(result)).toBe(false);
+      if (!isOk(result)) {
+        expect(result.error.message).toContain('No response body');
+      }
+    });
+
+    test('should handle JSON parse errors in progress stream', async () => {
+      const mockResponse = {
+        body: {
+          getReader: () => ({
+            read: jest
+              .fn()
+              .mockResolvedValueOnce({
+                done: false,
+                value: new TextEncoder().encode('invalid json\n'),
+              })
+              .mockResolvedValueOnce({
+                done: true,
+              }),
+          }),
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        ...mockResponse,
+      });
+
+      const result = await gateway.pullModel('llama2');
+
+      expect(isOk(result)).toBe(false);
+      if (!isOk(result)) {
+        expect(result.error.message).toContain('Failed to parse pull progress');
+      }
+    });
+
+    test('should handle network errors when pulling model', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network connection lost'));
+
+      const result = await gateway.pullModel('llama2');
+
+      expect(isOk(result)).toBe(false);
+      if (!isOk(result)) {
+        expect(result.error.message).toContain('Network connection lost');
+      }
+    });
+
+    test('should handle multiple progress updates with same digest', async () => {
+      const progressUpdates: Array<{
+        status: string;
+        digest?: string;
+        completed?: number;
+      }> = [];
+
+      const mockResponse = {
+        body: {
+          getReader: () => ({
+            read: jest
+              .fn()
+              .mockResolvedValueOnce({
+                done: false,
+                value: new TextEncoder().encode(
+                  JSON.stringify({
+                    status: 'downloading',
+                    digest: 'sha256:layer1',
+                    total: 100,
+                    completed: 50,
+                  }) + '\n'
+                ),
+              })
+              .mockResolvedValueOnce({
+                done: false,
+                value: new TextEncoder().encode(
+                  JSON.stringify({
+                    status: 'downloading',
+                    digest: 'sha256:layer1',
+                    total: 100,
+                    completed: 100,
+                  }) + '\n'
+                ),
+              })
+              .mockResolvedValueOnce({
+                done: false,
+                value: new TextEncoder().encode(
+                  JSON.stringify({
+                    status: 'downloading',
+                    digest: 'sha256:layer2',
+                    total: 200,
+                    completed: 100,
+                  }) + '\n'
+                ),
+              })
+              .mockResolvedValueOnce({
+                done: true,
+              }),
+          }),
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        ...mockResponse,
+      });
+
+      const result = await gateway.pullModel('llama2', (progress) => {
+        progressUpdates.push({
+          status: progress.status,
+          digest: progress.digest,
+          completed: progress.completed,
+        });
+      });
+
+      expect(isOk(result)).toBe(true);
+      expect(progressUpdates.length).toBe(3);
+      expect(progressUpdates[0].digest).toBe('sha256:layer1');
+      expect(progressUpdates[0].completed).toBe(50);
+      expect(progressUpdates[1].digest).toBe('sha256:layer1');
+      expect(progressUpdates[1].completed).toBe(100);
+      expect(progressUpdates[2].digest).toBe('sha256:layer2');
+      expect(progressUpdates[2].completed).toBe(100);
+    });
+
+    test('should handle empty model name', async () => {
+      const mockResponse = {
+        body: {
+          getReader: () => ({
+            read: jest
+              .fn()
+              .mockResolvedValueOnce({
+                done: false,
+                value: new TextEncoder().encode(JSON.stringify({ status: 'success' }) + '\n'),
+              })
+              .mockResolvedValueOnce({
+                done: true,
+              }),
+          }),
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        ...mockResponse,
+      });
+
+      await gateway.pullModel('');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:11434/api/pull',
+        expect.objectContaining({
+          body: JSON.stringify({
+            name: '',
+            stream: true,
+          }),
+        })
+      );
     });
   });
 });

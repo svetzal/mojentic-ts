@@ -135,7 +135,7 @@ export class LlmBroker {
         }
 
         for (const toolCall of response.toolCalls) {
-          const tool = tools.find((t) => t.name() === toolCall.function.name);
+          const tool = tools.find((t) => t.matches(toolCall.function.name));
 
           if (!tool) {
             currentMessages.push(
@@ -428,7 +428,7 @@ export class LlmBroker {
 
         // Execute all tool calls
         for (const toolCall of accumulatedToolCalls) {
-          const tool = tools.find((t) => t.name() === toolCall.function.name);
+          const tool = tools.find((t) => t.matches(toolCall.function.name));
 
           if (!tool) {
             currentMessages.push(

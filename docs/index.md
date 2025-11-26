@@ -26,6 +26,10 @@ features:
     title: Structured Output
     details: Type-safe response parsing with JSON schemas. Get validated TypeScript objects from LLMs.
 
+  - icon: 🖼️
+    title: Image Analysis
+    details: Multimodal support for vision-capable models. Analyze images alongside text prompts.
+
   - icon: 🌊
     title: Streaming Support
     details: Real-time streaming completions for responsive user experiences.

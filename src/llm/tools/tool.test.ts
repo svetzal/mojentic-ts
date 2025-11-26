@@ -93,4 +93,27 @@ describe('BaseTool', () => {
       expect(descriptor.function.parameters.required).toEqual(['input']);
     });
   });
+
+  describe('matches', () => {
+    it('should return true when name matches', () => {
+      const tool = new TestTool('test_tool');
+      expect(tool.matches('test_tool')).toBe(true);
+    });
+
+    it('should return false when name does not match', () => {
+      const tool = new TestTool('test_tool');
+      expect(tool.matches('other_tool')).toBe(false);
+    });
+
+    it('should be case-sensitive', () => {
+      const tool = new TestTool('test_tool');
+      expect(tool.matches('Test_Tool')).toBe(false);
+      expect(tool.matches('TEST_TOOL')).toBe(false);
+    });
+
+    it('should handle empty string', () => {
+      const tool = new TestTool('test_tool');
+      expect(tool.matches('')).toBe(false);
+    });
+  });
 });

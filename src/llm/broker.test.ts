@@ -89,6 +89,10 @@ class MockTool implements LlmTool {
     return this.toolName;
   }
 
+  matches(name: string): boolean {
+    return this.name() === name;
+  }
+
   descriptor() {
     return {
       type: 'function' as const,

@@ -8,3 +8,4 @@ export * from './date-resolver';
 export * from './tell-user';
 export * from './ask-user';
 export * from './tool-wrapper';
+export * from './web-search-tool';

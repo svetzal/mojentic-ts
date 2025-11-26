@@ -27,6 +27,7 @@
     "example:async-llm": "ts-node examples/async-llm.ts",
     "example:iterative-solver": "ts-node examples/iterative-solver.ts",
     "example:recursive-agent": "ts-node examples/recursive-agent.ts",
+    "example:pull-model": "ts-node examples/pull_model.ts",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"

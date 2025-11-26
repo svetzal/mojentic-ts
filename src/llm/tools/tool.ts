@@ -62,6 +62,11 @@ export interface LlmTool {
    * Get the tool name
    */
   name(): string;
+
+  /**
+   * Check if tool name matches given name
+   */
+  matches(name: string): boolean;
 }
 
 /**
@@ -73,5 +78,9 @@ export abstract class BaseTool implements LlmTool {
 
   name(): string {
     return this.descriptor().function.name;
+  }
+
+  matches(name: string): boolean {
+    return this.name() === name;
   }
 }

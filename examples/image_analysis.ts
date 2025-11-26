@@ -17,30 +17,9 @@
 
 import { LlmBroker, OllamaGateway, MessageRole } from '../src';
 import { isOk } from '../src/error';
-import { readFileSync, existsSync } from 'fs';
+import { imageContent, textContent } from '../src/llm/utils/image';
+import { existsSync } from 'fs';
 import { join } from 'path';
-
-/**
- * Read an image file and convert it to a base64 data URI
- */
-function imageToDataUri(filePath: string): string {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- User-provided image paths required for multimodal LLM input
-  const imageBuffer = readFileSync(filePath);
-  const base64 = imageBuffer.toString('base64');
-
-  // Determine MIME type from file extension
-  const ext = filePath.toLowerCase().split('.').pop();
-  const mimeTypes: Record<string, string> = {
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    gif: 'image/gif',
-    webp: 'image/webp',
-  };
-
-  const mimeType = mimeTypes[ext || 'jpg'] || 'image/jpeg';
-  return `data:${mimeType};base64,${base64}`;
-}
 
 async function main() {
   console.log('🖼️  Mojentic TypeScript - Image Analysis Example\n');
@@ -66,20 +45,12 @@ async function main() {
 
   console.log(`Using model: ${broker.getModel()}\n`);
 
-  // Create a multimodal message with text and image
+  // Create a multimodal message with text and image using utility functions
   const message = {
     role: MessageRole.User,
     content: [
-      {
-        type: 'text' as const,
-        text: 'This is a Flash ROM chip on an adapter board. Extract the text on top of the chip.',
-      },
-      {
-        type: 'image_url' as const,
-        image_url: {
-          url: imageToDataUri(imagePath),
-        },
-      },
+      textContent('This is a Flash ROM chip on an adapter board. Extract the text on top of the chip.'),
+      imageContent(imagePath),
     ],
   };
 

@@ -80,6 +80,10 @@ class MockTool implements LlmTool {
   name() {
     return 'mock_tool';
   }
+
+  matches(name: string): boolean {
+    return this.name() === name;
+  }
 }
 
 describe('EventEmitter', () => {

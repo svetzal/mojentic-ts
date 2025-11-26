@@ -49,6 +49,15 @@ interface OllamaStreamResponse {
   done: boolean;
 }
 
+interface OllamaPullProgress {
+  status: string;
+  digest?: string;
+  total?: number;
+  completed?: number;
+}
+
+export type PullProgressCallback = (progress: OllamaPullProgress) => void;
+
 /**
  * Gateway for Ollama local LLM provider
  */
@@ -396,6 +405,81 @@ export class OllamaGateway implements LlmGateway {
       return Err(
         new GatewayError(
           `Failed to calculate embeddings: ${error instanceof Error ? error.message : String(error)}`
+        )
+      );
+    }
+  }
+
+  async pullModel(
+    modelName: string,
+    onProgress?: PullProgressCallback
+  ): Promise<Result<void, Error>> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/pull`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: modelName,
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return Err(
+          new GatewayError(
+            `Ollama pull API error: ${response.status} ${response.statusText} - ${errorText}`,
+            response.status
+          )
+        );
+      }
+
+      if (!response.body) {
+        return Err(new GatewayError('No response body from pull endpoint'));
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let streamDone = false;
+
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          streamDone = true;
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const progress = JSON.parse(line) as OllamaPullProgress;
+              if (onProgress) {
+                onProgress(progress);
+              }
+            } catch (parseError) {
+              return Err(
+                new GatewayError(
+                  `Failed to parse pull progress: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+                )
+              );
+            }
+          }
+        }
+      }
+
+      return Ok(undefined);
+    } catch (error) {
+      return Err(
+        new GatewayError(
+          `Failed to pull model: ${error instanceof Error ? error.message : String(error)}`
         )
       );
     }
