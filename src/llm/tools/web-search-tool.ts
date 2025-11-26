@@ -43,9 +43,7 @@ export class WebSearchTool extends BaseTool {
 
       return Ok(JSON.stringify(results, null, 2));
     } catch (error) {
-      return Err(
-        error instanceof Error ? error : new Error('Unknown error during web search')
-      );
+      return Err(error instanceof Error ? error : new Error('Unknown error during web search'));
     }
   }
 

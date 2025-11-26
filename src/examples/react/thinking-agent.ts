@@ -57,7 +57,8 @@ export class ThinkingAgent implements BaseAsyncAgent {
           steps: {
             type: 'array',
             items: { type: 'string' },
-            description: 'How to answer the query, step by step, each step outlining an action to take',
+            description:
+              'How to answer the query, step by step, each step outlining an action to take',
           },
         },
         required: ['steps'],

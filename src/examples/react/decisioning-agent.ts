@@ -113,7 +113,10 @@ export class DecisioningAgent implements BaseAsyncAgent {
         required: ['thought', 'nextAction'],
       };
 
-      const result = await this.llm.generateObject<DecisionResponse>([Message.user(prompt)], schema);
+      const result = await this.llm.generateObject<DecisionResponse>(
+        [Message.user(prompt)],
+        schema
+      );
 
       if (!result.ok) {
         return Ok([
@@ -157,9 +160,7 @@ export class DecisioningAgent implements BaseAsyncAgent {
         }
 
         // Find the requested tool
-        const tool = this.tools.find(
-          (t) => t.descriptor().function.name === decision.toolName
-        );
+        const tool = this.tools.find((t) => t.descriptor().function.name === decision.toolName);
 
         if (!tool) {
           return Ok([

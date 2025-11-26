@@ -182,7 +182,7 @@ constructor(
 
 ### Methods
 
-#### solve(problem: string): Promise<string>
+#### solve(problem: string): Promise&lt;string&gt;
 
 Solve a problem asynchronously.
 
@@ -204,7 +204,7 @@ Clean up resources (disposes the internal ChatSession).
 The event emitter for subscribing to agent events.
 
 **Methods:**
-- `subscribe<T>(eventType, callback): UnsubscribeFn` - Subscribe to an event type
+- `subscribe&lt;T&gt;(eventType, callback): UnsubscribeFn` - Subscribe to an event type
 - `emit(event)` - Emit an event (called internally by the agent)
 
 ## Best Practices

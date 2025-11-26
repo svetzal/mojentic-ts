@@ -77,9 +77,7 @@ describe('WebSearchTool', () => {
         });
       }
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://lite.duckduckgo.com/lite/?q=test%20query'
-      );
+      expect(mockFetch).toHaveBeenCalledWith('https://lite.duckduckgo.com/lite/?q=test%20query');
     });
 
     it('encodes query parameters correctly', async () => {
@@ -200,9 +198,7 @@ describe('WebSearchTool', () => {
 
       await tool.run({ query: '  test query  ' });
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://lite.duckduckgo.com/lite/?q=test%20query'
-      );
+      expect(mockFetch).toHaveBeenCalledWith('https://lite.duckduckgo.com/lite/?q=test%20query');
     });
 
     it('returns error when query is missing', async () => {

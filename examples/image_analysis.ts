@@ -49,7 +49,9 @@ async function main() {
   const message = {
     role: MessageRole.User,
     content: [
-      textContent('This is a Flash ROM chip on an adapter board. Extract the text on top of the chip.'),
+      textContent(
+        'This is a Flash ROM chip on an adapter board. Extract the text on top of the chip.'
+      ),
       imageContent(imagePath),
     ],
   };
