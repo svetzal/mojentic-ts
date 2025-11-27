@@ -46,11 +46,11 @@ export function getTokenLimitParam(capabilities: ModelCapabilities): string {
 /**
  * Check if the model supports a specific temperature value.
  */
-export function supportsTemperature(
-  capabilities: ModelCapabilities,
-  temperature: number
-): boolean {
-  if (capabilities.supportedTemperatures === null || capabilities.supportedTemperatures === undefined) {
+export function supportsTemperature(capabilities: ModelCapabilities, temperature: number): boolean {
+  if (
+    capabilities.supportedTemperatures === null ||
+    capabilities.supportedTemperatures === undefined
+  ) {
     return true; // All temperatures supported if not restricted
   }
   if (capabilities.supportedTemperatures.length === 0) {

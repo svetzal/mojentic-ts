@@ -239,11 +239,7 @@ export class OpenAIGateway implements LlmGateway {
       }
 
       // Add tools if provided
-      if (
-        adaptedArgs.tools &&
-        Array.isArray(adaptedArgs.tools) &&
-        adaptedArgs.tools.length > 0
-      ) {
+      if (adaptedArgs.tools && Array.isArray(adaptedArgs.tools) && adaptedArgs.tools.length > 0) {
         requestBody.tools = (adaptedArgs.tools as ToolDescriptor[]).map((t) => ({
           type: 'function',
           function: {
@@ -257,7 +253,10 @@ export class OpenAIGateway implements LlmGateway {
       // Handle token limit parameters
       if ('maxTokens' in adaptedArgs && adaptedArgs.maxTokens !== undefined) {
         requestBody.max_tokens = adaptedArgs.maxTokens;
-      } else if ('maxCompletionTokens' in adaptedArgs && adaptedArgs.maxCompletionTokens !== undefined) {
+      } else if (
+        'maxCompletionTokens' in adaptedArgs &&
+        adaptedArgs.maxCompletionTokens !== undefined
+      ) {
         requestBody.max_completion_tokens = adaptedArgs.maxCompletionTokens;
       }
 
@@ -380,11 +379,7 @@ export class OpenAIGateway implements LlmGateway {
       }
 
       // Add tools if provided
-      if (
-        adaptedArgs.tools &&
-        Array.isArray(adaptedArgs.tools) &&
-        adaptedArgs.tools.length > 0
-      ) {
+      if (adaptedArgs.tools && Array.isArray(adaptedArgs.tools) && adaptedArgs.tools.length > 0) {
         requestBody.tools = (adaptedArgs.tools as ToolDescriptor[]).map((t) => ({
           type: 'function',
           function: {
@@ -398,7 +393,10 @@ export class OpenAIGateway implements LlmGateway {
       // Handle token limit parameters
       if ('maxTokens' in adaptedArgs && adaptedArgs.maxTokens !== undefined) {
         requestBody.max_tokens = adaptedArgs.maxTokens;
-      } else if ('maxCompletionTokens' in adaptedArgs && adaptedArgs.maxCompletionTokens !== undefined) {
+      } else if (
+        'maxCompletionTokens' in adaptedArgs &&
+        adaptedArgs.maxCompletionTokens !== undefined
+      ) {
         requestBody.max_completion_tokens = adaptedArgs.maxCompletionTokens;
       }
 
@@ -517,7 +515,11 @@ export class OpenAIGateway implements LlmGateway {
                 }
 
                 if (completeToolCalls.length > 0) {
-                  yield Ok({ toolCalls: completeToolCalls, done: true, finishReason: 'tool_calls' });
+                  yield Ok({
+                    toolCalls: completeToolCalls,
+                    done: true,
+                    finishReason: 'tool_calls',
+                  });
                 }
               }
 

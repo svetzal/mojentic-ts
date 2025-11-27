@@ -101,7 +101,9 @@ describe('OpenAIGateway', () => {
         }),
       });
 
-      const result = await gateway.generate('gpt-4', [{ role: MessageRole.User, content: 'Weather?' }]);
+      const result = await gateway.generate('gpt-4', [
+        { role: MessageRole.User, content: 'Weather?' },
+      ]);
 
       expect(isOk(result)).toBe(true);
       if (isOk(result)) {
@@ -119,7 +121,9 @@ describe('OpenAIGateway', () => {
         text: async () => 'Invalid API key',
       });
 
-      const result = await gateway.generate('gpt-4', [{ role: MessageRole.User, content: 'Hello' }]);
+      const result = await gateway.generate('gpt-4', [
+        { role: MessageRole.User, content: 'Hello' },
+      ]);
 
       expect(isErr(result)).toBe(true);
       if (isErr(result)) {
@@ -179,7 +183,12 @@ describe('OpenAIGateway', () => {
         },
       ];
 
-      await gateway.generate('gpt-4', [{ role: MessageRole.User, content: 'Hello' }], undefined, tools);
+      await gateway.generate(
+        'gpt-4',
+        [{ role: MessageRole.User, content: 'Hello' }],
+        undefined,
+        tools
+      );
 
       const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(requestBody.tools).toHaveLength(1);
