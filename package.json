@@ -1,6 +1,6 @@
 {
   "name": "mojentic",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Modern LLM integration framework for TypeScript with tool support and structured output generation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -71,5 +71,17 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/svetzal/mojentic-ts.git"
+  },
+  "homepage": "https://github.com/svetzal/mojentic-ts#readme",
+  "bugs": {
+    "url": "https://github.com/svetzal/mojentic-ts/issues"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

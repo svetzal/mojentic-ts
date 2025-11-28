@@ -1,22 +1,23 @@
-# Mojentic TypeScript
+# Mojentic
 
-A modern LLM integration framework for TypeScript with tool support, structured output generation, and streaming capabilities. Perfect for building VS Code extensions, Obsidian plugins, and Node.js applications.
-
+[![npm](https://img.shields.io/npm/v/mojentic.svg)](https://www.npmjs.com/package/mojentic)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18.0-green)](https://nodejs.org/)
 
+A modern LLM integration framework for TypeScript with full feature parity across Python, Elixir, and Rust implementations. Perfect for building VS Code extensions, Obsidian plugins, and Node.js applications.
+
 ## 🚀 Features
 
-- **🔌 Multi-Provider Support**: Works with Ollama (OpenAI and Anthropic coming soon)
-- **🤖 Async Agent System**: Event-driven agent framework for complex LLM workflows
-- **🛠️ Tool System**: Extensible function calling for LLMs
+- **🔌 Multi-Provider Support**: OpenAI and Ollama gateways
+- **🤖 Agent System**: Complete event-driven agent framework with ReAct pattern
+- **🛠️ Tool System**: Extensible function calling with automatic recursive execution
 - **📊 Structured Output**: Type-safe response parsing with JSON schemas
-- **🌊 Streaming Support**: Real-time streaming completions
+- **🌊 Streaming**: Real-time streaming with full tool calling support
 - **🔍 Tracer System**: Complete observability for debugging and monitoring
 - **🔒 Type-Safe**: Full TypeScript support with comprehensive type definitions
 - **🎯 Result Type Pattern**: Rust-inspired error handling for robust code
-- **🏗️ Modular Design**: Clean architecture with pluggable gateways
+- **📦 24 Examples**: Comprehensive examples demonstrating all features
 
 ## 📦 Installation
 
@@ -181,32 +182,35 @@ See [Tracer Documentation](docs/tracer.md) for comprehensive usage guide.
 
 ## 🏗️ Architecture
 
-Mojentic is structured in layers:
+Mojentic is structured in three layers:
 
-### Layer 1: LLM Integration (Current)
+### Layer 1: LLM Integration
 
 - **LlmBroker** - Main interface for LLM interactions
 - **LlmGateway** interface - Abstract interface for LLM providers
-- **OllamaGateway** - Ollama provider implementation (✅ Complete)
-- **OpenAI Gateway** - OpenAI provider (🚧 Planned)
-- **Anthropic Gateway** - Anthropic Claude provider (🚧 Planned)
-- **Tool System** - Extensible function calling
-- **Message Models** - Type-safe message handling
+- **OllamaGateway** / **OpenAiGateway** - Provider implementations
+- **ChatSession** - Conversational session management
+- **TokenizerGateway** - Token counting with tiktoken
+- **EmbeddingsGateway** - Vector embeddings
+- **Tool System** - Extensible function calling with 10+ built-in tools
 
-### Layer 2: Observability & Tracing (Current)
+### Layer 2: Tracer System
 
-- **TracerSystem** - Complete observability for debugging and monitoring (✅ Complete)
-- **TracerEvents** - LLM calls, responses, tool calls, agent interactions (✅ Complete)
-- **EventStore** - Flexible event storage and querying (✅ Complete)
-- **NullTracer** - Zero-overhead when tracing is disabled (✅ Complete)
+- **TracerSystem** - Complete event recording for observability
+- **EventStore** - Flexible event storage and querying
+- **NullTracer** - Zero-overhead when tracing is disabled
+- Correlation ID tracking across requests
 
-### Layer 3: Agent System (Current)
+### Layer 3: Agent System
 
-- **Event-driven agent coordination** (✅ Complete)
-- **AsyncLlmAgent** - LLM-powered agents (✅ Complete)
-- **AsyncAggregatorAgent** - Multi-event aggregation (✅ Complete)
-- **AsyncDispatcher** - Async event processing (✅ Complete)
-- **Router** - Event routing system (✅ Complete)
+- **AsyncDispatcher** - Async event processing
+- **Router** - Event-to-agent routing
+- **AsyncLlmAgent** - LLM-powered async agents
+- **AsyncAggregatorAgent** - Multi-event aggregation
+- **IterativeProblemSolver** - Multi-step reasoning
+- **SimpleRecursiveAgent** - Self-recursive processing
+- **SharedWorkingMemory** - Agent context sharing
+- ReAct pattern implementation
 
 ## 🛠️ Creating Custom Tools
 
@@ -359,17 +363,58 @@ interface CompletionConfig {
 
 ## 🧪 Examples
 
-The repository includes several runnable examples:
+Run any of the 24 included examples:
 
 ```bash
 # Install dependencies
 npm install
 
-# Run examples
+# Core examples
 npm run example:simple      # Simple text generation
 npm run example:structured  # Structured output
 npm run example:tool        # Tool usage
+npm run example:streaming   # Streaming responses
+
+# Advanced examples
+npm run example:broker          # Comprehensive broker features
+npm run example:broker-as-tool  # Agent delegation pattern
+npm run example:tracer          # Tracer system demo
+npm run example:async-llm       # Async agents
+npm run example:iterative-solver # Multi-step problem solving
+npm run example:recursive-agent  # Recursive agent patterns
 ```
+
+## 🏗️ Architecture
+
+Mojentic is structured in three layers:
+
+### Layer 1: LLM Integration
+
+- `LlmBroker` - Main interface for LLM interactions
+- `LlmGateway` interface - Abstract interface for LLM providers
+- `OllamaGateway` / `OpenAiGateway` - Provider implementations
+- `ChatSession` - Conversational session management
+- `TokenizerGateway` - Token counting with tiktoken
+- `EmbeddingsGateway` - Vector embeddings
+- Comprehensive tool system with 10+ built-in tools
+
+### Layer 2: Tracer System
+
+- `TracerSystem` - Event recording for observability
+- `EventStore` - Flexible event storage and querying
+- Correlation ID tracking across requests
+- LLM call, response, and tool events
+
+### Layer 3: Agent System
+
+- `AsyncDispatcher` - Async event processing
+- `Router` - Event-to-agent routing
+- `AsyncLlmAgent` - LLM-powered agents
+- `AsyncAggregatorAgent` - Multi-event aggregation
+- `IterativeProblemSolver` - Multi-step reasoning
+- `SimpleRecursiveAgent` - Self-recursive processing
+- `SharedWorkingMemory` - Agent context sharing
+- ReAct pattern implementation
 
 ## 🔧 Development
 
@@ -386,35 +431,15 @@ npm test
 # Run tests with coverage
 npm run test:coverage
 
-# Lint
+# Lint (zero warnings enforced)
 npm run lint
 
 # Format
 npm run format
+
+# Full quality check
+npm run quality
 ```
-
-## 🗺️ Roadmap
-
-### Current (v0.1.0)
-- ✅ Core types and error handling
-- ✅ LlmGateway interface
-- ✅ Ollama gateway with streaming
-- ✅ LlmBroker with tool support
-- ✅ Example tools (DateResolver)
-- ✅ Comprehensive examples
-- ✅ TracerSystem for observability
-- ✅ Complete test coverage (434 tests passing)
-
-### Near Future (v0.2.0)
-- 🚧 OpenAI gateway
-- 🚧 Anthropic gateway
-- 🚧 More built-in tools
-- 🚧 Token counting utilities
-
-### Future (v1.0.0)
-- 🔮 Agent system
-- 🔮 Event-driven architecture
-- 🔮 Embeddings support
 
 ## 🤝 Contributing
 
@@ -429,26 +454,6 @@ Contributions are welcome! This is part of the Mojentic family of implementation
 
 MIT License - see [LICENSE](LICENSE) for details
 
-## 🙏 Credits
+## Credits
 
-Mojentic is a Mojility product by Stacey Vetzal.
-
-## 📞 Support
-
-- 🐛 [Issue Tracker](https://github.com/svetzal/mojentic-ts/issues)
-- 📧 Email: stacey@mojility.com
-- 🌐 Website: [mojility.com](https://mojility.com)
-
-## 🌟 Use Cases
-
-Perfect for:
-
-- 🔧 **VS Code Extensions**: Build AI-powered editor features
-- 📝 **Obsidian Plugins**: Create intelligent note-taking tools
-- 🌐 **Web Applications**: Add AI capabilities to Node.js apps
-- 🤖 **CLI Tools**: Build intelligent command-line utilities
-- 📊 **Data Processing**: Automate analysis and extraction
-
----
-
-**Built with ❤️ for the TypeScript community**
+Mojentic is a [Mojility](https://mojility.com) product by Stacey Vetzal.
