@@ -1,41 +1,129 @@
-# Chat Sessions
+# Tutorial: Building Chatbots
 
-`ChatSession` manages the state of a conversation, handling message history, context window limits, and system prompts.
+## Why Use Chat Sessions?
 
-## Creating a Session
+When working with Large Language Models (LLMs), simple text generation is useful for one-off interactions, but many applications require ongoing conversations where the model remembers previous exchanges. This is where chat sessions come in.
+
+Chat sessions are essential when you need to:
+
+- Build conversational agents or chatbots
+- Maintain context across multiple user interactions
+- Create applications where the LLM needs to remember previous information
+- Develop more natural and coherent conversational experiences
+
+## When to Apply This Approach
+
+Use chat sessions when:
+
+- Your application requires multi-turn conversations
+- You need the LLM to reference information from earlier in the conversation
+- You want to create a more interactive and engaging user experience
+
+## The Key Difference: Expanding Context
+
+The fundamental difference between simple text generation and chat sessions is the **expanding context**. With each new message in a chat session:
+
+1. The message is added to the conversation history
+2. All previous messages (within token limits) are sent to the LLM with each new query
+3. The LLM can reference and build upon earlier parts of the conversation
+
+## Getting Started
+
+Let's walk through a simple example of building a chatbot using Mojentic's `ChatSession`.
+
+### Basic Implementation
+
+Here's the simplest way to create a chat session with Mojentic:
 
 ```typescript
 import { ChatSession, LlmBroker, OllamaGateway } from 'mojentic';
+import * as readline from 'readline';
 
-// Initialize broker
+async function main() {
+  // 1. Create an LLM broker
+  const gateway = new OllamaGateway();
+  const broker = new LlmBroker('qwen3:32b', gateway);
+
+  // 2. Initialize a chat session
+  const session = new ChatSession(broker);
+
+  // 3. Simple interactive loop
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  console.log("Chatbot started. Type 'exit' to quit.");
+
+  const ask = () => {
+    rl.question('Query: ', async (query) => {
+      if (query.trim() === 'exit') {
+        rl.close();
+        return;
+      }
+
+      const response = await session.sendMessage(query);
+      console.log(response);
+      ask();
+    });
+  };
+
+  ask();
+}
+
+main();
+```
+
+This code creates an interactive chatbot that maintains context across multiple exchanges.
+
+## Step-by-Step Explanation
+
+### 1. Initialize the Broker
+
+```typescript
 const gateway = new OllamaGateway();
 const broker = new LlmBroker('qwen3:32b', gateway);
+```
 
-// Start a session
+The `LlmBroker` is the central component that handles communication with the LLM provider (in this case, Ollama).
+
+### 2. Start the Session
+
+```typescript
+const session = new ChatSession(broker);
+```
+
+`ChatSession` holds the state of the conversation. By default, it manages the message history and ensures it fits within the model's context window.
+
+### 3. Send Messages
+
+```typescript
+const response = await session.sendMessage(query);
+```
+
+When you send a message:
+1. It's added to the history.
+2. The full history is sent to the LLM.
+3. The LLM's response is added to the history.
+4. The response text is returned.
+
+## Customizing Your Chat Session
+
+You can customize the session with a system prompt or tools.
+
+### System Prompt
+
+The system prompt sets the behavior of the assistant.
+
+```typescript
 const session = new ChatSession(broker, {
-  systemPrompt: "You are a helpful assistant."
+  systemPrompt: "You are a helpful AI assistant specialized in TypeScript programming."
 });
 ```
 
-## Interacting
+### Adding Tools
 
-```typescript
-// Send a message
-const response = await session.sendMessage("Hello!");
-console.log(response);
-
-// Send another message (history is preserved)
-const response2 = await session.sendMessage("What was my last message?");
-console.log(response2);
-```
-
-## Context Management
-
-The ChatSession automatically manages the context window. When the history exceeds the model's token limit, older messages are summarized or truncated based on the configured strategy.
-
-## Using Tools
-
-You can register tools with a chat session, making them available for all interactions:
+You can enhance your chatbot by providing tools that the LLM can use.
 
 ```typescript
 import { DateResolverTool } from 'mojentic';
@@ -43,4 +131,17 @@ import { DateResolverTool } from 'mojentic';
 const session = new ChatSession(broker, {
   tools: [new DateResolverTool()]
 });
+
+// The LLM can now use the date tool in conversations
+const response = await session.sendMessage("What day of the week is July 4th, 2025?");
+console.log(response);
 ```
+
+## Summary
+
+In this tutorial, we've learned how to:
+1.  Initialize a `ChatSession` with an `LlmBroker`.
+2.  Create an interactive loop to chat with the model.
+3.  Customize the session with system prompts and tools.
+
+By leveraging chat sessions, you can create engaging conversational experiences that maintain context across multiple interactions.

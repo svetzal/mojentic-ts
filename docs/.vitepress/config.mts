@@ -22,21 +22,31 @@ export default defineConfig({
         ]
       },
       {
+        text: 'Use Cases',
+        items: [
+          { text: 'Building Chatbots', link: '/chat-sessions' },
+          { text: 'Structured Output', link: '/structured-output' },
+          { text: 'Building Agents', link: '/simple-recursive-agent' },
+          { text: 'Image Analysis', link: '/image-analysis' }
+        ]
+      },
+      {
+        text: 'Examples',
+        items: [
+          { text: 'Example: File Tools', link: '/file-tools' },
+          { text: 'Example: Task Management', link: '/task-management' },
+          { text: 'Example: Web Search', link: '/web-search' },
+          { text: 'Streaming', link: '/streaming' },
+          { text: 'Embeddings', link: '/embeddings' }
+        ]
+      },
+      {
         text: 'Core Concepts',
         items: [
           { text: 'LLM Broker', link: '/broker' },
-          { text: 'Structured Output', link: '/structured-output' },
           { text: 'Tool Usage', link: '/tool-usage' },
-          { text: 'File Tools', link: '/file-tools' },
-          { text: 'Task Management', link: '/task-management' },
-          { text: 'Web Search', link: '/web-search' },
-          { text: 'Chat Sessions', link: '/chat-sessions' },
-          { text: 'Streaming', link: '/streaming' },
-          { text: 'Embeddings', link: '/embeddings' },
-          { text: 'Image Analysis', link: '/image-analysis' },
           { text: 'Agent Delegation', link: '/agent-delegation' },
           { text: 'Async Agents', link: '/async-agents' },
-          { text: 'Simple Recursive Agent', link: '/simple-recursive-agent' },
           { text: 'Tracer', link: '/tracer' }
         ]
       },

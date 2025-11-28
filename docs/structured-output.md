@@ -1,627 +1,83 @@
-# Structured Output
+# Tutorial: Extracting Structured Data
 
-Get type-safe, validated responses from LLMs in structured formats.
+## Why Use Structured Output?
 
-## Overview
+LLMs are great at generating text, but sometimes you need data in a machine-readable format like JSON. Structured output allows you to define a schema (using Zod in TypeScript) and force the LLM to return data that matches that schema.
 
-LLMs naturally generate text, but applications often need data in specific formats. Mojentic's `generateObject()` method uses JSON schemas to guide LLMs to produce structured, validated output.
+This is essential for:
+- Data extraction from unstructured text
+- Building API integrations
+- Populating databases
+- ensuring reliable downstream processing
 
-## Basic Usage
+## Getting Started
+
+Let's build an example that extracts user information from a natural language description.
+
+### 1. Define Your Data Schema
+
+We use `zod` to define the structure we want.
 
 ```typescript
-import { LlmBroker, OllamaGateway, Message, isOk } from 'mojentic';
+import { z } from 'zod';
+
+const UserInfoSchema = z.object({
+  name: z.string(),
+  age: z.number(),
+  interests: z.array(z.string())
+});
+
+type UserInfo = z.infer<typeof UserInfoSchema>;
+```
+
+### 2. Initialize the Broker
+
+```typescript
+import { LlmBroker, OllamaGateway } from 'mojentic';
 
 const gateway = new OllamaGateway();
 const broker = new LlmBroker('qwen3:32b', gateway);
-
-const schema = {
-  type: 'object',
-  properties: {
-    name: { type: 'string' },
-    age: { type: 'number' },
-    city: { type: 'string' }
-  },
-  required: ['name', 'age']
-};
-
-const messages = [
-  Message.user('Extract: John Smith, 34 years old, lives in Portland')
-];
-
-const result = await broker.generateObject(messages, schema);
-
-if (isOk(result)) {
-  console.log(result.value);
-  // { name: "John Smith", age: 34, city: "Portland" }
-}
 ```
 
-## JSON Schema
+### 3. Generate Structured Data
 
-Mojentic uses JSON Schema to define expected output structure.
-
-### Basic Types
+Use `broker.generateStructured` to request the data.
 
 ```typescript
-// String
-{ type: 'string' }
+const text = "John Doe is a 30-year-old software engineer who loves hiking and reading.";
 
-// Number
-{ type: 'number' }
+const userInfo = await broker.generateStructured(text, UserInfoSchema);
 
-// Boolean
-{ type: 'boolean' }
-
-// Array
-{
-  type: 'array',
-  items: { type: 'string' }
-}
-
-// Object
-{
-  type: 'object',
-  properties: {
-    field: { type: 'string' }
-  }
-}
-```
-
-### Complete Example
-
-```typescript
-const schema = {
-  type: 'object',
-  properties: {
-    title: {
-      type: 'string',
-      description: 'Article title'
-    },
-    author: {
-      type: 'string',
-      description: 'Author name'
-    },
-    published: {
-      type: 'string',
-      description: 'Publication date in ISO format'
-    },
-    tags: {
-      type: 'array',
-      items: { type: 'string' },
-      description: 'Topic tags'
-    },
-    summary: {
-      type: 'string',
-      description: 'Brief summary'
-    }
-  },
-  required: ['title', 'author', 'summary']
-};
-```
-
-## Use Cases
-
-### Data Extraction
-
-Extract structured information from unstructured text:
-
-```typescript
-const schema = {
-  type: 'object',
-  properties: {
-    persons: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          role: { type: 'string' },
-          company: { type: 'string' }
-        }
-      }
-    },
-    date: { type: 'string' },
-    location: { type: 'string' }
-  }
-};
-
-const messages = [
-  Message.user(`Extract entities from:
-    "Meeting on Jan 15 at headquarters. Attendees:
-     Sarah Chen (CEO, TechCorp), Mike Johnson (CTO, DataSys)"`)
-];
-
-const result = await broker.generateObject(messages, schema);
+console.log(userInfo);
 // {
-//   persons: [
-//     { name: "Sarah Chen", role: "CEO", company: "TechCorp" },
-//     { name: "Mike Johnson", role: "CTO", company: "DataSys" }
-//   ],
-//   date: "2025-01-15",
-//   location: "headquarters"
+//   name: "John Doe",
+//   age: 30,
+//   interests: ["hiking", "reading"]
 // }
 ```
 
-### Classification
+## How It Works
 
-Classify content into categories:
+1.  **Schema Definition**: Mojentic converts your Zod schema into a JSON schema that the LLM can understand.
+2.  **Prompt Engineering**: The broker automatically appends instructions to the prompt, telling the LLM to output JSON matching the schema.
+3.  **Validation**: When the response comes back, Mojentic parses the JSON and validates it against your Zod schema.
 
-```typescript
-const schema = {
-  type: 'object',
-  properties: {
-    category: {
-      type: 'string',
-      enum: ['technical', 'marketing', 'sales', 'support']
-    },
-    priority: {
-      type: 'string',
-      enum: ['low', 'medium', 'high', 'urgent']
-    },
-    sentiment: {
-      type: 'string',
-      enum: ['positive', 'neutral', 'negative']
-    },
-    confidence: {
-      type: 'number',
-      minimum: 0,
-      maximum: 1
-    }
-  },
-  required: ['category', 'priority', 'sentiment']
-};
+## Advanced: Nested Schemas
 
-const messages = [
-  Message.user('Classify: Customer is frustrated with login issues preventing checkout')
-];
-
-const result = await broker.generateObject(messages, schema);
-// {
-//   category: "support",
-//   priority: "high",
-//   sentiment: "negative",
-//   confidence: 0.95
-// }
-```
-
-### Data Transformation
-
-Convert data from one format to another:
+You can also use nested schemas for more complex data.
 
 ```typescript
-const schema = {
-  type: 'object',
-  properties: {
-    firstName: { type: 'string' },
-    lastName: { type: 'string' },
-    email: { type: 'string' },
-    phone: { type: 'string' },
-    address: {
-      type: 'object',
-      properties: {
-        street: { type: 'string' },
-        city: { type: 'string' },
-        state: { type: 'string' },
-        zip: { type: 'string' }
-      }
-    }
-  }
-};
+const AddressSchema = z.object({
+  street: z.string(),
+  city: z.string()
+});
 
-const messages = [
-  Message.user(`Parse contact info:
-    John Smith
-    jsmith@example.com
-    555-1234
-    123 Main St, Portland, OR 97201`)
-];
-
-const result = await broker.generateObject(messages, schema);
+const UserProfileSchema = z.object({
+  name: z.string(),
+  address: AddressSchema
+});
 ```
 
-### Validation
+## Summary
 
-Get structured feedback on content:
-
-```typescript
-const schema = {
-  type: 'object',
-  properties: {
-    isValid: { type: 'boolean' },
-    score: { type: 'number', minimum: 0, maximum: 100 },
-    issues: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          type: { type: 'string' },
-          message: { type: 'string' },
-          severity: { type: 'string', enum: ['error', 'warning', 'info'] }
-        }
-      }
-    },
-    suggestions: {
-      type: 'array',
-      items: { type: 'string' }
-    }
-  }
-};
-
-const messages = [
-  Message.user('Validate this code: const x = 5; console.log(y);')
-];
-
-const result = await broker.generateObject(messages, schema);
-// {
-//   isValid: false,
-//   score: 60,
-//   issues: [
-//     { type: "ReferenceError", message: "y is not defined", severity: "error" }
-//   ],
-//   suggestions: ["Define variable y before using it"]
-// }
-```
-
-## TypeScript Integration
-
-Define TypeScript interfaces matching your schemas:
-
-```typescript
-interface Person {
-  name: string;
-  age: number;
-  email?: string;
-}
-
-const personSchema = {
-  type: 'object',
-  properties: {
-    name: { type: 'string' },
-    age: { type: 'number' },
-    email: { type: 'string' }
-  },
-  required: ['name', 'age']
-} as const;
-
-const result = await broker.generateObject(messages, personSchema);
-
-if (isOk(result)) {
-  const person = result.value as Person;
-  console.log(person.name); // Type-safe access
-}
-```
-
-## Error Handling
-
-### Schema Validation Errors
-
-```typescript
-const result = await broker.generateObject(messages, schema);
-
-if (!isOk(result)) {
-  const error = result.error;
-
-  if (error instanceof ParseError) {
-    console.error('Failed to parse LLM response as JSON');
-  } else if (error instanceof ValidationError) {
-    console.error('Response doesn\'t match schema');
-  }
-}
-```
-
-### Retries with Feedback
-
-```typescript
-let result = await broker.generateObject(messages, schema);
-
-if (!isOk(result)) {
-  // Add error context and retry
-  messages.push(
-    Message.assistant('Let me try again'),
-    Message.user('Please ensure the response matches the exact schema format')
-  );
-
-  result = await broker.generateObject(messages, schema);
-}
-```
-
-## Advanced Patterns
-
-### Nested Objects
-
-```typescript
-const schema = {
-  type: 'object',
-  properties: {
-    company: {
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-        founded: { type: 'number' },
-        employees: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              name: { type: 'string' },
-              position: { type: 'string' },
-              department: { type: 'string' }
-            }
-          }
-        }
-      }
-    }
-  }
-};
-```
-
-### Enums for Constraints
-
-```typescript
-const schema = {
-  type: 'object',
-  properties: {
-    status: {
-      type: 'string',
-      enum: ['pending', 'approved', 'rejected']
-    },
-    priority: {
-      type: 'number',
-      enum: [1, 2, 3, 4, 5]
-    }
-  }
-};
-```
-
-### Optional Fields
-
-```typescript
-const schema = {
-  type: 'object',
-  properties: {
-    name: { type: 'string' },
-    email: { type: 'string' },
-    phone: { type: 'string' }  // Optional - not in 'required'
-  },
-  required: ['name', 'email']
-};
-```
-
-### Arrays with Constraints
-
-```typescript
-const schema = {
-  type: 'object',
-  properties: {
-    tags: {
-      type: 'array',
-      items: { type: 'string' },
-      minItems: 1,
-      maxItems: 5,
-      uniqueItems: true
-    }
-  }
-};
-```
-
-### Multiple Types
-
-```typescript
-const schema = {
-  type: 'object',
-  properties: {
-    value: {
-      anyOf: [
-        { type: 'string' },
-        { type: 'number' }
-      ]
-    }
-  }
-};
-```
-
-## Schema Descriptions
-
-Add descriptions to guide the LLM:
-
-```typescript
-const schema = {
-  type: 'object',
-  description: 'Product information extracted from text',
-  properties: {
-    name: {
-      type: 'string',
-      description: 'Full product name including brand'
-    },
-    price: {
-      type: 'number',
-      description: 'Price in USD, numeric value only'
-    },
-    currency: {
-      type: 'string',
-      description: 'Three-letter currency code (e.g., USD, EUR)',
-      pattern: '^[A-Z]{3}$'
-    }
-  }
-};
-```
-
-## Best Practices
-
-### 1. Keep Schemas Simple
-
-Start with simple schemas and add complexity as needed:
-
-```typescript
-// Start here
-const schema = {
-  type: 'object',
-  properties: {
-    name: { type: 'string' },
-    age: { type: 'number' }
-  }
-};
-
-// Add complexity gradually
-```
-
-### 2. Use Descriptions
-
-Descriptions help LLMs understand intent:
-
-```typescript
-properties: {
-  date: {
-    type: 'string',
-    description: 'Date in ISO 8601 format (YYYY-MM-DD)'
-  }
-}
-```
-
-### 3. Validate Required Fields
-
-Mark essential fields as required:
-
-```typescript
-{
-  type: 'object',
-  properties: { /* ... */ },
-  required: ['id', 'name']  // Essential fields only
-}
-```
-
-### 4. Use Enums for Fixed Values
-
-```typescript
-status: {
-  type: 'string',
-  enum: ['draft', 'published', 'archived']
-}
-```
-
-### 5. Handle Parsing Errors
-
-Always check for errors:
-
-```typescript
-const result = await broker.generateObject(messages, schema);
-
-if (!isOk(result)) {
-  console.error('Structured output failed:', result.error);
-  // Fallback logic
-}
-```
-
-## Complete Example
-
-```typescript
-import { LlmBroker, OllamaGateway, Message, isOk, ParseError, ValidationError } from 'mojentic';
-
-interface Meeting {
-  title: string;
-  date: string;
-  attendees: Array<{
-    name: string;
-    role: string;
-  }>;
-  topics: string[];
-  actionItems: Array<{
-    task: string;
-    assignee: string;
-    dueDate?: string;
-  }>;
-}
-
-const meetingSchema = {
-  type: 'object',
-  description: 'Meeting notes structure',
-  properties: {
-    title: {
-      type: 'string',
-      description: 'Meeting title or subject'
-    },
-    date: {
-      type: 'string',
-      description: 'Meeting date in ISO format'
-    },
-    attendees: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          role: { type: 'string' }
-        },
-        required: ['name', 'role']
-      }
-    },
-    topics: {
-      type: 'array',
-      items: { type: 'string' },
-      description: 'Topics discussed'
-    },
-    actionItems: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          task: { type: 'string' },
-          assignee: { type: 'string' },
-          dueDate: { type: 'string' }
-        },
-        required: ['task', 'assignee']
-      }
-    }
-  },
-  required: ['title', 'date', 'attendees', 'topics']
-};
-
-const gateway = new OllamaGateway();
-const broker = new LlmBroker('qwen3:32b', gateway);
-
-const notes = `
-  Product Planning Meeting - Jan 15, 2025
-
-  Attendees:
-  - Sarah Chen, Product Manager
-  - Mike Lee, Engineering Lead
-
-  Topics:
-  - Q1 roadmap review
-  - API redesign proposal
-
-  Action Items:
-  - Sarah: Draft roadmap document by Jan 20
-  - Mike: Review API specs by Jan 22
-`;
-
-const messages = [
-  Message.system('Extract structured meeting information'),
-  Message.user(notes)
-];
-
-const result = await broker.generateObject(messages, meetingSchema);
-
-if (isOk(result)) {
-  const meeting = result.value as Meeting;
-  console.log(`Meeting: ${meeting.title}`);
-  console.log(`Date: ${meeting.date}`);
-  console.log(`Attendees: ${meeting.attendees.length}`);
-  console.log(`Action Items: ${meeting.actionItems.length}`);
-} else {
-  const error = result.error;
-  if (error instanceof ParseError) {
-    console.error('Failed to parse response');
-  } else if (error instanceof ValidationError) {
-    console.error('Response does not match schema');
-  } else {
-    console.error('Error:', error.message);
-  }
-}
-```
-
-## See Also
-
-- [Broker Guide](/broker)
-- [Tool Usage](/tool-usage)
-- [API Reference - Broker](/api/broker)
+Structured output turns unstructured text into reliable data structures. By defining Zod schemas, you can integrate LLM outputs directly into your application's logic with type safety and validation.
