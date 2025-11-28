@@ -166,10 +166,6 @@ jobs:
     needs: [lint, format-check, build, test, security-audit]
     if: github.event_name == 'release' && github.event.action == 'published' && startsWith(github.event.release.tag_name, 'v')
 
-    environment:
-      name: npm
-      url: https://www.npmjs.com/package/mojentic
-
     permissions:
       contents: read
       id-token: write
