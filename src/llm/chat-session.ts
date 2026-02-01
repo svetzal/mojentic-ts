@@ -6,6 +6,7 @@ import { LlmBroker } from './broker';
 import { LlmMessage, MessageRole } from './models';
 import { LlmTool } from './tools';
 import { TokenizerGateway } from './gateways/tokenizerGateway';
+import { isOk } from '../error';
 
 /**
  * Message with token count for efficient context management
@@ -111,6 +112,48 @@ export class ChatSession {
     });
 
     return result.value;
+  }
+
+  /**
+   * Send a query to the LLM and yield response chunks as they arrive.
+   * Records the query and full assembled response in the ongoing chat session
+   * after the stream is consumed.
+   *
+   * @param query - The query to send to the LLM
+   * @yields Content chunks from the LLM response as they arrive
+   *
+   * @example
+   * ```typescript
+   * for await (const chunk of session.sendStream('Tell me a story')) {
+   *   process.stdout.write(chunk);
+   * }
+   * ```
+   */
+  async *sendStream(query: string): AsyncGenerator<string> {
+    this.insertMessage({
+      role: MessageRole.User,
+      content: query,
+    });
+
+    const accumulated: string[] = [];
+    for await (const result of this.llm.generateStream(
+      this.messages as LlmMessage[],
+      { temperature: this.temperature },
+      this.tools
+    )) {
+      if (!isOk(result)) {
+        throw result.error;
+      }
+      accumulated.push(result.value);
+      yield result.value;
+    }
+
+    this.ensureAllMessagesAreSized();
+
+    this.insertMessage({
+      role: MessageRole.Assistant,
+      content: accumulated.join(''),
+    });
   }
 
   /**

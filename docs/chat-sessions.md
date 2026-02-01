@@ -137,6 +137,19 @@ const response = await session.sendMessage("What day of the week is July 4th, 20
 console.log(response);
 ```
 
+## Streaming Responses
+
+For a better user experience with longer responses, you can stream the LLM's reply as it's generated:
+
+```typescript
+for await (const chunk of session.sendStream('Tell me a story')) {
+  process.stdout.write(chunk);
+}
+console.log(); // Newline after streaming completes
+```
+
+The `sendStream()` method works just like `send()` for conversation management — it adds the user message to history before streaming, and records the full assembled response after the stream is consumed. Tools are handled transparently through the broker's recursive streaming.
+
 ## Summary
 
 In this tutorial, we've learned how to:

@@ -1,6 +1,6 @@
 {
   "name": "mojentic",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Modern LLM integration framework for TypeScript with tool support and structured output generation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

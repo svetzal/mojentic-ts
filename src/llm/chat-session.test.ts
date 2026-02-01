@@ -12,10 +12,12 @@ import { DateResolverTool } from './tools/date-resolver';
 // Mock gateway for testing
 class MockGateway implements LlmGateway {
   private responses: string[] = [];
+  private streamChunks: string[][] = [];
   private currentIndex = 0;
 
-  constructor(responses: string[]) {
+  constructor(responses: string[], streamChunks?: string[][]) {
     this.responses = responses;
+    this.streamChunks = streamChunks || [];
   }
 
   async generate(): Promise<Result<GatewayResponse, Error>> {
@@ -28,9 +30,19 @@ class MockGateway implements LlmGateway {
   }
 
   async *generateStream(): AsyncGenerator<Result<StreamChunk, Error>> {
-    const response = this.responses[this.currentIndex % this.responses.length];
+    const idx = this.currentIndex % Math.max(this.streamChunks.length, 1);
     this.currentIndex++;
-    yield Ok({ content: response, done: true });
+    if (this.streamChunks.length > 0) {
+      // eslint-disable-next-line security/detect-object-injection -- Safe: bounded numeric array index
+      const chunks = this.streamChunks[idx];
+      for (let i = 0; i < chunks.length; i++) {
+        // eslint-disable-next-line security/detect-object-injection -- Safe: bounded numeric array index
+        yield Ok({ content: chunks[i], done: i === chunks.length - 1 });
+      }
+    } else {
+      const response = this.responses[this.currentIndex - 1] || 'default';
+      yield Ok({ content: response, done: true });
+    }
   }
 
   async listModels(): Promise<Result<string[], Error>> {
@@ -39,6 +51,12 @@ class MockGateway implements LlmGateway {
 
   async calculateEmbeddings(): Promise<Result<number[], Error>> {
     return Ok([0.1, 0.2, 0.3]);
+  }
+}
+
+async function consumeStream(stream: AsyncGenerator<string>): Promise<void> {
+  for await (const chunk of stream) {
+    void chunk;
   }
 }
 
@@ -180,6 +198,68 @@ describe('ChatSession', () => {
       });
 
       expect(session).toBeDefined();
+    });
+  });
+
+  describe('streaming send', () => {
+    it('should yield content chunks', async () => {
+      const gateway = new MockGateway([], [['Hello', ' world']]);
+      const broker = new LlmBroker('test-model', gateway);
+      const session = new ChatSession(broker);
+
+      const chunks: string[] = [];
+      for await (const chunk of session.sendStream('Hi there!')) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toEqual(['Hello', ' world']);
+    });
+
+    it('should grow message history after stream consumed', async () => {
+      const gateway = new MockGateway([], [['Response']]);
+      const broker = new LlmBroker('test-model', gateway);
+      const session = new ChatSession(broker);
+
+      await consumeStream(session.sendStream('Hi there!'));
+
+      const messages = session.getMessages();
+      expect(messages).toHaveLength(3); // system, user, assistant
+    });
+
+    it('should record full assembled response in history', async () => {
+      const gateway = new MockGateway([], [['Hello', ' world']]);
+      const broker = new LlmBroker('test-model', gateway);
+      const session = new ChatSession(broker);
+
+      await consumeStream(session.sendStream('Hi there!'));
+
+      const messages = session.getMessages();
+      expect(messages[2].role).toBe(MessageRole.Assistant);
+      expect(messages[2].content).toBe('Hello world');
+    });
+
+    it('should record user message in history', async () => {
+      const gateway = new MockGateway([], [['Response']]);
+      const broker = new LlmBroker('test-model', gateway);
+      const session = new ChatSession(broker);
+
+      await consumeStream(session.sendStream('My question'));
+
+      const messages = session.getMessages();
+      expect(messages[1].role).toBe(MessageRole.User);
+      expect(messages[1].content).toBe('My question');
+    });
+
+    it('should respect context capacity', async () => {
+      const gateway = new MockGateway([], [['Response 1'], ['Response 2']]);
+      const broker = new LlmBroker('test-model', gateway);
+      const session = new ChatSession(broker, { maxContext: 50 });
+
+      await consumeStream(session.sendStream('First message'));
+      await consumeStream(session.sendStream('Second message'));
+
+      const messages = session.getMessages();
+      expect(messages[0].role).toBe(MessageRole.System);
     });
   });
 
