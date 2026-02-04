@@ -158,7 +158,7 @@ export class FilesystemGateway {
           if (regex.test(content)) {
             files.push(path.relative(this.basePath, fullPath));
           }
-        } catch (error) {
+        } catch {
           // Skip files that can't be read as text
         }
       }

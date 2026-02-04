@@ -41,8 +41,9 @@ describe('OpenAIModelRegistry', () => {
       const capabilities = registry.getModelCapabilities('o1');
 
       expect(capabilities.modelType).toBe(ModelType.REASONING);
-      expect(capabilities.supportsTools).toBe(false);
-      expect(capabilities.supportsStreaming).toBe(false);
+      expect(capabilities.supportsTools).toBe(true);
+      expect(capabilities.supportsStreaming).toBe(true);
+      expect(capabilities.supportedTemperatures).toEqual([1.0]);
     });
 
     it('should return capabilities for GPT-3.5 turbo', () => {
@@ -95,7 +96,7 @@ describe('OpenAIModelRegistry', () => {
   describe('isReasoningModel', () => {
     it('should return true for o1 models', () => {
       expect(registry.isReasoningModel('o1')).toBe(true);
-      expect(registry.isReasoningModel('o1-mini')).toBe(true);
+      expect(registry.isReasoningModel('o1-2024-12-17')).toBe(true);
     });
 
     it('should return true for o3 models', () => {
@@ -103,10 +104,23 @@ describe('OpenAIModelRegistry', () => {
       expect(registry.isReasoningModel('o3-mini')).toBe(true);
     });
 
+    it('should return true for o4 models', () => {
+      expect(registry.isReasoningModel('o4-mini')).toBe(true);
+      expect(registry.isReasoningModel('o4-mini-2025-04-16')).toBe(true);
+    });
+
+    it('should return true for gpt-5 series models', () => {
+      expect(registry.isReasoningModel('gpt-5')).toBe(true);
+      expect(registry.isReasoningModel('gpt-5-2025-08-07')).toBe(true);
+      expect(registry.isReasoningModel('gpt-5.1')).toBe(true);
+      expect(registry.isReasoningModel('gpt-5.2')).toBe(true);
+    });
+
     it('should return false for chat models', () => {
       expect(registry.isReasoningModel('gpt-4')).toBe(false);
       expect(registry.isReasoningModel('gpt-4o')).toBe(false);
       expect(registry.isReasoningModel('gpt-3.5-turbo')).toBe(false);
+      expect(registry.isReasoningModel('gpt-5-chat-latest')).toBe(false);
     });
   });
 
@@ -147,6 +161,87 @@ describe('OpenAIModelRegistry', () => {
       expect(models).toContain('gpt-4o');
       expect(models).toContain('o1');
       expect(models.length).toBeGreaterThan(30);
+    });
+  });
+
+  describe('new models from 2026-02-04 audit', () => {
+    it('should support o3 series with temperature=1.0', () => {
+      const capabilities = registry.getModelCapabilities('o3');
+
+      expect(capabilities.modelType).toBe(ModelType.REASONING);
+      expect(capabilities.supportsTools).toBe(true);
+      expect(capabilities.supportsStreaming).toBe(true);
+      expect(capabilities.supportedTemperatures).toEqual([1.0]);
+    });
+
+    it('should support o3-mini with tools and streaming', () => {
+      const capabilities = registry.getModelCapabilities('o3-mini');
+
+      expect(capabilities.supportsTools).toBe(true);
+      expect(capabilities.supportsStreaming).toBe(true);
+    });
+
+    it('should support o4-mini-2025-04-16 with tools', () => {
+      const capabilities = registry.getModelCapabilities('o4-mini-2025-04-16');
+
+      expect(capabilities.supportsTools).toBe(true);
+      expect(capabilities.supportsStreaming).toBe(true);
+    });
+
+    it('should recognize gpt-5-chat-latest as chat model', () => {
+      const capabilities = registry.getModelCapabilities('gpt-5-chat-latest');
+
+      expect(capabilities.modelType).toBe(ModelType.CHAT);
+      expect(capabilities.supportsTools).toBe(true);
+      expect(capabilities.supportsStreaming).toBe(true);
+    });
+
+    it('should recognize chatgpt-4o-latest with no tools', () => {
+      const capabilities = registry.getModelCapabilities('chatgpt-4o-latest');
+
+      expect(capabilities.modelType).toBe(ModelType.CHAT);
+      expect(capabilities.supportsTools).toBe(false);
+      expect(capabilities.supportsStreaming).toBe(true);
+    });
+
+    it('should recognize gpt-4.1-nano with no tools', () => {
+      const capabilities = registry.getModelCapabilities('gpt-4.1-nano');
+
+      expect(capabilities.modelType).toBe(ModelType.CHAT);
+      expect(capabilities.supportsTools).toBe(false);
+    });
+
+    it('should recognize search models with no tools and no temperature', () => {
+      const capabilities = registry.getModelCapabilities('gpt-5-search-api');
+
+      expect(capabilities.modelType).toBe(ModelType.CHAT);
+      expect(capabilities.supportsTools).toBe(false);
+      expect(capabilities.supportsStreaming).toBe(true);
+      expect(capabilities.supportedTemperatures).toEqual([]);
+    });
+
+    it('should recognize audio models with no streaming', () => {
+      const capabilities = registry.getModelCapabilities('gpt-4o-audio-preview');
+
+      expect(capabilities.modelType).toBe(ModelType.CHAT);
+      expect(capabilities.supportsTools).toBe(false);
+      expect(capabilities.supportsStreaming).toBe(false);
+    });
+
+    it('should recognize gpt-5.1 as reasoning model', () => {
+      const capabilities = registry.getModelCapabilities('gpt-5.1');
+
+      expect(capabilities.modelType).toBe(ModelType.REASONING);
+      expect(capabilities.supportsTools).toBe(true);
+      expect(capabilities.supportsStreaming).toBe(true);
+    });
+
+    it('should recognize gpt-5.2 as reasoning model', () => {
+      const capabilities = registry.getModelCapabilities('gpt-5.2');
+
+      expect(capabilities.modelType).toBe(ModelType.REASONING);
+      expect(capabilities.supportsTools).toBe(true);
+      expect(capabilities.supportsStreaming).toBe(true);
     });
   });
 });

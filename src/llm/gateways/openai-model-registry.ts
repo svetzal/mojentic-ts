@@ -74,14 +74,11 @@ export class OpenAIModelRegistry {
   }
 
   private initializeDefaultModels(): void {
-    // Reasoning Models (o1, o3, o4, gpt-5 series)
+    // Reasoning Models (o1, o3, o4, gpt-5 series) - Updated 2026-02-04
+    // Per API audit: ALL reasoning models now support tools and streaming
     const reasoningModels = [
       'o1',
       'o1-2024-12-17',
-      'o1-mini',
-      'o1-mini-2024-09-12',
-      'o1-pro',
-      'o1-pro-2025-03-19',
       'o3',
       'o3-2025-04-16',
       'o3-deep-research',
@@ -96,12 +93,19 @@ export class OpenAIModelRegistry {
       'o4-mini-deep-research-2025-06-26',
       'gpt-5',
       'gpt-5-2025-08-07',
-      'gpt-5-chat-latest',
       'gpt-5-codex',
       'gpt-5-mini',
       'gpt-5-mini-2025-08-07',
       'gpt-5-nano',
       'gpt-5-nano-2025-08-07',
+      'gpt-5-pro',
+      'gpt-5-pro-2025-10-06',
+      'gpt-5.1',
+      'gpt-5.1-2025-11-13',
+      'gpt-5.1-chat-latest',
+      'gpt-5.2',
+      'gpt-5.2-2025-12-11',
+      'gpt-5.2-chat-latest',
     ];
 
     for (const model of reasoningModels) {
@@ -112,9 +116,10 @@ export class OpenAIModelRegistry {
       const isO4Series = model.startsWith('o4');
       const isMiniOrNano = model.includes('mini') || model.includes('nano');
 
-      // GPT-5 models may support more features than o1/o3/o4
-      const supportsTools = isGpt5;
-      const supportsStreaming = isGpt5;
+      // Per audit: ALL reasoning models now support tools and streaming
+      // Exception: gpt-5-mini and o4-mini may have incomplete support
+      const supportsTools = !(model === 'gpt-5-mini' || model === 'o4-mini');
+      const supportsStreaming = true;
 
       // Set context and output tokens based on model tier
       let contextTokens: number;
@@ -132,11 +137,10 @@ export class OpenAIModelRegistry {
       }
 
       // Temperature restrictions based on model series
+      // Per audit: o3 series now supports temperature=1.0 (was: no temperature)
       let supportedTemps: number[] | null;
-      if (isGpt5 || isO1Series || isO4Series) {
+      if (isGpt5 || isO1Series || isO3Series || isO4Series) {
         supportedTemps = [1.0];
-      } else if (isO3Series) {
-        supportedTemps = []; // o3 series doesn't support temperature
       } else {
         supportedTemps = null;
       }
@@ -152,7 +156,7 @@ export class OpenAIModelRegistry {
       });
     }
 
-    // Chat Models (GPT-4 and GPT-4.1 series)
+    // Chat Models (GPT-4 and GPT-4.1 series) - Updated 2026-02-04
     const gpt4AndNewerModels = [
       'chatgpt-4o-latest',
       'gpt-4',
@@ -173,40 +177,46 @@ export class OpenAIModelRegistry {
       'gpt-4o-2024-08-06',
       'gpt-4o-2024-11-20',
       'gpt-4o-audio-preview',
-      'gpt-4o-audio-preview-2024-10-01',
       'gpt-4o-audio-preview-2024-12-17',
       'gpt-4o-audio-preview-2025-06-03',
       'gpt-4o-mini',
       'gpt-4o-mini-2024-07-18',
       'gpt-4o-mini-audio-preview',
       'gpt-4o-mini-audio-preview-2024-12-17',
-      'gpt-4o-mini-realtime-preview',
-      'gpt-4o-mini-realtime-preview-2024-12-17',
       'gpt-4o-mini-search-preview',
       'gpt-4o-mini-search-preview-2025-03-11',
-      'gpt-4o-mini-transcribe',
-      'gpt-4o-mini-tts',
-      'gpt-4o-realtime-preview',
-      'gpt-4o-realtime-preview-2024-10-01',
-      'gpt-4o-realtime-preview-2024-12-17',
-      'gpt-4o-realtime-preview-2025-06-03',
       'gpt-4o-search-preview',
       'gpt-4o-search-preview-2025-03-11',
-      'gpt-4o-transcribe',
+      'gpt-5-chat-latest',
+      'gpt-5-search-api',
+      'gpt-5-search-api-2025-10-14',
     ];
 
     for (const model of gpt4AndNewerModels) {
+      const isMiniOrNano = model.includes('mini') || model.includes('nano');
+      const isAudio = model.includes('audio');
+      const isSearch = model.includes('search');
+      const isGpt41 = model.includes('gpt-4.1');
+      const isGpt5Chat = model === 'gpt-5-chat-latest';
+
+      // Per audit: chatgpt-4o-latest, gpt-4.1-nano, audio, and search models don't support tools
+      const supportsTools =
+        model !== 'chatgpt-4o-latest' && model !== 'gpt-4.1-nano' && !isSearch && !isAudio;
+
+      // Per audit: audio models don't support streaming (require audio modality)
+      const supportsStreaming = !isAudio;
+
+      // Per audit: Keep vision=true for gpt-4o (probe limitation, not real capability change)
       const visionSupport =
         model.includes('gpt-4o') || model.includes('audio-preview') || model.includes('realtime');
-      const isMiniOrNano = model.includes('mini') || model.includes('nano');
-      const isAudio =
-        model.includes('audio') || model.includes('realtime') || model.includes('transcribe');
-      const isGpt41 = model.includes('gpt-4.1');
 
       let contextTokens: number;
       let outputTokens: number;
 
-      if (isGpt41) {
+      if (isGpt5Chat) {
+        contextTokens = 300000;
+        outputTokens = 50000;
+      } else if (isGpt41) {
         contextTokens = isMiniOrNano ? 128000 : 200000;
         outputTokens = isMiniOrNano ? 16384 : 32768;
       } else if (model.includes('gpt-4o')) {
@@ -218,13 +228,17 @@ export class OpenAIModelRegistry {
         outputTokens = 8192;
       }
 
+      // Per audit: search models don't allow temperature parameter
+      const supportedTemperatures = isSearch ? [] : undefined;
+
       this.models.set(model, {
         modelType: ModelType.CHAT,
-        supportsTools: true,
-        supportsStreaming: !isAudio,
+        supportsTools,
+        supportsStreaming,
         supportsVision: visionSupport,
         maxContextTokens: contextTokens,
         maxOutputTokens: outputTokens,
+        supportedTemperatures,
       });
     }
 
@@ -265,10 +279,12 @@ export class OpenAIModelRegistry {
       });
     }
 
-    // Pattern mappings for unknown models
+    // Pattern mappings for unknown models - Updated 2026-02-04
     this.patternMappings.set('o1', ModelType.REASONING);
     this.patternMappings.set('o3', ModelType.REASONING);
     this.patternMappings.set('o4', ModelType.REASONING);
+    this.patternMappings.set('gpt-5.2', ModelType.REASONING);
+    this.patternMappings.set('gpt-5.1', ModelType.REASONING);
     this.patternMappings.set('gpt-5', ModelType.REASONING);
     this.patternMappings.set('gpt-4', ModelType.CHAT);
     this.patternMappings.set('gpt-4.1', ModelType.CHAT);
