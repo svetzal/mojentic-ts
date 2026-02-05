@@ -31,6 +31,9 @@ export interface ModelCapabilities {
   maxOutputTokens?: number;
   /** null means all temperatures supported, empty array means no temperature parameter allowed */
   supportedTemperatures?: number[] | null;
+  supportsChatApi: boolean;
+  supportsCompletionsApi: boolean;
+  supportsResponsesApi: boolean;
 }
 
 /**
@@ -145,6 +148,11 @@ export class OpenAIModelRegistry {
         supportedTemps = null;
       }
 
+      // API endpoint support flags
+      const isResponsesOnly =
+        model.includes('pro') || model.includes('deep-research') || model === 'gpt-5-codex';
+      const isBothEndpoint = model === 'gpt-5.1' || model === 'gpt-5.1-2025-11-13';
+
       this.models.set(model, {
         modelType: ModelType.REASONING,
         supportsTools,
@@ -153,6 +161,9 @@ export class OpenAIModelRegistry {
         maxContextTokens: contextTokens,
         maxOutputTokens: outputTokens,
         supportedTemperatures: supportedTemps,
+        supportsChatApi: !isResponsesOnly,
+        supportsCompletionsApi: isBothEndpoint,
+        supportsResponsesApi: isResponsesOnly,
       });
     }
 
@@ -231,6 +242,14 @@ export class OpenAIModelRegistry {
       // Per audit: search models don't allow temperature parameter
       const supportedTemperatures = isSearch ? [] : undefined;
 
+      // API endpoint support flags
+      const isBothEndpoint = [
+        'gpt-4.1-nano',
+        'gpt-4.1-nano-2025-04-14',
+        'gpt-4o-mini',
+        'gpt-4o-mini-2024-07-18',
+      ].includes(model);
+
       this.models.set(model, {
         modelType: ModelType.CHAT,
         supportsTools,
@@ -239,6 +258,9 @@ export class OpenAIModelRegistry {
         maxContextTokens: contextTokens,
         maxOutputTokens: outputTokens,
         supportedTemperatures,
+        supportsChatApi: true,
+        supportsCompletionsApi: isBothEndpoint,
+        supportsResponsesApi: false,
       });
     }
 
@@ -253,13 +275,17 @@ export class OpenAIModelRegistry {
     ];
 
     for (const model of gpt35Models) {
+      const isInstruct = model.includes('instruct');
       this.models.set(model, {
         modelType: ModelType.CHAT,
-        supportsTools: !model.includes('instruct'),
-        supportsStreaming: !model.includes('instruct'),
+        supportsTools: !isInstruct,
+        supportsStreaming: !isInstruct,
         supportsVision: false,
         maxContextTokens: 16385,
         maxOutputTokens: 4096,
+        supportsChatApi: !isInstruct,
+        supportsCompletionsApi: isInstruct,
+        supportsResponsesApi: false,
       });
     }
 
@@ -276,8 +302,57 @@ export class OpenAIModelRegistry {
         supportsTools: false,
         supportsStreaming: false,
         supportsVision: false,
+        supportsChatApi: false,
+        supportsCompletionsApi: false,
+        supportsResponsesApi: false,
       });
     }
+
+    // Legacy & Codex Models - completions-only and responses-only
+    this.models.set('babbage-002', {
+      modelType: ModelType.CHAT,
+      supportsTools: false,
+      supportsStreaming: false,
+      supportsVision: false,
+      maxContextTokens: 16384,
+      maxOutputTokens: 4096,
+      supportsChatApi: false,
+      supportsCompletionsApi: true,
+      supportsResponsesApi: false,
+    });
+    this.models.set('davinci-002', {
+      modelType: ModelType.CHAT,
+      supportsTools: false,
+      supportsStreaming: false,
+      supportsVision: false,
+      maxContextTokens: 16384,
+      maxOutputTokens: 4096,
+      supportsChatApi: false,
+      supportsCompletionsApi: true,
+      supportsResponsesApi: false,
+    });
+    this.models.set('gpt-5.1-codex-mini', {
+      modelType: ModelType.REASONING,
+      supportsTools: false,
+      supportsStreaming: false,
+      supportsVision: false,
+      maxContextTokens: 200000,
+      maxOutputTokens: 32768,
+      supportsChatApi: false,
+      supportsCompletionsApi: true,
+      supportsResponsesApi: false,
+    });
+    this.models.set('codex-mini-latest', {
+      modelType: ModelType.REASONING,
+      supportsTools: false,
+      supportsStreaming: false,
+      supportsVision: false,
+      maxContextTokens: 200000,
+      maxOutputTokens: 32768,
+      supportsChatApi: false,
+      supportsCompletionsApi: false,
+      supportsResponsesApi: true,
+    });
 
     // Pattern mappings for unknown models - Updated 2026-02-04
     this.patternMappings.set('o1', ModelType.REASONING);
@@ -328,6 +403,9 @@ export class OpenAIModelRegistry {
           supportsTools: false,
           supportsStreaming: false,
           supportsVision: false,
+          supportsChatApi: true,
+          supportsCompletionsApi: false,
+          supportsResponsesApi: false,
         };
       case ModelType.CHAT:
         return {
@@ -335,6 +413,9 @@ export class OpenAIModelRegistry {
           supportsTools: true,
           supportsStreaming: true,
           supportsVision: false,
+          supportsChatApi: true,
+          supportsCompletionsApi: false,
+          supportsResponsesApi: false,
         };
       case ModelType.EMBEDDING:
         return {
@@ -342,6 +423,9 @@ export class OpenAIModelRegistry {
           supportsTools: false,
           supportsStreaming: false,
           supportsVision: false,
+          supportsChatApi: false,
+          supportsCompletionsApi: false,
+          supportsResponsesApi: false,
         };
       case ModelType.MODERATION:
       default:
@@ -350,6 +434,9 @@ export class OpenAIModelRegistry {
           supportsTools: false,
           supportsStreaming: false,
           supportsVision: false,
+          supportsChatApi: false,
+          supportsCompletionsApi: false,
+          supportsResponsesApi: false,
         };
     }
   }

@@ -133,6 +133,9 @@ describe('OpenAIModelRegistry', () => {
         supportsVision: false,
         maxContextTokens: 8192,
         maxOutputTokens: 4096,
+        supportsChatApi: true,
+        supportsCompletionsApi: false,
+        supportsResponsesApi: false,
       });
 
       const capabilities = registry.getModelCapabilities('custom-model');
@@ -253,6 +256,9 @@ describe('getTokenLimitParam', () => {
       supportsTools: false,
       supportsStreaming: false,
       supportsVision: false,
+      supportsChatApi: true,
+      supportsCompletionsApi: false,
+      supportsResponsesApi: false,
     };
 
     expect(getTokenLimitParam(capabilities)).toBe('max_completion_tokens');
@@ -264,6 +270,9 @@ describe('getTokenLimitParam', () => {
       supportsTools: true,
       supportsStreaming: true,
       supportsVision: false,
+      supportsChatApi: true,
+      supportsCompletionsApi: false,
+      supportsResponsesApi: false,
     };
 
     expect(getTokenLimitParam(capabilities)).toBe('max_tokens');
@@ -278,6 +287,9 @@ describe('supportsTemperature', () => {
       supportsStreaming: true,
       supportsVision: false,
       supportedTemperatures: null,
+      supportsChatApi: true,
+      supportsCompletionsApi: false,
+      supportsResponsesApi: false,
     };
 
     expect(supportsTemperature(capabilities, 0.5)).toBe(true);
@@ -291,6 +303,9 @@ describe('supportsTemperature', () => {
       supportsStreaming: false,
       supportsVision: false,
       supportedTemperatures: [],
+      supportsChatApi: true,
+      supportsCompletionsApi: false,
+      supportsResponsesApi: false,
     };
 
     expect(supportsTemperature(capabilities, 0.5)).toBe(false);
@@ -304,6 +319,9 @@ describe('supportsTemperature', () => {
       supportsStreaming: false,
       supportsVision: false,
       supportedTemperatures: [1.0],
+      supportsChatApi: true,
+      supportsCompletionsApi: false,
+      supportsResponsesApi: false,
     };
 
     expect(supportsTemperature(capabilities, 1.0)).toBe(true);
@@ -329,5 +347,79 @@ describe('getModelRegistry', () => {
     const registry2 = getModelRegistry();
 
     expect(registry1).not.toBe(registry2);
+  });
+});
+
+describe('API endpoint support flags', () => {
+  let registry: OpenAIModelRegistry;
+
+  beforeEach(() => {
+    resetModelRegistry();
+    registry = new OpenAIModelRegistry();
+  });
+
+  it('should flag chat-only model correctly', () => {
+    const caps = registry.getModelCapabilities('gpt-4');
+    expect(caps.supportsChatApi).toBe(true);
+    expect(caps.supportsCompletionsApi).toBe(false);
+    expect(caps.supportsResponsesApi).toBe(false);
+  });
+
+  it('should flag both-endpoint model correctly', () => {
+    const caps = registry.getModelCapabilities('gpt-4o-mini');
+    expect(caps.supportsChatApi).toBe(true);
+    expect(caps.supportsCompletionsApi).toBe(true);
+    expect(caps.supportsResponsesApi).toBe(false);
+  });
+
+  it('should flag completions-only model correctly', () => {
+    const caps = registry.getModelCapabilities('gpt-3.5-turbo-instruct');
+    expect(caps.supportsChatApi).toBe(false);
+    expect(caps.supportsCompletionsApi).toBe(true);
+    expect(caps.supportsResponsesApi).toBe(false);
+  });
+
+  it('should flag responses-only model correctly', () => {
+    const caps = registry.getModelCapabilities('gpt-5-pro');
+    expect(caps.supportsChatApi).toBe(false);
+    expect(caps.supportsCompletionsApi).toBe(false);
+    expect(caps.supportsResponsesApi).toBe(true);
+  });
+
+  it('should flag legacy completions model correctly', () => {
+    const caps = registry.getModelCapabilities('babbage-002');
+    expect(caps.supportsChatApi).toBe(false);
+    expect(caps.supportsCompletionsApi).toBe(true);
+    expect(caps.supportsResponsesApi).toBe(false);
+  });
+
+  it('should flag embedding model with no endpoints', () => {
+    const caps = registry.getModelCapabilities('text-embedding-3-large');
+    expect(caps.supportsChatApi).toBe(false);
+    expect(caps.supportsCompletionsApi).toBe(false);
+    expect(caps.supportsResponsesApi).toBe(false);
+  });
+
+  it('should flag codex-mini-latest as responses-only', () => {
+    const caps = registry.getModelCapabilities('codex-mini-latest');
+    expect(caps.supportsChatApi).toBe(false);
+    expect(caps.supportsCompletionsApi).toBe(false);
+    expect(caps.supportsResponsesApi).toBe(true);
+  });
+
+  it('should flag gpt-5.1 as both chat and completions', () => {
+    const caps = registry.getModelCapabilities('gpt-5.1');
+    expect(caps.supportsChatApi).toBe(true);
+    expect(caps.supportsCompletionsApi).toBe(true);
+    expect(caps.supportsResponsesApi).toBe(false);
+  });
+
+  it('should include endpoint flags in default capabilities', () => {
+    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+    const caps = registry.getModelCapabilities('completely-unknown-model-xyz');
+    expect(caps.supportsChatApi).toBe(true);
+    expect(caps.supportsCompletionsApi).toBe(false);
+    expect(caps.supportsResponsesApi).toBe(false);
+    consoleSpy.mockRestore();
   });
 });
