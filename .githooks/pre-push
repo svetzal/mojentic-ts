@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "========================================"
+echo "  Mojentic TypeScript — Pre-Push Checks"
+echo "========================================"
+
+echo ""
+echo "--- [1/5] ESLint (zero warnings) ---"
+npm run lint -- --max-warnings 0
+echo "PASSED"
+
+echo ""
+echo "--- [2/5] Prettier (format check) ---"
+npm run format:check
+echo "PASSED"
+
+echo ""
+echo "--- [3/5] TypeScript build ---"
+npm run build
+echo "PASSED"
+
+echo ""
+echo "--- [4/5] Jest tests ---"
+npm test
+echo "PASSED"
+
+echo ""
+echo "--- [5/5] npm audit (security) ---"
+npm audit --omit=dev --audit-level=moderate
+echo "PASSED"
+
+echo ""
+echo "========================================"
+echo "  All checks passed — push allowed"
+echo "========================================"
