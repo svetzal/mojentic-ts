@@ -572,6 +572,70 @@ describe('OllamaGateway', () => {
         expect(result.value.toolCalls?.[0].function.name).toBe('get_weather');
       }
     });
+
+    test('should add think parameter when reasoningEffort is set', async () => {
+      const mockResponse = {
+        model: 'llama2',
+        created_at: '2023-01-01T00:00:00Z',
+        message: {
+          role: 'assistant',
+          content: 'After careful consideration, the answer is 42.',
+          thinking: 'Let me think about this problem step by step...',
+        },
+        done: true,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const messages = [{ role: MessageRole.User, content: 'Think carefully' }];
+      const config = { reasoningEffort: 'high' as const };
+
+      const result = await gateway.generate('llama2', messages, config);
+
+      expect(isOk(result)).toBe(true);
+      if (isOk(result)) {
+        expect(result.value.content).toBe('After careful consideration, the answer is 42.');
+        expect(result.value.thinking).toBe('Let me think about this problem step by step...');
+      }
+
+      // Verify think parameter was included in request
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.think).toBe(true);
+    });
+
+    test('should not add think parameter when reasoningEffort is not set', async () => {
+      const mockResponse = {
+        model: 'llama2',
+        created_at: '2023-01-01T00:00:00Z',
+        message: {
+          role: 'assistant',
+          content: 'Simple answer.',
+        },
+        done: true,
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      });
+
+      const messages = [{ role: MessageRole.User, content: 'Quick question' }];
+
+      const result = await gateway.generate('llama2', messages);
+
+      expect(isOk(result)).toBe(true);
+
+      // Verify think parameter was NOT included in request
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+      expect(body.think).toBeUndefined();
+    });
   });
 
   describe('listModels', () => {

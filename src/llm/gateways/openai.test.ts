@@ -194,6 +194,57 @@ describe('OpenAIGateway', () => {
       expect(requestBody.tools).toHaveLength(1);
       expect(requestBody.tools[0].function.name).toBe('test_tool');
     });
+
+    it('should include reasoning_effort for reasoning models', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'chatcmpl-123',
+          choices: [
+            {
+              index: 0,
+              message: { role: 'assistant', content: 'Thoughtful response' },
+              finish_reason: 'stop',
+            },
+          ],
+        }),
+      });
+
+      await gateway.generate('o3', [{ role: MessageRole.User, content: 'Think carefully' }], {
+        reasoningEffort: 'high',
+      });
+
+      const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(requestBody.reasoning_effort).toBe('high');
+    });
+
+    it('should warn and ignore reasoning_effort for non-reasoning models', async () => {
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'chatcmpl-123',
+          choices: [
+            {
+              index: 0,
+              message: { role: 'assistant', content: 'Response' },
+              finish_reason: 'stop',
+            },
+          ],
+        }),
+      });
+
+      await gateway.generate('gpt-4', [{ role: MessageRole.User, content: 'Hello' }], {
+        reasoningEffort: 'high',
+      });
+
+      const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(requestBody.reasoning_effort).toBeUndefined();
+      expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('not a reasoning model'));
+
+      consoleWarnSpy.mockRestore();
+    });
   });
 
   describe('listModels', () => {

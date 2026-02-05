@@ -386,6 +386,7 @@ interface CompletionConfig {
     type: 'json_object' | 'text';
     schema?: Record<string, unknown>;
   };
+  reasoningEffort?: 'low' | 'medium' | 'high';
 }
 ```
 
@@ -403,6 +404,9 @@ Configuration for LLM generation.
 - `stop`: Array of strings that will stop generation
 - `stream`: Whether to stream responses
 - `responseFormat`: Structured output configuration for JSON responses
+- `reasoningEffort`: Extended thinking effort level ('low', 'medium', 'high')
+  - Ollama: Maps to `think: true` parameter for extended thinking
+  - OpenAI: Maps to `reasoning_effort` API parameter for reasoning models (o1, o3, etc.)
 
 ## Gateway Types
 
@@ -418,6 +422,7 @@ interface GatewayResponse {
     completionTokens: number;
     totalTokens: number;
   };
+  thinking?: string;
 }
 ```
 
@@ -428,6 +433,7 @@ Response from LLM gateway.
 - `toolCalls`: Tool calls requested by LLM
 - `finishReason`: Why generation stopped
 - `usage`: Token usage statistics
+- `thinking`: Model's reasoning trace (populated by Ollama when reasoningEffort is set)
 
 ### StreamChunk
 

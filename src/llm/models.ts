@@ -83,6 +83,11 @@ export class Message {
 }
 
 /**
+ * Reasoning effort level for extended thinking
+ */
+export type ReasoningEffort = 'low' | 'medium' | 'high';
+
+/**
  * Configuration for LLM completion requests
  */
 export interface CompletionConfig {
@@ -100,6 +105,7 @@ export interface CompletionConfig {
     type: 'json_object' | 'text';
     schema?: Record<string, unknown>;
   };
+  reasoningEffort?: ReasoningEffort;
 }
 
 /**
@@ -115,6 +121,7 @@ export interface GatewayResponse {
     totalTokens: number;
   };
   model?: string;
+  thinking?: string;
 }
 
 /**

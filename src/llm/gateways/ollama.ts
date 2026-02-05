@@ -30,6 +30,7 @@ interface OllamaResponse {
     role: string;
     content: string;
     tool_calls?: ToolCall[];
+    thinking?: string;
   };
   done: boolean;
   total_duration?: number;
@@ -45,6 +46,7 @@ interface OllamaStreamResponse {
     role: string;
     content: string;
     tool_calls?: ToolCall[];
+    thinking?: string;
   };
   done: boolean;
 }
@@ -121,6 +123,10 @@ export class OllamaGateway implements LlmGateway {
         requestBody.format = config.responseFormat.schema || 'json';
       }
 
+      if (config?.reasoningEffort) {
+        requestBody.think = true;
+      }
+
       const response = await fetch(`${this.baseUrl}/api/chat`, {
         method: 'POST',
         headers: {
@@ -146,6 +152,7 @@ export class OllamaGateway implements LlmGateway {
         toolCalls: data.message.tool_calls,
         finishReason: data.done ? 'stop' : undefined,
         model: data.model,
+        thinking: data.message.thinking,
       };
 
       if (data.prompt_eval_count !== undefined && data.eval_count !== undefined) {
@@ -217,6 +224,10 @@ export class OllamaGateway implements LlmGateway {
       if (config?.responseFormat?.type === 'json_object') {
         // Pass the schema to Ollama's format field for structured output
         requestBody.format = config.responseFormat.schema || 'json';
+      }
+
+      if (config?.reasoningEffort) {
+        requestBody.think = true;
       }
 
       const response = await fetch(`${this.baseUrl}/api/chat`, {

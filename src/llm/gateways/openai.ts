@@ -154,6 +154,18 @@ export class OpenAIGateway implements LlmGateway {
       }
     }
 
+    // Handle reasoning effort parameter
+    if ('reasoningEffort' in adaptedArgs && adaptedArgs.reasoningEffort !== undefined) {
+      if (capabilities.modelType === ModelType.REASONING) {
+        // Reasoning models support reasoning_effort parameter
+        adaptedArgs.reasoning_effort = adaptedArgs.reasoningEffort;
+      } else {
+        // Non-reasoning models don't support this parameter
+        console.warn(`Model ${model} is not a reasoning model, ignoring reasoningEffort parameter`);
+      }
+      delete adaptedArgs.reasoningEffort;
+    }
+
     return adaptedArgs;
   }
 
@@ -206,6 +218,7 @@ export class OpenAIGateway implements LlmGateway {
         numCtx: config?.numCtx ?? 32768,
         maxTokens: config?.maxTokens ?? 16384,
         numPredict: config?.numPredict,
+        reasoningEffort: config?.reasoningEffort,
       };
 
       // Adapt parameters based on model type
@@ -258,6 +271,11 @@ export class OpenAIGateway implements LlmGateway {
         adaptedArgs.maxCompletionTokens !== undefined
       ) {
         requestBody.max_completion_tokens = adaptedArgs.maxCompletionTokens;
+      }
+
+      // Handle reasoning effort parameter
+      if ('reasoning_effort' in adaptedArgs && adaptedArgs.reasoning_effort !== undefined) {
+        requestBody.reasoning_effort = adaptedArgs.reasoning_effort;
       }
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -341,6 +359,7 @@ export class OpenAIGateway implements LlmGateway {
         numCtx: config?.numCtx ?? 32768,
         maxTokens: config?.maxTokens ?? 16384,
         numPredict: config?.numPredict,
+        reasoningEffort: config?.reasoningEffort,
       };
 
       // Adapt parameters based on model type
@@ -398,6 +417,11 @@ export class OpenAIGateway implements LlmGateway {
         adaptedArgs.maxCompletionTokens !== undefined
       ) {
         requestBody.max_completion_tokens = adaptedArgs.maxCompletionTokens;
+      }
+
+      // Handle reasoning effort parameter
+      if ('reasoning_effort' in adaptedArgs && adaptedArgs.reasoning_effort !== undefined) {
+        requestBody.reasoning_effort = adaptedArgs.reasoning_effort;
       }
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {

@@ -341,6 +341,29 @@ describe('LlmBroker', () => {
         expect(result.error.message).toContain('no tools provided');
       }
     });
+
+    test('should pass config with reasoningEffort to gateway', async () => {
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Think carefully' }];
+      const config: CompletionConfig = {
+        temperature: 0.7,
+        reasoningEffort: 'high',
+      };
+
+      gateway.setResponse(
+        Ok({
+          content: 'I have thought deeply about this.',
+          finishReason: 'stop',
+          model: 'test-model',
+        })
+      );
+
+      const result = await broker.generate(messages, undefined, config);
+
+      expect(isOk(result)).toBe(true);
+      if (isOk(result)) {
+        expect(result.value).toBe('I have thought deeply about this.');
+      }
+    });
   });
 
   describe('generateObject', () => {

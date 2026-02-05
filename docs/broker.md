@@ -242,6 +242,25 @@ const jsonConfig: CompletionConfig = {
 };
 ```
 
+### Reasoning Effort
+
+Control how much the model thinks before responding:
+
+```typescript
+// Deep reasoning for complex problems
+const thinkingConfig: CompletionConfig = {
+  reasoningEffort: 'high',
+  temperature: 0.1
+};
+
+// Quick responses
+const fastConfig: CompletionConfig = {
+  reasoningEffort: 'low'
+};
+```
+
+For Ollama, this enables the `think: true` parameter. For OpenAI reasoning models (o1, o3 series), it maps to the `reasoning_effort` API parameter. See [Reasoning Effort](reasoning-effort.md) for full details.
+
 ## Best Practices
 
 ### 1. Use System Messages

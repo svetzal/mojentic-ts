@@ -44,6 +44,7 @@ export default defineConfig({
         text: 'Core Concepts',
         items: [
           { text: 'LLM Broker', link: '/broker' },
+          { text: 'Reasoning Effort', link: '/reasoning-effort' },
           { text: 'Tool Usage', link: '/tool-usage' },
           { text: 'Agent Delegation', link: '/agent-delegation' },
           { text: 'Async Agents', link: '/async-agents' },
