@@ -14,7 +14,7 @@ function deepMerge(
   target: Record<string, unknown>,
   source: Record<string, unknown>
 ): Record<string, unknown> {
-  // eslint-disable-next-line security/detect-object-injection
+
   const result: Record<string, unknown> = { ...target };
 
   for (const key of Object.keys(source)) {
