@@ -58,7 +58,7 @@
     "vitepress": "^1.0.0-rc.31"
   },
   "dependencies": {
-    "tiktoken": "^1.0.22",
+    "gpt-tokenizer": "^3.4.0",
     "zod": "^4.3.6"
   },
   "overrides": {

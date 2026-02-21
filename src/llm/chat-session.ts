@@ -5,6 +5,7 @@
 import { LlmBroker } from './broker';
 import { LlmMessage, MessageRole } from './models';
 import { LlmTool } from './tools';
+import { Tokenizer } from './gateways/tokenizer';
 import { TokenizerGateway } from './gateways/tokenizerGateway';
 import { isOk } from '../error';
 
@@ -22,7 +23,7 @@ export interface ChatSessionConfig {
   systemPrompt?: string;
   tools?: LlmTool[];
   maxContext?: number;
-  tokenizerGateway?: TokenizerGateway;
+  tokenizerGateway?: Tokenizer;
   temperature?: number;
 }
 
@@ -50,7 +51,7 @@ export class ChatSession {
   private readonly tools?: LlmTool[];
   private readonly maxContext: number;
   private readonly temperature: number;
-  private readonly tokenizerGateway: TokenizerGateway;
+  private readonly tokenizerGateway: Tokenizer;
 
   /**
    * Create a new ChatSession instance.
