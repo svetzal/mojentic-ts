@@ -1,0 +1,29 @@
+{
+  "gates": [
+    {
+      "name": "lint",
+      "command": "npm run lint",
+      "required": true
+    },
+    {
+      "name": "format",
+      "command": "npm run format:check",
+      "required": true
+    },
+    {
+      "name": "test",
+      "command": "npm test",
+      "required": true
+    },
+    {
+      "name": "build",
+      "command": "npm run build",
+      "required": true
+    },
+    {
+      "name": "security",
+      "command": "npm audit --omit=dev --audit-level=moderate",
+      "required": false
+    }
+  ]
+}
