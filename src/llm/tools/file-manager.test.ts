@@ -29,7 +29,6 @@ describe('FilesystemGateway', () => {
   afterEach(() => {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
-
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -350,7 +349,6 @@ describe('ListFilesTool', () => {
   afterEach(() => {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
-
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -426,7 +424,6 @@ describe('ReadFileTool', () => {
   afterEach(() => {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
-
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -496,7 +493,6 @@ describe('WriteFileTool', () => {
   afterEach(() => {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
-
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -576,7 +572,6 @@ describe('ListAllFilesTool', () => {
   afterEach(() => {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
-
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -632,7 +627,6 @@ describe('FindFilesByGlobTool', () => {
   afterEach(() => {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
-
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -694,7 +688,6 @@ describe('FindFilesContainingTool', () => {
   afterEach(() => {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
-
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -753,7 +746,6 @@ describe('FindLinesMatchingTool', () => {
   afterEach(() => {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
-
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
@@ -819,7 +811,6 @@ describe('CreateDirectoryTool', () => {
   afterEach(() => {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test cleanup using controlled tempDir path
     if (fs.existsSync(tempDir)) {
-
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
