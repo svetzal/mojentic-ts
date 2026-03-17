@@ -5,6 +5,15 @@ All notable changes to the Mojentic TypeScript implementation will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.4] - 2026-03-17
+
+### Security
+
+- Updated dependencies to latest patch versions to address known security vulnerabilities
+- Bumped `@typescript-eslint` ecosystem to 8.57.1
+- Bumped `@types/node` to 25.5.0
+- Dependency audit confirms zero vulnerabilities in production dependencies
+
 ## [1.2.3] - 2026-02-27
 
 ### Security
