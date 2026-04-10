@@ -5,6 +5,16 @@ All notable changes to the Mojentic TypeScript implementation will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2026-04-10
+
+### Changed
+
+- Updated TypeScript to 6.0.2 and fixed `moduleResolution` deprecation warning
+- Updated `typescript-eslint` to 8.58.0 and fixed ESLint config module type
+- Updated ESLint to 10.1.0
+- Fixed high-severity vulnerabilities in `flatted` and `picomatch`
+- Dependency audit confirms zero vulnerabilities in production dependencies
+
 ## [1.2.4] - 2026-03-17
 
 ### Security
