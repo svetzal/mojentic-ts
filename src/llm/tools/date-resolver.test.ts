@@ -11,7 +11,7 @@ describe('DateResolverTool', () => {
     tool = new DateResolverTool();
     // Mock the current date to make tests predictable
     jest.useFakeTimers();
-    jest.setSystemTime(new Date('2025-03-15T12:00:00Z')); // Saturday, March 15, 2025
+    jest.setSystemTime(new Date('2025-03-15T12:00:00Z').getTime()); // Saturday, March 15, 2025
   });
 
   afterEach(() => {
