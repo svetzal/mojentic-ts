@@ -112,32 +112,41 @@ npm audit --omit=dev --audit-level=moderate
 - Update version in `package.json`
 - Update `CHANGELOG.md` with release notes
 
-### Release Types
+**Note**: This is a library consumed via npm — no local install step is needed for releases.
 
-#### Standard Release (publishes to npm)
-Use `v*` tags to trigger npm publishing:
+### To create a new release:
 
 ```bash
-# 1. Update version in package.json
-npm version patch  # or minor, or major
+# 1. Pre-flight: ensure all quality gates pass
+npm run lint && npm run format:check && npm test && npm audit --omit=dev --audit-level=moderate
 
-# 2. Update CHANGELOG.md with release notes
+# 2. Update CHANGELOG.md — move [Unreleased] to [X.Y.Z] with today's date
 
-# 3. Commit and push
-git add -A && git commit -m "chore: prepare vX.Y.Z release"
-git push origin main
+# 3. Bump version in package.json
+npm version patch --no-git-tag-version  # or minor, or major
 
-# 4. Create GitHub release with v-prefixed tag
+# 4. Commit
+git add -A && git commit -m "Release vX.Y.Z"
+
+# 5. Tag
+git tag vX.Y.Z
+
+# 6. Push
+git push origin main --tags
+
+# 7. Create GitHub Release (triggers npm publishing via OIDC and docs deploy)
 gh release create vX.Y.Z --title "vX.Y.Z" --notes "Release notes here"
 ```
+
+A `v*`-prefixed tag triggers npm publishing. A non-`v` tag deploys docs only (see below).
 
 The CI/CD pipeline will automatically:
 - Run quality checks (lint, format, test, security)
 - Build the package
 - Deploy documentation to GitHub Pages
-- Publish to npm with provenance
+- Publish to npm with provenance (via OIDC)
 
-#### Documentation-Only Release (no npm publish)
+### Documentation-Only Release (no npm publish)
 Use non-`v` tags for releases that only update documentation:
 
 ```bash
