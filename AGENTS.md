@@ -105,6 +105,14 @@ npm audit --omit=dev --audit-level=moderate
 - Include examples in documentation where helpful
 - Keep README.md synchronized with actual functionality
 
+## Branching Workflow
+
+This project uses trunk-based development. `main` is the only long-lived branch.
+- All work lands on `main` via direct commit.
+- Feature branches are not pushed to `origin`.
+- Pull requests are not used.
+- Short-lived local working branches (e.g. from hopper worktrees) are merged to `main` and deleted locally before work is considered complete.
+
 ## Release Process
 
 ### Versioning
