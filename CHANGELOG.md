@@ -5,6 +5,13 @@ All notable changes to the Mojentic TypeScript implementation will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-04-13
+
+### Security
+
+- Fixed path traversal vulnerability in `vite` (GHSA-4w7w-66w2-5vf9) via npm override pinning `vite>=6.4.2`
+- Dependency audit confirms zero vulnerabilities in production dependencies
+
 ## [1.3.0] - 2026-04-11
 
 ### Changed
