@@ -6,7 +6,7 @@ import { LlmBroker } from './broker';
 import { LlmGateway } from './gateway';
 import { GatewayResponse, LlmMessage, CompletionConfig, MessageRole, ToolCall } from './models';
 import { LlmTool } from './tools';
-import { Result, Ok, Err, isOk, GatewayError } from '../error';
+import { Result, Ok, Err, isOk, GatewayError, ToolError } from '../error';
 
 // Mock Gateway
 class MockGateway implements LlmGateway {
@@ -664,6 +664,70 @@ describe('LlmBroker', () => {
       }
 
       expect(chunks).toEqual(['Tool not found']);
+    });
+
+    test('should limit tool iterations in streaming and yield ToolError', async () => {
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Use tool forever' }];
+
+      const tool = new MockTool('test_tool');
+      tool.setResult(Ok({ result: 'Tool executed' }));
+
+      class InfiniteToolGateway implements LlmGateway {
+        async generate(): Promise<Result<GatewayResponse, Error>> {
+          return Ok({ content: '', finishReason: 'stop', model: 'test' });
+        }
+
+        async *generateStream(): AsyncGenerator<
+          Result<{ content?: string; done: boolean; toolCalls?: ToolCall[] }, Error>
+        > {
+          yield Ok({
+            content: '',
+            done: true,
+            toolCalls: [
+              {
+                id: 'call_123',
+                type: 'function',
+                function: {
+                  name: 'test_tool',
+                  arguments: JSON.stringify({ input: 'test' }),
+                },
+              },
+            ],
+          });
+        }
+
+        async listModels(): Promise<Result<string[], Error>> {
+          return Ok([]);
+        }
+
+        async calculateEmbeddings(
+          _text: string,
+          _model?: string
+        ): Promise<Result<number[], Error>> {
+          return Ok([]);
+        }
+      }
+
+      const infiniteGateway = new InfiniteToolGateway();
+      const infiniteBroker = new LlmBroker('test-model', infiniteGateway);
+
+      const results: Array<Result<string, Error>> = [];
+      for await (const result of infiniteBroker.generateStream(
+        messages,
+        undefined,
+        [tool],
+        undefined,
+        3
+      )) {
+        results.push(result);
+      }
+
+      const lastResult = results[results.length - 1];
+      expect(isOk(lastResult)).toBe(false);
+      if (!isOk(lastResult)) {
+        expect(lastResult.error.message).toContain('Maximum tool iterations');
+        expect(lastResult.error).toBeInstanceOf(ToolError);
+      }
     });
 
     test('should handle streaming without tools when tool calls requested', async () => {

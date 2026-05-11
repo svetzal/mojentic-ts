@@ -276,6 +276,29 @@ describe('AsyncDispatcher', () => {
       await dispatcher.stop();
     });
 
+    it('should wait for in-flight handlers that produce follow-up events', async () => {
+      const followUpAgent = new TestAgent();
+      router.addRoute('ResponseEvent', followUpAgent);
+
+      // Configure first agent with a 50ms delay so it's still in-flight when the queue empties
+      agent.delay = 50;
+
+      await dispatcher.start();
+
+      dispatcher.dispatch({
+        type: 'TestEvent',
+        source: 'TestSource',
+        data: 'initial',
+      } as TestEvent);
+
+      await dispatcher.waitForEmptyQueue(2000);
+      await dispatcher.stop();
+
+      // The follow-up agent should have received the ResponseEvent produced by the slow first agent
+      expect(followUpAgent.receivedEvents).toHaveLength(1);
+      expect((followUpAgent.receivedEvents[0] as ResponseEvent).type).toBe('ResponseEvent');
+    });
+
     it('should timeout if queue does not empty', async () => {
       // Don't start dispatcher - queue will never empty
       dispatcher.dispatch({

@@ -38,6 +38,18 @@ describe('SharedWorkingMemory', () => {
       memory.mergeToWorkingMemory({ count: 2 });
       expect(memory.getWorkingMemory()).toEqual({ count: 2 });
     });
+
+    it('should return a deep copy so nested mutations do not leak back', () => {
+      const memory = new SharedWorkingMemory({ user: { name: 'Alice', tags: ['admin'] } });
+
+      const snapshot = memory.getWorkingMemory() as { user: { name: string; tags: string[] } };
+      snapshot.user.name = 'Mallory';
+      snapshot.user.tags.push('hacker');
+
+      const retrieved = memory.getWorkingMemory() as { user: { name: string; tags: string[] } };
+      expect(retrieved.user.name).toBe('Alice');
+      expect(retrieved.user.tags).toHaveLength(1);
+    });
   });
 
   describe('mergeToWorkingMemory', () => {

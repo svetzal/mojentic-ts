@@ -94,6 +94,23 @@ type UnsubscribeFn = () => void;
  */
 export class EventEmitter {
   private subscribers: Map<string, EventHandler<AnySolverEvent>[]> = new Map();
+  private errorHandlers: ((error: unknown) => void)[] = [];
+
+  /**
+   * Register an error handler for async event handler failures.
+   *
+   * @param handler - The error handler function
+   * @returns A function that can be called to unregister the error handler
+   */
+  onError(handler: (error: unknown) => void): UnsubscribeFn {
+    this.errorHandlers.push(handler);
+    return () => {
+      const index = this.errorHandlers.indexOf(handler);
+      if (index > -1) {
+        this.errorHandlers.splice(index, 1);
+      }
+    };
+  }
 
   /**
    * Subscribe to an event type.
@@ -138,9 +155,15 @@ export class EventEmitter {
         const result = handler(event);
         // If the handler returns a promise, schedule it without blocking
         if (result instanceof Promise) {
-          // Handle promise rejection to prevent unhandled promise rejections
+          // Route errors to registered error handlers or fall back to console.error
           result.catch((error) => {
-            console.error('Error in event handler:', error);
+            if (this.errorHandlers.length > 0) {
+              for (const errorHandler of this.errorHandlers) {
+                errorHandler(error);
+              }
+            } else {
+              console.error('Error in event handler:', error);
+            }
           });
         }
       }
@@ -224,9 +247,11 @@ export class SimpleRecursiveAgent {
    */
   async solve(problem: string): Promise<string> {
     // Create a promise that resolves when the solution is ready
-    let resolveSolution: (value: string) => void;
-    const solutionPromise = new Promise<string>((resolve) => {
+    let resolveSolution!: (value: string) => void;
+    let rejectSolution!: (reason: unknown) => void;
+    const solutionPromise = new Promise<string>((resolve, reject) => {
       resolveSolution = resolve;
+      rejectSolution = reject;
     });
 
     // Create the initial problem state
@@ -249,6 +274,9 @@ export class SimpleRecursiveAgent {
     const unsubscribeAchieved = this.emitter.subscribe('goal-achieved', handleSolutionEvent);
     const unsubscribeFailed = this.emitter.subscribe('goal-failed', handleSolutionEvent);
     const unsubscribeTimeout = this.emitter.subscribe('timeout', handleSolutionEvent);
+    const unsubscribeError = this.emitter.onError((err) => {
+      rejectSolution(err instanceof Error ? err : new Error(String(err)));
+    });
 
     // Start the solving process
     this.emitter.emit({ type: 'goal-submitted', state });
@@ -262,6 +290,7 @@ export class SimpleRecursiveAgent {
       unsubscribeAchieved();
       unsubscribeFailed();
       unsubscribeTimeout();
+      unsubscribeError();
     }
   }
 
@@ -319,12 +348,13 @@ export class SimpleRecursiveAgent {
     const response = event.response;
 
     // Check if the task failed or succeeded
-    if (response.toLowerCase().includes('fail')) {
+    const trimmed = response.trim().toUpperCase();
+    if (trimmed === 'FAIL') {
       state.solution = `Failed to solve after ${state.iteration} iterations:\n${response}`;
       state.isComplete = true;
       this.emitter.emit({ type: 'goal-failed', state });
       return;
-    } else if (response.toLowerCase().includes('done')) {
+    } else if (trimmed === 'DONE') {
       state.solution = response;
       state.isComplete = true;
       this.emitter.emit({ type: 'goal-achieved', state });

@@ -37,6 +37,7 @@ export class AsyncDispatcher {
   private stopFlag: boolean = false;
   private processingLoop?: Promise<void>;
   private readonly batchSize: number;
+  private inFlightCount: number = 0;
 
   /**
    * Create a new async dispatcher.
@@ -103,7 +104,7 @@ export class AsyncDispatcher {
   async waitForEmptyQueue(timeout?: number): Promise<boolean> {
     const startTime = Date.now();
 
-    while (this.eventQueue.length > 0) {
+    while (this.eventQueue.length > 0 || this.inFlightCount > 0) {
       if (timeout !== undefined && Date.now() - startTime > timeout) {
         return false;
       }
@@ -140,6 +141,7 @@ export class AsyncDispatcher {
 
         // Process through each agent
         for (const agent of agents) {
+          this.inFlightCount++;
           try {
             const result = await agent.receiveEventAsync(event);
 
@@ -155,6 +157,8 @@ export class AsyncDispatcher {
             }
           } catch (error) {
             console.error(`Unexpected error in agent:`, error);
+          } finally {
+            this.inFlightCount--;
           }
         }
       }

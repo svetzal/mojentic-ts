@@ -116,18 +116,18 @@ export function adaptMessagesToOpenAI(messages: LlmMessage[]): OpenAIMessage[] {
           type: 'function' as const,
           function: {
             name: tc.function.name,
-            arguments: JSON.stringify(tc.function.arguments),
+            arguments: tc.function.arguments,
           },
         }));
       }
 
       newMessages.push(msg);
     } else if (m.role === 'tool') {
-      if (m.tool_calls && m.tool_calls.length > 0) {
+      if (m.tool_call_id) {
         newMessages.push({
           role: 'tool',
           content: typeof m.content === 'string' ? m.content : '',
-          tool_call_id: m.tool_calls[0].id || '',
+          tool_call_id: m.tool_call_id,
         });
       }
     } else {

@@ -97,7 +97,7 @@ export class SharedWorkingMemory {
    * @returns A copy of the current working memory object
    */
   getWorkingMemory(): Record<string, unknown> {
-    return { ...this._workingMemory };
+    return structuredClone(this._workingMemory);
   }
 
   /**

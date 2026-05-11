@@ -13,9 +13,9 @@ import {
 } from '../simple-recursive-agent';
 import { LlmBroker } from '../../llm/broker';
 import { LlmGateway } from '../../llm/gateway';
-import { LlmTool } from '../../llm/tools/tool';
-import { Ok } from '../../error';
 import { MessageRole } from '../../llm/models';
+import { LlmTool } from '../../llm/tools/tool';
+import { Ok, Err, GatewayError } from '../../error';
 
 // Mock gateway that returns predefined responses
 class MockGateway implements LlmGateway {
@@ -361,6 +361,33 @@ describe('SimpleRecursiveAgent', () => {
     expect(solution).toContain('Failed to solve');
   });
 
+  it('should not terminate early when prose contains "done" as substring', async () => {
+    gateway = new MockGateway(['the task is done', 'DONE']);
+    broker = new LlmBroker('mock-model', gateway);
+    const agent = new SimpleRecursiveAgent(broker);
+    const iterationHandler = jest.fn();
+
+    agent.emitter.subscribe('iteration-completed', iterationHandler);
+
+    const solution = await agent.solve('problem');
+
+    expect(iterationHandler).toHaveBeenCalledTimes(2);
+    expect(solution).toBe('DONE');
+  });
+
+  it('should not terminate early when prose contains "fail" as substring', async () => {
+    gateway = new MockGateway(['I cannot fail to mention X', 'DONE']);
+    broker = new LlmBroker('mock-model', gateway);
+    const agent = new SimpleRecursiveAgent(broker);
+    const iterationHandler = jest.fn();
+
+    agent.emitter.subscribe('iteration-completed', iterationHandler);
+
+    await agent.solve('problem');
+
+    expect(iterationHandler).toHaveBeenCalledTimes(2);
+  });
+
   it('should preserve goal state across iterations', async () => {
     gateway = new MockGateway(['working', 'DONE']);
     broker = new LlmBroker('mock-model', gateway);
@@ -373,5 +400,32 @@ describe('SimpleRecursiveAgent', () => {
     });
 
     await agent.solve(goal);
+  });
+
+  it('should reject solve() when gateway returns an error', async () => {
+    jest.setTimeout(5000);
+
+    class ErrorGateway implements LlmGateway {
+      async generate() {
+        return Err(new GatewayError('boom'));
+      }
+
+      async *generateStream() {
+        yield Ok({ content: 'stream', done: true });
+      }
+
+      async listModels() {
+        return Ok(['mock-model']);
+      }
+
+      async calculateEmbeddings() {
+        return Ok([0.1, 0.2, 0.3]);
+      }
+    }
+
+    const errorBroker = new LlmBroker('mock-model', new ErrorGateway());
+    const agent = new SimpleRecursiveAgent(errorBroker);
+
+    await expect(agent.solve('problem')).rejects.toThrow('boom');
   });
 });
