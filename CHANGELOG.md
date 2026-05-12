@@ -5,6 +5,22 @@ All notable changes to the Mojentic TypeScript implementation will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-05-11
+
+### Added
+
+- `maxToolIterations` option on `CompletionConfig` (default `10`) — bounds recursive tool-calling in both `generate` and `generateStream`; yields/throws a `ToolError` when the limit is reached. Previously `generateStream` could recurse without bound on repeated tool-call responses.
+- Integration test exercising the OpenAI tool-calling round-trip at the HTTP boundary (assistant tool-call → tool result → final response), backed by a shared fixture set used across all four mojentic ports.
+
+### Fixed
+
+- OpenAI gateway adapter silently dropped tool-role messages — it checked the assistant-style `tool_calls` field on tool-role messages instead of `tool_call_id`, so the tool result was excluded from the next request and multi-turn tool calling failed on the second LLM call.
+- OpenAI gateway adapter double-serialized tool-call `arguments` — `JSON.stringify` was applied to an already-serialized JSON string, corrupting tool-call round-trips.
+- `SimpleRecursiveAgent` completion detection used substring matching for `DONE`/`FAIL`; it now requires a strict whole-string match (case-insensitive, trimmed), so prose containing those words no longer triggers premature completion.
+- `AsyncDispatcher.waitForEmptyQueue` could return while agent handlers were still in flight; it now waits for both the queue to drain and all in-flight handlers to complete.
+- Asynchronous event-handler errors in `SimpleRecursiveAgent` were swallowed, leaving `solve()` to hang until its timeout; handler errors now surface via a registered error handler (`onError`).
+- `SharedWorkingMemory.getWorkingMemory()` returned a shallow copy, so nested mutations leaked back into the shared store; it now returns a deep copy.
+
 ## [1.3.1] - 2026-04-13
 
 ### Security
