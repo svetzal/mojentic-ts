@@ -106,6 +106,8 @@ export interface CompletionConfig {
     schema?: Record<string, unknown>;
   };
   reasoningEffort?: ReasoningEffort;
+  /** Maximum number of recursive tool-call iterations before the broker gives up (default: 10). */
+  maxToolIterations?: number;
 }
 
 /**

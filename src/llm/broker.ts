@@ -50,7 +50,7 @@ export class LlmBroker {
    * @param messages - Conversation history as an array of messages
    * @param tools - Optional array of tools the LLM can call
    * @param config - Optional completion configuration (temperature, tokens, etc.)
-   * @param maxToolIterations - Maximum number of recursive tool call iterations (default: 10)
+   * @param correlationId - UUID for tracing related events
    * @returns Result containing the final text response or an error
    *
    * @example
@@ -70,13 +70,14 @@ export class LlmBroker {
     messages: LlmMessage[],
     tools?: LlmTool[],
     config?: CompletionConfig,
-    maxToolIterations: number = 10,
     correlationId?: string
   ): Promise<Result<string, Error>> {
     try {
       const toolDescriptors = tools?.map((t) => t.descriptor());
       const currentMessages = [...messages];
       let iterations = 0;
+
+      const maxToolIterations = config?.maxToolIterations ?? 10;
 
       // Generate correlationId if not provided
       const corrId = correlationId || randomUUID();
@@ -354,15 +355,27 @@ export class LlmBroker {
     messages: LlmMessage[],
     config?: CompletionConfig,
     tools?: LlmTool[],
-    correlationId?: string,
-    maxToolIterations: number = 10
+    correlationId?: string
   ): AsyncGenerator<Result<string, Error>> {
-    if (maxToolIterations <= 0) {
-      yield Err(new ToolError('Maximum tool iterations (10) exceeded'));
+    const maxToolIterations = config?.maxToolIterations ?? 10;
+    const corrId = correlationId || randomUUID();
+    yield* this.generateStreamWithTools(messages, config, tools, corrId, maxToolIterations);
+  }
+
+  private async *generateStreamWithTools(
+    messages: LlmMessage[],
+    config: CompletionConfig | undefined,
+    tools: LlmTool[] | undefined,
+    corrId: string,
+    iterationsRemaining: number
+  ): AsyncGenerator<Result<string, Error>> {
+    const maxToolIterations = config?.maxToolIterations ?? 10;
+
+    if (iterationsRemaining <= 0) {
+      yield Err(new ToolError(`Maximum tool iterations (${maxToolIterations}) exceeded`));
       return;
     }
 
-    const corrId = correlationId || randomUUID();
     const toolDescriptors = tools?.map((t) => t.descriptor());
     const currentMessages = [...messages];
     let accumulatedContent = '';
@@ -508,7 +521,13 @@ export class LlmBroker {
         }
 
         // Recursively stream with updated messages
-        yield* this.generateStream(currentMessages, config, tools, corrId, maxToolIterations - 1);
+        yield* this.generateStreamWithTools(
+          currentMessages,
+          config,
+          tools,
+          corrId,
+          iterationsRemaining - 1
+        );
       } else if (chunk.done) {
         // Stream done without tool calls
         const callDurationMs = Date.now() - startTime;

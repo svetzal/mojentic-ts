@@ -132,7 +132,7 @@ describe('LlmBroker Tracer Integration', () => {
       );
 
       const correlationId = 'test-correlation-id';
-      await broker.generate(messages, undefined, undefined, 10, correlationId);
+      await broker.generate(messages, undefined, undefined, correlationId);
 
       // Verify events were recorded
       const events = tracer.getEvents();
@@ -186,7 +186,7 @@ describe('LlmBroker Tracer Integration', () => {
       ]);
 
       const correlationId = 'test-correlation-id';
-      await broker.generate(messages, [tool], undefined, 10, correlationId);
+      await broker.generate(messages, [tool], undefined, correlationId);
 
       // Verify all events were recorded
       const events = tracer.getEvents();
@@ -232,7 +232,7 @@ describe('LlmBroker Tracer Integration', () => {
       ]);
 
       const correlationId = 'test-correlation-id';
-      await broker.generate(messages, [tool], undefined, 10, correlationId);
+      await broker.generate(messages, [tool], undefined, correlationId);
 
       // All events should have the same correlationId
       const events = tracer.getEvents();

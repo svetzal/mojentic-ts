@@ -33,7 +33,7 @@ async function main() {
   console.log();
 
   // Generate response with tools
-  const result = await broker.generate([message], tools, undefined, 0.0);
+  const result = await broker.generate([message], tools);
 
   if (result.ok) {
     const response = result.value;

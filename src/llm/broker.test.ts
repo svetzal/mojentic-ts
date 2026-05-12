@@ -305,7 +305,7 @@ describe('LlmBroker', () => {
         )
       );
 
-      const result = await broker.generate(messages, [tool], undefined, 5);
+      const result = await broker.generate(messages, [tool], { maxToolIterations: 5 });
 
       expect(isOk(result)).toBe(false);
       if (!isOk(result)) {
@@ -712,13 +712,9 @@ describe('LlmBroker', () => {
       const infiniteBroker = new LlmBroker('test-model', infiniteGateway);
 
       const results: Array<Result<string, Error>> = [];
-      for await (const result of infiniteBroker.generateStream(
-        messages,
-        undefined,
-        [tool],
-        undefined,
-        3
-      )) {
+      for await (const result of infiniteBroker.generateStream(messages, { maxToolIterations: 3 }, [
+        tool,
+      ])) {
         results.push(result);
       }
 

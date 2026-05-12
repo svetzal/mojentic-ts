@@ -97,10 +97,10 @@ export class EventEmitter {
   private errorHandlers: ((error: unknown) => void)[] = [];
 
   /**
-   * Register an error handler for async event handler failures.
+   * Register a handler error handler for async event handler failures.
    *
-   * @param handler - The error handler function
-   * @returns A function that can be called to unregister the error handler
+   * @param handler - The handler error handler function
+   * @returns A function that can be called to unregister the handler error handler
    */
   onError(handler: (error: unknown) => void): UnsubscribeFn {
     this.errorHandlers.push(handler);

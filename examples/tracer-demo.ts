@@ -101,7 +101,6 @@ async function main() {
         messages,
         [dateTool],
         { temperature: 0.7 },
-        10,
         correlationId
       );
 
