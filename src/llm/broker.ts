@@ -4,7 +4,7 @@
 
 import { LlmGateway } from './gateway';
 import { LlmMessage, CompletionConfig, Message, ToolCall } from './models';
-import { LlmTool } from './tools';
+import { LlmTool, SerialToolRunner, ToolCallExecution, ToolCallOutcome, ToolRunner } from './tools';
 import { Result, Ok, Err, isOk, ParseError, ToolError } from '../error';
 import { TracerSystem } from '../tracer';
 import { randomUUID } from 'crypto';
@@ -25,6 +25,7 @@ import { randomUUID } from 'crypto';
  */
 export class LlmBroker {
   private readonly tracer?: TracerSystem;
+  private readonly toolRunner: ToolRunner;
 
   /**
    * Creates a new LLM broker instance.
@@ -32,13 +33,105 @@ export class LlmBroker {
    * @param model - The model name to use (e.g., 'qwen3:32b', 'gpt-4')
    * @param gateway - The gateway implementation for the LLM provider
    * @param tracer - Optional tracer system for recording LLM calls and responses
+   * @param toolRunner - Optional tool execution strategy. Defaults to {@link SerialToolRunner}
+   *   for backward compatibility; pass {@link ParallelToolRunner} to dispatch
+   *   tool calls concurrently within a single assistant turn.
    */
   constructor(
     private readonly model: string,
     private readonly gateway: LlmGateway,
-    tracer?: TracerSystem
+    tracer?: TracerSystem,
+    toolRunner?: ToolRunner
   ) {
     this.tracer = tracer;
+    this.toolRunner = toolRunner ?? new SerialToolRunner();
+  }
+
+  private async runToolBatch(
+    toolCalls: readonly ToolCall[],
+    tools: readonly LlmTool[],
+    corrId: string,
+    source: string
+  ): Promise<{ outcomes: ToolCallOutcome[]; messages: LlmMessage[]; parseFailures: number }> {
+    const executions: ToolCallExecution[] = [];
+    const argsByCallId = new Map<string, Record<string, unknown>>();
+    const parseFailureMessages: LlmMessage[] = [];
+
+    for (const toolCall of toolCalls) {
+      try {
+        const args = JSON.parse(toolCall.function.arguments) as Record<string, unknown>;
+        argsByCallId.set(toolCall.id, args);
+        executions.push({ id: toolCall.id, name: toolCall.function.name, args });
+      } catch (err) {
+        parseFailureMessages.push(
+          Message.tool(
+            JSON.stringify({
+              error: err instanceof Error ? err.message : String(err),
+            }),
+            toolCall.id,
+            toolCall.function.name
+          )
+        );
+      }
+    }
+
+    const batchId = randomUUID();
+    const batchStart = Date.now();
+
+    const outcomes = await this.toolRunner.runBatch(executions, tools, {
+      correlationId: corrId,
+      source,
+      onCallComplete: (outcome) => {
+        if (!this.tracer) return;
+        const args = argsByCallId.get(outcome.id) ?? {};
+        const result = outcome.ok ? outcome.result : { error: outcome.error.message };
+        this.tracer.recordToolCall(
+          outcome.name,
+          args,
+          result,
+          'LlmBroker',
+          outcome.durationMs,
+          corrId,
+          source
+        );
+      },
+    });
+
+    const successCount = outcomes.filter((o) => o.ok).length;
+    const failureCount = outcomes.length - successCount;
+
+    if (this.tracer && (outcomes.length > 0 || parseFailureMessages.length > 0)) {
+      this.tracer.recordToolBatch(
+        batchId,
+        executions.map((e) => e.name),
+        successCount,
+        failureCount + parseFailureMessages.length,
+        Date.now() - batchStart,
+        corrId,
+        source
+      );
+    }
+
+    const outcomeById = new Map(outcomes.map((o) => [o.id, o]));
+    const messages: LlmMessage[] = [];
+    for (const toolCall of toolCalls) {
+      const outcome = outcomeById.get(toolCall.id);
+      if (!outcome) {
+        // Argument-parse failures were captured above in input order;
+        // pull the next one.
+        const parseMsg = parseFailureMessages.shift();
+        if (parseMsg) {
+          messages.push(parseMsg);
+        }
+        continue;
+      }
+      const content = outcome.ok
+        ? JSON.stringify(outcome.result)
+        : JSON.stringify({ error: outcome.error.message });
+      messages.push(Message.tool(content, toolCall.id, toolCall.function.name));
+    }
+
+    return { outcomes, messages, parseFailures: parseFailureMessages.length };
   }
 
   /**
@@ -135,80 +228,13 @@ export class LlmBroker {
           return Err(new ToolError('LLM requested tool calls but no tools provided'));
         }
 
-        for (const toolCall of response.toolCalls) {
-          const tool = tools.find((t) => t.matches(toolCall.function.name));
-
-          if (!tool) {
-            currentMessages.push(
-              Message.tool(
-                JSON.stringify({ error: `Tool ${toolCall.function.name} not found` }),
-                toolCall.id,
-                toolCall.function.name
-              )
-            );
-            continue;
-          }
-
-          try {
-            const args = JSON.parse(toolCall.function.arguments);
-
-            // Record tool call with timing
-            const toolStartTime = Date.now();
-            const toolResult = await tool.run(args);
-            const toolDurationMs = Date.now() - toolStartTime;
-
-            if (!isOk(toolResult)) {
-              currentMessages.push(
-                Message.tool(
-                  JSON.stringify({ error: toolResult.error.message }),
-                  toolCall.id,
-                  toolCall.function.name
-                )
-              );
-
-              // Record tool call error in tracer
-              if (this.tracer) {
-                this.tracer.recordToolCall(
-                  toolCall.function.name,
-                  args,
-                  { error: toolResult.error.message },
-                  'LlmBroker',
-                  toolDurationMs,
-                  corrId,
-                  'LlmBroker.generate'
-                );
-              }
-              continue;
-            }
-
-            // Record successful tool call in tracer
-            if (this.tracer) {
-              this.tracer.recordToolCall(
-                toolCall.function.name,
-                args,
-                toolResult.value,
-                'LlmBroker',
-                toolDurationMs,
-                corrId,
-                'LlmBroker.generate'
-              );
-            }
-
-            currentMessages.push(
-              Message.tool(JSON.stringify(toolResult.value), toolCall.id, toolCall.function.name)
-            );
-          } catch (error) {
-            currentMessages.push(
-              Message.tool(
-                JSON.stringify({
-                  error: error instanceof Error ? error.message : String(error),
-                }),
-                toolCall.id,
-                toolCall.function.name
-              )
-            );
-          }
-        }
+        const { messages: toolMessages } = await this.runToolBatch(
+          response.toolCalls,
+          tools,
+          corrId,
+          'LlmBroker.generate'
+        );
+        currentMessages.push(...toolMessages);
 
         iterations++;
       }
@@ -445,80 +471,13 @@ export class LlmBroker {
         // Add assistant message with tool calls
         currentMessages.push(Message.assistant(accumulatedContent, accumulatedToolCalls));
 
-        // Execute all tool calls
-        for (const toolCall of accumulatedToolCalls) {
-          const tool = tools.find((t) => t.matches(toolCall.function.name));
-
-          if (!tool) {
-            currentMessages.push(
-              Message.tool(
-                JSON.stringify({ error: `Tool ${toolCall.function.name} not found` }),
-                toolCall.id,
-                toolCall.function.name
-              )
-            );
-            continue;
-          }
-
-          try {
-            const args = JSON.parse(toolCall.function.arguments);
-
-            const toolStartTime = Date.now();
-            const toolResult = await tool.run(args);
-            const toolDurationMs = Date.now() - toolStartTime;
-
-            if (!isOk(toolResult)) {
-              currentMessages.push(
-                Message.tool(
-                  JSON.stringify({ error: toolResult.error.message }),
-                  toolCall.id,
-                  toolCall.function.name
-                )
-              );
-
-              // Record tool call error in tracer
-              if (this.tracer) {
-                this.tracer.recordToolCall(
-                  toolCall.function.name,
-                  args,
-                  { error: toolResult.error.message },
-                  'LlmBroker',
-                  toolDurationMs,
-                  corrId,
-                  'LlmBroker.generateStream'
-                );
-              }
-              continue;
-            }
-
-            // Record successful tool call in tracer
-            if (this.tracer) {
-              this.tracer.recordToolCall(
-                toolCall.function.name,
-                args,
-                toolResult.value,
-                'LlmBroker',
-                toolDurationMs,
-                corrId,
-                'LlmBroker.generateStream'
-              );
-            }
-
-            currentMessages.push(
-              Message.tool(JSON.stringify(toolResult.value), toolCall.id, toolCall.function.name)
-            );
-          } catch (error) {
-            currentMessages.push(
-              Message.tool(
-                JSON.stringify({
-                  error: error instanceof Error ? error.message : String(error),
-                }),
-                toolCall.id,
-                toolCall.function.name
-              )
-            );
-          }
-        }
+        const { messages: toolMessages } = await this.runToolBatch(
+          accumulatedToolCalls,
+          tools,
+          corrId,
+          'LlmBroker.generateStream'
+        );
+        currentMessages.push(...toolMessages);
 
         // Recursively stream with updated messages
         yield* this.generateStreamWithTools(

@@ -27,7 +27,8 @@ export default defineConfig({
           { text: 'Building Chatbots', link: '/chat-sessions' },
           { text: 'Structured Output', link: '/structured-output' },
           { text: 'Building Agents', link: '/simple-recursive-agent' },
-          { text: 'Image Analysis', link: '/image-analysis' }
+          { text: 'Image Analysis', link: '/image-analysis' },
+          { text: 'Realtime Voice', link: '/realtime-voice' }
         ]
       },
       {

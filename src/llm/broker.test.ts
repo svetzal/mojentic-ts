@@ -5,7 +5,7 @@
 import { LlmBroker } from './broker';
 import { LlmGateway } from './gateway';
 import { GatewayResponse, LlmMessage, CompletionConfig, MessageRole, ToolCall } from './models';
-import { LlmTool } from './tools';
+import { LlmTool, ParallelToolRunner } from './tools';
 import { Result, Ok, Err, isOk, GatewayError, ToolError } from '../error';
 
 // Mock Gateway
@@ -340,6 +340,76 @@ describe('LlmBroker', () => {
       if (!isOk(result)) {
         expect(result.error.message).toContain('no tools provided');
       }
+    });
+
+    test('should dispatch a batch of tool calls in parallel when using ParallelToolRunner', async () => {
+      const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Use both tools' }];
+
+      class TimingTool implements LlmTool {
+        startedAt = -1;
+        completedAt = -1;
+        constructor(
+          private readonly toolName: string,
+          private readonly delayMs: number
+        ) {}
+        name(): string {
+          return this.toolName;
+        }
+        matches(name: string): boolean {
+          return name === this.toolName;
+        }
+        descriptor() {
+          return {
+            type: 'function' as const,
+            function: {
+              name: this.toolName,
+              description: 'timing tool',
+              parameters: { type: 'object', properties: {} },
+            },
+          };
+        }
+        async run(): Promise<Result<Record<string, unknown>, Error>> {
+          this.startedAt = Date.now();
+          await new Promise((r) => setTimeout(r, this.delayMs));
+          this.completedAt = Date.now();
+          return Ok({ name: this.toolName });
+        }
+      }
+
+      const t1 = new TimingTool('alpha', 60);
+      const t2 = new TimingTool('beta', 60);
+
+      const toolCalls: ToolCall[] = [
+        {
+          id: 'c1',
+          type: 'function',
+          function: { name: 'alpha', arguments: '{}' },
+        },
+        {
+          id: 'c2',
+          type: 'function',
+          function: { name: 'beta', arguments: '{}' },
+        },
+      ];
+
+      gateway.setResponses([
+        Ok({ content: '', toolCalls, finishReason: 'tool_calls', model: 'test-model' }),
+        Ok({ content: 'done', finishReason: 'stop', model: 'test-model' }),
+      ]);
+
+      const parallelBroker = new LlmBroker(
+        'test-model',
+        gateway,
+        undefined,
+        new ParallelToolRunner(4)
+      );
+      const start = Date.now();
+      const result = await parallelBroker.generate(messages, [t1, t2]);
+      const elapsed = Date.now() - start;
+
+      expect(isOk(result)).toBe(true);
+      expect(elapsed).toBeLessThan(110);
+      expect(Math.abs(t1.startedAt - t2.startedAt)).toBeLessThan(25);
     });
 
     test('should pass config with reasoningEffort to gateway', async () => {

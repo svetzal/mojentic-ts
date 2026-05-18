@@ -5,6 +5,26 @@ All notable changes to the Mojentic TypeScript implementation will be documented
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Realtime Voice subsystem** (`src/realtime/`): `RealtimeVoiceBroker` and `RealtimeSession` siblings to `LlmBroker` for duplex audio/text sessions with parallel tool calling. Targets OpenAI's Realtime API via `OpenAIRealtimeGateway` over WebSocket.
+  - Vendor-neutral `RealtimeEvent` union; raw events available via `session.rawEvents()`.
+  - Server VAD and manual VAD (push-to-talk) turn detection.
+  - Barge-in / manual interruption with configurable output policy (`drop` | `submit-completed-only` | `submit`).
+  - Audio I/O as `AsyncIterable<Int16Array>` (PCM16, 24 kHz). Hardware-free — examples use WAV files.
+  - `Symbol.asyncDispose` support for `await using` syntax.
+  - Six runnable examples under `examples/realtime/`.
+  - VitePress guide at `docs/realtime-voice.md`.
+- **`ToolRunner` abstraction** (`src/llm/tools/runner.ts`): pluggable execution strategies for batches of tool calls.
+  - `SerialToolRunner` — one-at-a-time (default for `LlmBroker`, preserves backward compatibility).
+  - `ParallelToolRunner(maxConcurrency=4)` — bounded fan-out (default for `RealtimeVoiceBroker`).
+  - Both honour `AbortSignal` for hard cancellation.
+- **`LlmTool.run(args, ctx?)`** — optional second parameter exposes `ToolRunCtx.signal` so tools can opt in to cancellation. Existing tools that ignore the context continue to work unchanged.
+- **`recordToolBatch` / `ToolBatchTracerEvent`** — aggregate per-batch tracer events so consumers can measure parallelism gains without joining per-call events.
+- Example: `examples/parallel_tool_calls.ts`.
+
 ## [1.4.0] - 2026-05-11
 
 ### Added

@@ -11,6 +11,7 @@ import {
   LLMCallTracerEvent,
   LLMResponseTracerEvent,
   ToolCallTracerEvent,
+  ToolBatchTracerEvent,
   AgentInteractionTracerEvent,
 } from './tracerEvents';
 import { ToolCall } from '../llm/models';
@@ -164,6 +165,46 @@ export class TracerSystem {
       result,
       caller,
       callDurationMs,
+      correlationId,
+      source
+    );
+    this.eventStore.store(event);
+  }
+
+  /**
+   * Record a tool batch event.
+   *
+   * Captures aggregate stats for a batch of tool calls executed together
+   * (potentially in parallel) so consumers can measure parallelism gains
+   * without joining per-call events themselves.
+   *
+   * @param batchId - Stable identifier for the batch
+   * @param toolNames - Names of the tools dispatched, in input order
+   * @param successCount - Number of calls that succeeded
+   * @param failureCount - Number of calls that failed
+   * @param durationMs - Wall-clock duration of the batch in milliseconds
+   * @param correlationId - UUID for tracing related events
+   * @param source - The source of the event
+   */
+  recordToolBatch(
+    batchId: string,
+    toolNames: readonly string[],
+    successCount: number,
+    failureCount: number,
+    durationMs: number,
+    correlationId?: string,
+    source?: string
+  ): void {
+    if (!this._enabled) {
+      return;
+    }
+
+    const event = new ToolBatchTracerEvent(
+      batchId,
+      toolNames,
+      successCount,
+      failureCount,
+      durationMs,
       correlationId,
       source
     );

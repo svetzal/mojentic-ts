@@ -7,6 +7,7 @@ export * from './llm';
 export * from './tracer';
 export * from './agents';
 export * from './context';
+export * from './realtime';
 
 // Version
 export const VERSION = '0.1.0';

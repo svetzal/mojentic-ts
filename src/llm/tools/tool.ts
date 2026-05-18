@@ -45,13 +45,29 @@ export type ToolArgs = Record<string, unknown>;
 export type ToolResult = Record<string, unknown> | string | number | boolean | null;
 
 /**
+ * Optional context passed to {@link LlmTool.run} by runners and brokers.
+ *
+ * The `signal` field is honoured by long-running tools that opt in to
+ * cancellation. Tools that ignore the context continue to work unchanged.
+ */
+export interface ToolRunCtx {
+  /** AbortSignal that fires when the broker or runner cancels the batch. */
+  signal?: AbortSignal;
+}
+
+/**
  * Interface for LLM tools
  */
 export interface LlmTool {
   /**
-   * Execute the tool with the given arguments
+   * Execute the tool with the given arguments.
+   *
+   * The optional `ctx` parameter carries cancellation information. Tools may
+   * ignore it for back-compat; tools that perform long-running work should
+   * observe `ctx.signal` so that {@link ParallelToolRunner} or the
+   * realtime broker can hard-cancel them on interruption.
    */
-  run(args: ToolArgs): Promise<Result<ToolResult, Error>>;
+  run(args: ToolArgs, ctx?: ToolRunCtx): Promise<Result<ToolResult, Error>>;
 
   /**
    * Get the tool descriptor for LLM
@@ -73,7 +89,7 @@ export interface LlmTool {
  * Abstract base class for tools
  */
 export abstract class BaseTool implements LlmTool {
-  abstract run(args: ToolArgs): Promise<Result<ToolResult, Error>>;
+  abstract run(args: ToolArgs, ctx?: ToolRunCtx): Promise<Result<ToolResult, Error>>;
   abstract descriptor(): ToolDescriptor;
 
   name(): string {

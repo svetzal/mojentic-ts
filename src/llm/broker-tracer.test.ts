@@ -190,7 +190,7 @@ describe('LlmBroker Tracer Integration', () => {
 
       // Verify all events were recorded
       const events = tracer.getEvents();
-      expect(events.length).toBe(5); // 2 LLM calls, 2 LLM responses, 1 tool call
+      expect(events.length).toBe(6); // 2 LLM calls, 2 LLM responses, 1 tool call, 1 tool batch
 
       // Verify tool call event
       const toolCallEvents = tracer.getEvents({ eventType: ToolCallTracerEvent });

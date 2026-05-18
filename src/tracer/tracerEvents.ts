@@ -327,6 +327,60 @@ export class ToolCallTracerEvent extends TracerEvent {
 }
 
 /**
+ * Records a batch of tool calls executed together (potentially in parallel).
+ *
+ * Per-call {@link ToolCallTracerEvent}s are still emitted by the runner so
+ * fine-grained traces are preserved. The batch event makes parallelism gains
+ * measurable and identifies which calls belong to the same model turn.
+ */
+export class ToolBatchTracerEvent extends TracerEvent {
+  /** Stable identifier for this batch, used to correlate per-call events. */
+  readonly batchId: string;
+
+  /** Names of the tools dispatched in this batch, in input order. */
+  readonly toolNames: readonly string[];
+
+  /** Number of calls in the batch. */
+  readonly callCount: number;
+
+  /** Number of calls that succeeded. */
+  readonly successCount: number;
+
+  /** Number of calls that failed. */
+  readonly failureCount: number;
+
+  /** Wall-clock duration of the batch in milliseconds. */
+  readonly durationMs: number;
+
+  constructor(
+    batchId: string,
+    toolNames: readonly string[],
+    successCount: number,
+    failureCount: number,
+    durationMs: number,
+    correlationId?: string,
+    source?: string
+  ) {
+    super(Date.now(), correlationId || randomUUID(), source);
+    this.batchId = batchId;
+    this.toolNames = toolNames;
+    this.callCount = toolNames.length;
+    this.successCount = successCount;
+    this.failureCount = failureCount;
+    this.durationMs = durationMs;
+  }
+
+  printableSummary(): string {
+    const base = super.printableSummary();
+    let summary = `${base}\n   Batch: ${this.batchId}`;
+    summary += `\n   Tools: ${this.toolNames.join(', ')}`;
+    summary += `\n   Outcomes: ${this.successCount} ok, ${this.failureCount} failed`;
+    summary += `\n   Duration: ${this.durationMs.toFixed(2)}ms`;
+    return summary;
+  }
+}
+
+/**
  * Records interactions between agents.
  *
  * @example
