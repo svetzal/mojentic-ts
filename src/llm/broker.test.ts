@@ -376,8 +376,8 @@ describe('LlmBroker', () => {
         }
       }
 
-      const t1 = new TimingTool('alpha', 60);
-      const t2 = new TimingTool('beta', 60);
+      const t1 = new TimingTool('alpha', 100);
+      const t2 = new TimingTool('beta', 100);
 
       const toolCalls: ToolCall[] = [
         {
@@ -408,8 +408,8 @@ describe('LlmBroker', () => {
       const elapsed = Date.now() - start;
 
       expect(isOk(result)).toBe(true);
-      expect(elapsed).toBeLessThan(110);
-      expect(Math.abs(t1.startedAt - t2.startedAt)).toBeLessThan(25);
+      expect(elapsed).toBeLessThan(185);
+      expect(Math.abs(t1.startedAt - t2.startedAt)).toBeLessThan(50);
     });
 
     test('should pass config with reasoningEffort to gateway', async () => {

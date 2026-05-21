@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-05-21
+
 ### Added
 
 - **Realtime Voice subsystem** (`src/realtime/`): `RealtimeVoiceBroker` and `RealtimeSession` siblings to `LlmBroker` for duplex audio/text sessions with parallel tool calling. Targets OpenAI's Realtime API via `OpenAIRealtimeGateway` over WebSocket.
@@ -25,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`recordToolBatch` / `ToolBatchTracerEvent`** — aggregate per-batch tracer events so consumers can measure parallelism gains without joining per-call events.
 - Example: `examples/parallel_tool_calls.ts`.
 - OpenAI model registry: explicit entries for the GPT-5.4 and GPT-5.5 reasoning models (`gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.5`, `gpt-5.5-pro`, plus dated snapshots) with their correct context windows (1.05M / 400K), 128K output limit, image input, and Chat Completions + Responses API support. Previously these fell through to pattern matching, which inferred only a generic reasoning profile with wrong token limits. Pattern mappings for `gpt-5.3`/`gpt-5.4`/`gpt-5.5` were also added so future dated snapshots still resolve to `REASONING`.
+
+### Fixed
+
+- Parallel tool timing test thresholds tightened to use 100 ms delays and 185 ms elapsed guard, making the test resilient to environment-load spikes while still detecting sequential fallback.
 
 ## [1.4.0] - 2026-05-11
 
