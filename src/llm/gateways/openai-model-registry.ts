@@ -354,10 +354,45 @@ export class OpenAIModelRegistry {
       supportsResponsesApi: true,
     });
 
-    // Pattern mappings for unknown models - Updated 2026-02-04
+    // GPT-5.4 / GPT-5.5 era reasoning models - Added 2026-05-21
+    // These break the older gpt-5 context/output formula (1.05M or 400K context,
+    // 128K output, image input, both Chat Completions + Responses APIs), so they
+    // are registered explicitly rather than via the reasoningModels loop.
+    const gpt54PlusModels: Array<{ name: string; contextTokens: number }> = [
+      { name: 'gpt-5.4', contextTokens: 1050000 },
+      { name: 'gpt-5.4-2026-03-05', contextTokens: 1050000 },
+      { name: 'gpt-5.4-mini', contextTokens: 400000 },
+      { name: 'gpt-5.4-mini-2026-03-17', contextTokens: 400000 },
+      { name: 'gpt-5.4-nano', contextTokens: 400000 },
+      { name: 'gpt-5.4-nano-2026-03-17', contextTokens: 400000 },
+      { name: 'gpt-5.5', contextTokens: 1050000 },
+      { name: 'gpt-5.5-2026-04-23', contextTokens: 1050000 },
+      { name: 'gpt-5.5-pro', contextTokens: 1050000 },
+      { name: 'gpt-5.5-pro-2026-04-23', contextTokens: 1050000 },
+    ];
+
+    for (const { name, contextTokens } of gpt54PlusModels) {
+      this.models.set(name, {
+        modelType: ModelType.REASONING,
+        supportsTools: true,
+        supportsStreaming: true,
+        supportsVision: true,
+        maxContextTokens: contextTokens,
+        maxOutputTokens: 128000,
+        supportedTemperatures: [1.0],
+        supportsChatApi: true,
+        supportsCompletionsApi: false,
+        supportsResponsesApi: true,
+      });
+    }
+
+    // Pattern mappings for unknown models - Updated 2026-05-21
     this.patternMappings.set('o1', ModelType.REASONING);
     this.patternMappings.set('o3', ModelType.REASONING);
     this.patternMappings.set('o4', ModelType.REASONING);
+    this.patternMappings.set('gpt-5.5', ModelType.REASONING);
+    this.patternMappings.set('gpt-5.4', ModelType.REASONING);
+    this.patternMappings.set('gpt-5.3', ModelType.REASONING);
     this.patternMappings.set('gpt-5.2', ModelType.REASONING);
     this.patternMappings.set('gpt-5.1', ModelType.REASONING);
     this.patternMappings.set('gpt-5', ModelType.REASONING);

@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`LlmTool.run(args, ctx?)`** — optional second parameter exposes `ToolRunCtx.signal` so tools can opt in to cancellation. Existing tools that ignore the context continue to work unchanged.
 - **`recordToolBatch` / `ToolBatchTracerEvent`** — aggregate per-batch tracer events so consumers can measure parallelism gains without joining per-call events.
 - Example: `examples/parallel_tool_calls.ts`.
+- OpenAI model registry: explicit entries for the GPT-5.4 and GPT-5.5 reasoning models (`gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.5`, `gpt-5.5-pro`, plus dated snapshots) with their correct context windows (1.05M / 400K), 128K output limit, image input, and Chat Completions + Responses API support. Previously these fell through to pattern matching, which inferred only a generic reasoning profile with wrong token limits. Pattern mappings for `gpt-5.3`/`gpt-5.4`/`gpt-5.5` were also added so future dated snapshots still resolve to `REASONING`.
 
 ## [1.4.0] - 2026-05-11
 

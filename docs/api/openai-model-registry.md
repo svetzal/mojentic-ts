@@ -67,6 +67,7 @@ OpenAI models support different API endpoints. Understanding which endpoint(s) a
 - GPT-4, GPT-4o, GPT-4.1 series
 - o1, o3, o4-mini
 - gpt-5 base models
+- gpt-5.4 and gpt-5.5 series (also support the Responses API)
 - gpt-3.5-turbo (non-instruct)
 
 **Completions API** (`/v1/completions`) - Legacy models
@@ -86,6 +87,8 @@ OpenAI models support different API endpoints. Understanding which endpoint(s) a
 - gpt-4o-mini (chat + completions)
 - gpt-4.1-nano (chat + completions)
 - gpt-5.1 (chat + completions)
+- gpt-5.4, gpt-5.4-mini, gpt-5.4-nano (chat + responses)
+- gpt-5.5, gpt-5.5-pro (chat + responses)
 
 ### Current Gateway Implementation
 
@@ -363,6 +366,12 @@ Models supporting multiple endpoints:
 - gpt-4o-mini (chat + completions)
 - gpt-4.1-nano (chat + completions)
 - gpt-5.1 (chat + completions)
+- gpt-5.4, gpt-5.4-mini, gpt-5.4-nano (chat + responses)
+- gpt-5.5, gpt-5.5-pro (chat + responses)
+
+The gpt-5.4 and gpt-5.5 families are reasoning models with a 1.05M-token
+context window (400K for the mini and nano tiers), a 128K output limit, and
+image input support.
 
 ## Pattern Matching
 
@@ -373,6 +382,9 @@ The registry uses pattern matching to infer capabilities for unknown models. Whe
 - **o1** - Reasoning models
 - **o3** - Reasoning models
 - **o4** - Reasoning models
+- **gpt-5.5** - Reasoning models
+- **gpt-5.4** - Reasoning models
+- **gpt-5.3** - Reasoning models
 - **gpt-5.2** - Reasoning models
 - **gpt-5.1** - Reasoning models
 - **gpt-5** - Reasoning models

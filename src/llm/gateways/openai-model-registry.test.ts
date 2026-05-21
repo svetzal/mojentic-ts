@@ -246,6 +246,55 @@ describe('OpenAIModelRegistry', () => {
       expect(capabilities.supportsTools).toBe(true);
       expect(capabilities.supportsStreaming).toBe(true);
     });
+
+    it('should recognize gpt-5.4 as a registered reasoning model with 1.05M context', () => {
+      const capabilities = registry.getModelCapabilities('gpt-5.4');
+
+      expect(capabilities.modelType).toBe(ModelType.REASONING);
+      expect(capabilities.supportsTools).toBe(true);
+      expect(capabilities.supportsStreaming).toBe(true);
+      expect(capabilities.supportsVision).toBe(true);
+      expect(capabilities.maxContextTokens).toBe(1050000);
+      expect(capabilities.maxOutputTokens).toBe(128000);
+      expect(capabilities.supportsChatApi).toBe(true);
+      expect(capabilities.supportsResponsesApi).toBe(true);
+    });
+
+    it('should recognize gpt-5.4-mini as a registered reasoning model with 400K context', () => {
+      const capabilities = registry.getModelCapabilities('gpt-5.4-mini');
+
+      expect(capabilities.modelType).toBe(ModelType.REASONING);
+      expect(capabilities.maxContextTokens).toBe(400000);
+      expect(capabilities.maxOutputTokens).toBe(128000);
+    });
+
+    it('should recognize gpt-5.4-nano and its dated snapshot', () => {
+      for (const name of ['gpt-5.4-nano', 'gpt-5.4-nano-2026-03-17']) {
+        const capabilities = registry.getModelCapabilities(name);
+        expect(capabilities.modelType).toBe(ModelType.REASONING);
+        expect(capabilities.maxContextTokens).toBe(400000);
+      }
+    });
+
+    it('should recognize gpt-5.5 and gpt-5.5-pro as registered reasoning models', () => {
+      for (const name of [
+        'gpt-5.5',
+        'gpt-5.5-2026-04-23',
+        'gpt-5.5-pro',
+        'gpt-5.5-pro-2026-04-23',
+      ]) {
+        const capabilities = registry.getModelCapabilities(name);
+        expect(capabilities.modelType).toBe(ModelType.REASONING);
+        expect(capabilities.maxContextTokens).toBe(1050000);
+        expect(capabilities.maxOutputTokens).toBe(128000);
+        expect(capabilities.supportsChatApi).toBe(true);
+        expect(capabilities.supportsResponsesApi).toBe(true);
+      }
+    });
+
+    it('should register gpt-5.4-mini explicitly rather than pattern-matching it', () => {
+      expect(registry.getRegisteredModels()).toContain('gpt-5.4-mini');
+    });
   });
 });
 
