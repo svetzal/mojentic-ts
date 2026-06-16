@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-06-16
+
+### Maintenance
+
+- Updated `@typescript-eslint` packages to 8.61.1
+- Updated `eslint` to 10.5.0
+- Updated `prettier` to 3.8.4
+
 ## [1.5.0] - 2026-05-21
 
 ### Added
