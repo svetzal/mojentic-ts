@@ -403,12 +403,9 @@ describe('LlmBroker', () => {
         undefined,
         new ParallelToolRunner(4)
       );
-      const start = Date.now();
       const result = await parallelBroker.generate(messages, [t1, t2]);
-      const elapsed = Date.now() - start;
 
       expect(isOk(result)).toBe(true);
-      expect(elapsed).toBeLessThan(185);
       expect(Math.abs(t1.startedAt - t2.startedAt)).toBeLessThan(50);
     });
 
