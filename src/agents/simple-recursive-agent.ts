@@ -73,11 +73,7 @@ export interface TimeoutEvent extends SolverEvent {
  * Union type of all solver events
  */
 export type AnySolverEvent =
-  | GoalSubmittedEvent
-  | IterationCompletedEvent
-  | GoalAchievedEvent
-  | GoalFailedEvent
-  | TimeoutEvent;
+  GoalSubmittedEvent | IterationCompletedEvent | GoalAchievedEvent | GoalFailedEvent | TimeoutEvent;
 
 /**
  * Event handler function type

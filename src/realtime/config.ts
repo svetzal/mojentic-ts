@@ -80,11 +80,7 @@ export interface SemanticVadConfig {
  *   thresholds and behaviour.
  */
 export type TurnDetectionMode =
-  | 'server_vad'
-  | 'semantic_vad'
-  | 'none'
-  | ServerVadConfig
-  | SemanticVadConfig;
+  'server_vad' | 'semantic_vad' | 'none' | ServerVadConfig | SemanticVadConfig;
 
 /**
  * Policy for handling tool outputs from a cancelled response.
