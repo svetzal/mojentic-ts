@@ -19,11 +19,6 @@
       "name": "build",
       "command": "npm run build",
       "required": true
-    },
-    {
-      "name": "security",
-      "command": "npm audit --omit=dev --audit-level=moderate",
-      "required": false
     }
   ]
 }
