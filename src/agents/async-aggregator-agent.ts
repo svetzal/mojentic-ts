@@ -134,8 +134,9 @@ export abstract class AsyncAggregatorAgent implements BaseAsyncAgent {
 
     // Apply timeout if specified
     if (timeout !== undefined) {
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
       const timeoutPromise = new Promise<Event[]>((_, reject) => {
-        setTimeout(() => {
+        timeoutHandle = setTimeout(() => {
           reject(new Error(`Timeout waiting for events (${timeout}ms)`));
         }, timeout);
       });
@@ -145,6 +146,8 @@ export abstract class AsyncAggregatorAgent implements BaseAsyncAgent {
         return Ok(events);
       } catch (error) {
         return Err(error instanceof Error ? error : new Error(String(error)));
+      } finally {
+        clearTimeout(timeoutHandle);
       }
     }
 
