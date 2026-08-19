@@ -70,7 +70,7 @@
     "vitepress": "^1.6.4"
   },
   "dependencies": {
-    "gpt-tokenizer": "^3.4.0",
+    "gpt-tokenizer": "^4.0.0",
     "zod": "^4.4.3"
   },
   "overrides": {
