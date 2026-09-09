@@ -3,8 +3,15 @@
  */
 
 import { LlmGateway } from './gateway';
-import { LlmMessage, CompletionConfig, Message, ToolCall } from './models';
-import { LlmTool, SerialToolRunner, ToolCallExecution, ToolCallOutcome, ToolRunner } from './tools';
+import { LlmMessage, CompletionConfig, Message, ToolCall, GatewayResponse } from './models';
+import {
+  LlmTool,
+  SerialToolRunner,
+  ToolCallExecution,
+  ToolCallOutcome,
+  ToolRunner,
+  ToolRunContext,
+} from './tools';
 import { Result, Ok, Err, isOk, ParseError, ToolError } from '../error';
 import { TracerSystem } from '../tracer';
 import { randomUUID } from 'crypto';
@@ -41,7 +48,8 @@ export class LlmBroker {
     private readonly model: string,
     private readonly gateway: LlmGateway,
     tracer?: TracerSystem,
-    toolRunner?: ToolRunner
+    toolRunner?: ToolRunner,
+    private readonly toolContext?: ToolRunContext
   ) {
     this.tracer = tracer;
     this.toolRunner = toolRunner ?? new SerialToolRunner();
@@ -79,9 +87,11 @@ export class LlmBroker {
     const batchStart = Date.now();
 
     const outcomes = await this.toolRunner.runBatch(executions, tools, {
+      ...this.toolContext,
       correlationId: corrId,
       source,
       onCallComplete: (outcome) => {
+        this.toolContext?.onCallComplete?.(outcome);
         if (!this.tracer) return;
         const args = argsByCallId.get(outcome.id) ?? {};
         const result = outcome.ok ? outcome.result : { error: outcome.error.message };
@@ -134,6 +144,57 @@ export class LlmBroker {
     return { outcomes, messages, parseFailures: parseFailureMessages.length };
   }
 
+  /** Return one native response, without executing tools or extending caller history. */
+  async generateResponse(
+    messages: LlmMessage[],
+    tools?: LlmTool[],
+    config?: CompletionConfig,
+    correlationId?: string
+  ): Promise<Result<GatewayResponse, Error>> {
+    const toolDescriptors = tools?.map((tool) => tool.descriptor());
+    const corrId = correlationId || randomUUID();
+    try {
+      // Record LLM call in tracer
+      if (this.tracer) {
+        this.tracer.recordLlmCall(
+          this.model,
+          messages,
+          config?.temperature ?? 1.0,
+          toolDescriptors as Record<string, unknown>[] | undefined,
+          corrId,
+          'LlmBroker.generateResponse'
+        );
+      }
+
+      const startTime = Date.now();
+      const result = await this.gateway.generate(this.model, messages, config, toolDescriptors);
+      const callDurationMs = Date.now() - startTime;
+
+      if (!isOk(result)) {
+        return result;
+      }
+
+      const response = result.value;
+
+      // Record LLM response in tracer
+      if (this.tracer) {
+        this.tracer.recordLlmResponse(
+          this.model,
+          response.content,
+          response.toolCalls,
+          callDurationMs,
+          corrId,
+          'LlmBroker.generateResponse'
+        );
+      }
+
+      return Ok(response);
+    } catch (error) {
+      return Err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /** Generate text with automatic tool dispatch. */
   /**
    * Generate a text completion from the LLM with automatic recursive tool execution.
    *
@@ -166,54 +227,19 @@ export class LlmBroker {
     correlationId?: string
   ): Promise<Result<string, Error>> {
     try {
-      const toolDescriptors = tools?.map((t) => t.descriptor());
       const currentMessages = [...messages];
       let iterations = 0;
 
-      const maxToolIterations = config?.maxToolIterations ?? 10;
+      const maxToolIterations =
+        config?.maxToolIterations === null ? Infinity : (config?.maxToolIterations ?? 10);
 
       // Generate correlationId if not provided
       const corrId = correlationId || randomUUID();
 
       while (iterations < maxToolIterations) {
-        // Record LLM call in tracer
-        if (this.tracer) {
-          this.tracer.recordLlmCall(
-            this.model,
-            currentMessages,
-            config?.temperature ?? 1.0,
-            toolDescriptors as Record<string, unknown>[] | undefined,
-            corrId,
-            'LlmBroker.generate'
-          );
-        }
-
-        const startTime = Date.now();
-        const result = await this.gateway.generate(
-          this.model,
-          currentMessages,
-          config,
-          toolDescriptors
-        );
-        const callDurationMs = Date.now() - startTime;
-
-        if (!isOk(result)) {
-          return result;
-        }
-
+        const result = await this.generateResponse(currentMessages, tools, config, corrId);
+        if (!isOk(result)) return result;
         const response = result.value;
-
-        // Record LLM response in tracer
-        if (this.tracer) {
-          this.tracer.recordLlmResponse(
-            this.model,
-            response.content,
-            response.toolCalls,
-            callDurationMs,
-            corrId,
-            'LlmBroker.generate'
-          );
-        }
 
         // If no tool calls, we're done
         if (!response.toolCalls || response.toolCalls.length === 0) {
@@ -383,7 +409,8 @@ export class LlmBroker {
     tools?: LlmTool[],
     correlationId?: string
   ): AsyncGenerator<Result<string, Error>> {
-    const maxToolIterations = config?.maxToolIterations ?? 10;
+    const maxToolIterations =
+      config?.maxToolIterations === null ? Infinity : (config?.maxToolIterations ?? 10);
     const corrId = correlationId || randomUUID();
     yield* this.generateStreamWithTools(messages, config, tools, corrId, maxToolIterations);
   }
@@ -395,7 +422,8 @@ export class LlmBroker {
     corrId: string,
     iterationsRemaining: number
   ): AsyncGenerator<Result<string, Error>> {
-    const maxToolIterations = config?.maxToolIterations ?? 10;
+    const maxToolIterations =
+      config?.maxToolIterations === null ? Infinity : (config?.maxToolIterations ?? 10);
 
     if (iterationsRemaining <= 0) {
       yield Err(new ToolError(`Maximum tool iterations (${maxToolIterations}) exceeded`));

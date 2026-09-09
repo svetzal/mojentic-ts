@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add a single-response broker API for caller-owned context and native tool requests.
+- Support explicit unlimited tool rounds while retaining finite defaults.
+- The optional broker `toolContext` forwards cancellation and completion observations. Parallel concurrency must be a positive integer.
+
 ## [1.5.1] - 2026-06-16
 
 ### Maintenance
@@ -169,11 +173,13 @@ This release marks the first stable version of Mojentic for TypeScript, released
 ### Added
 
 #### Core Infrastructure
+
 - Result type pattern inspired by Rust for type-safe error handling
 - Comprehensive error hierarchy with `MojenticError`, `GatewayError`, `ToolError`, `ValidationError`, `ParseError`, and `TimeoutError`
 - Helper functions for Result type: `Ok`, `Err`, `isOk`, `isErr`, `unwrap`, `unwrapOr`, `mapResult`, `mapError`
 
 #### Data Models
+
 - `LlmMessage` interface with support for System, User, Assistant, and Tool roles
 - `Message` helper class for convenient message creation
 - `ToolCall` interface for LLM function calling
@@ -182,6 +188,7 @@ This release marks the first stable version of Mojentic for TypeScript, released
 - `StreamChunk` interface for streaming responses
 
 #### Gateway System
+
 - `LlmGateway` interface defining the contract for LLM providers
 - `OllamaGateway` implementation with full feature support:
   - Chat completions
@@ -193,12 +200,14 @@ This release marks the first stable version of Mojentic for TypeScript, released
   - Multimodal content (images) - structure in place, not fully tested
 
 #### Tool System
+
 - `LlmTool` interface for implementing custom tools
 - `BaseTool` abstract class for convenient tool implementation
 - `DateResolverTool` example tool for resolving relative date references
 - JSON Schema support for tool parameters
 
 #### LLM Broker
+
 - `LlmBroker` class as the main interface for LLM interactions
 - `generate()` method for text generation with automatic tool calling
 - `generateObject()` method for structured output with JSON schema
@@ -207,17 +216,20 @@ This release marks the first stable version of Mojentic for TypeScript, released
 - Automatic tool execution with configurable iteration limits
 
 #### Examples
+
 - `simple_llm.ts` - Basic text generation example
 - `structured_output.ts` - JSON schema-based structured output example
 - `tool_usage.ts` - Tool calling with automatic execution example
 
 #### Testing
+
 - Jest test framework configuration
 - Unit tests for error handling
 - Unit tests for message helpers
 - Test coverage reporting
 
 #### Documentation
+
 - Comprehensive README.md with quick start guide
 - API reference documentation
 - Usage examples
@@ -226,6 +238,7 @@ This release marks the first stable version of Mojentic for TypeScript, released
 - Updated PARITY.md to include TypeScript implementation
 
 #### Development Tools
+
 - TypeScript configuration with strict mode
 - ESLint configuration with TypeScript rules
 - Prettier configuration for code formatting
@@ -249,6 +262,7 @@ This release marks the first stable version of Mojentic for TypeScript, released
 This is the initial release of Mojentic TypeScript, bringing the LLM integration framework to the JavaScript/TypeScript ecosystem. It's particularly well-suited for building VS Code extensions, Obsidian plugins, and Node.js applications with AI capabilities.
 
 The implementation focuses on:
+
 - Type safety with comprehensive TypeScript definitions
 - Developer experience with excellent IDE support
 - Reliability through Result type pattern for error handling
@@ -266,6 +280,7 @@ The implementation focuses on:
 ### Future Roadmap
 
 #### v0.2.0 (Near Future)
+
 - OpenAI gateway implementation
 - Anthropic gateway implementation
 - ChatSession for conversation management
@@ -274,6 +289,7 @@ The implementation focuses on:
 - Expanded test coverage
 
 #### v1.0.0 (Future)
+
 - Agent system
 - Event-driven architecture
 - Tracer system for observability

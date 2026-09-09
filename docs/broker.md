@@ -6,7 +6,7 @@ The `LlmBroker` is the central interface for interacting with Large Language Mod
 
 The Broker acts as an intermediary between your application and LLM providers:
 
-```
+```text
 Your App → Broker → Gateway → LLM Provider
                 ↓
             Tool Execution
@@ -372,3 +372,24 @@ if (isOk(result)) {
 - [Tool Usage](/tool-usage)
 - [Structured Output](/structured-output)
 - [Error Handling](/error-handling)
+
+## Caller-owned context and native responses
+
+Use `await broker.generateResponse(messages, tools, config)` to receive one native gateway response without
+executing tools, extending history or making a follow-up request. Assemble the
+complete message array before each call. The broker traces the supplied request
+and returned response; it does not read repository guidance or apply a context policy.
+
+The existing convenience completion method still executes tools and follows up.
+Choose a serial or parallel runner according to the tools' effects. Parallel
+execution does not make dependent edits safe.
+
+Set `{ maxToolIterations: null }` to disable the tool-round limit.
+Existing finite defaults remain unchanged. Concurrency controls simultaneous
+work; it is not a task budget or a loop detector.
+
+The optional broker `toolContext` forwards cancellation and completion observations. Parallel concurrency must be a positive integer.
+
+Native responses preserve the fields supplied by the gateway. Missing provider
+usage or termination evidence must remain unknown; configured model names and
+text length are not substitutes for reported metadata.

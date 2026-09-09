@@ -127,13 +127,15 @@ export class SerialToolRunner implements ToolRunner {
     const outcomes: ToolCallOutcome[] = [];
     for (const call of calls) {
       if (context?.signal?.aborted) {
-        outcomes.push({
+        const aborted: ToolCallOutcome = {
           id: call.id,
           name: call.name,
           ok: false,
           error: new Error('Tool batch aborted'),
           durationMs: 0,
-        });
+        };
+        outcomes.push(aborted);
+        context?.onCallComplete?.(aborted);
         continue;
       }
       outcomes.push(await executeOne(call, tools, context));
@@ -151,7 +153,7 @@ export class SerialToolRunner implements ToolRunner {
  */
 export class ParallelToolRunner implements ToolRunner {
   constructor(private readonly maxConcurrency: number = 4) {
-    if (!Number.isFinite(maxConcurrency) || maxConcurrency < 1) {
+    if (!Number.isInteger(maxConcurrency) || maxConcurrency < 1) {
       throw new Error(`maxConcurrency must be a positive integer, got ${maxConcurrency}`);
     }
   }
@@ -183,14 +185,16 @@ export class ParallelToolRunner implements ToolRunner {
             // eslint-disable-next-line security/detect-object-injection
             const call = calls[idx];
             if (context?.signal?.aborted) {
-              // eslint-disable-next-line security/detect-object-injection
-              outcomes[idx] = {
+              const aborted: ToolCallOutcome = {
                 id: call.id,
                 name: call.name,
                 ok: false,
                 error: new Error('Tool batch aborted'),
                 durationMs: 0,
               };
+              // eslint-disable-next-line security/detect-object-injection
+              outcomes[idx] = aborted;
+              context?.onCallComplete?.(aborted);
               continue;
             }
             // eslint-disable-next-line security/detect-object-injection

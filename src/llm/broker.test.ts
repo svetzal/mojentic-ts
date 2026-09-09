@@ -870,3 +870,41 @@ describe('LlmBroker', () => {
     });
   });
 });
+
+describe('native single response', () => {
+  it('returns native calls without executing or modifying caller history', async () => {
+    const gateway = new MockGateway();
+    const response: GatewayResponse = {
+      content: '',
+      toolCalls: [
+        { id: 'native', type: 'function', function: { name: 'missing', arguments: '{}' } },
+      ],
+    };
+    gateway.setResponse(Ok(response));
+    const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'inspect' }];
+    const result = await new LlmBroker('offline', gateway).generateResponse(messages, []);
+    expect(result).toEqual(Ok(response));
+    expect(messages).toHaveLength(1);
+  });
+
+  it('allows explicitly unlimited iterations', async () => {
+    const gateway = new MockGateway();
+    gateway.setResponses([
+      ...Array.from({ length: 12 }, (_, i) =>
+        Ok<GatewayResponse>({
+          content: '',
+          toolCalls: [
+            { id: `call-${i}`, type: 'function', function: { name: 'missing', arguments: '{}' } },
+          ],
+        })
+      ),
+      Ok<GatewayResponse>({ content: 'done' }),
+    ]);
+    const result = await new LlmBroker('offline', gateway).generate(
+      [{ role: MessageRole.User, content: 'inspect' }],
+      [],
+      { maxToolIterations: null }
+    );
+    expect(result).toEqual(Ok('done'));
+  });
+});
