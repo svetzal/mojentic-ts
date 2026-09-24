@@ -221,6 +221,22 @@ try {
 }
 ```
 
+### generateStreamEvents
+
+```typescript
+generateStreamEvents(
+  messages: LlmMessage[],
+  config?: CompletionConfig,
+  options?: { correlationId?: string; signal?: AbortSignal }
+): AsyncGenerator<LlmStreamEvent>
+```
+
+Stream one turn as `content` events that end in exactly one terminal event:
+`{ type: 'completed', metadata: CompletionEvidence }` or
+`{ type: 'error', error: StreamEventError }`. No tools, no tool iterations, no
+retry, one HTTP request. Stopping the iteration or aborting `signal` cancels the
+request. See [Streaming](../streaming.md#single-turn-streaming-with-terminal-completion-evidence).
+
 ## Message Management
 
 ### Building Conversations

@@ -403,8 +403,35 @@ event `model` field stays the configured model. A field that the provider did
 not report is `null`. The broker does not estimate usage.
 
 The legacy `generateStream` API keeps its current trace, without this evidence.
-Use `generateStreamEvents` when you need streamed usage and completion evidence.
+`generateStreamEvents` records it when its stream reaches the terminal event.
 
 Ollama reports usage from `prompt_eval_count` and `eval_count`. Its
 `done_reason` becomes the finish reason, and its timings go into `metadata`.
 See [Tracer System](./tracer.md#provider-evidence-in-response-traces).
+
+## Single-turn streaming with terminal completion evidence
+
+`generateStreamEvents(messages, config?, { correlationId?, signal? })` streams
+one turn as `content` events that end in exactly one `completed` or `error`
+event. Use it when a truncated or unfinished response must never authorize an
+action. It supplies no tools, forces zero tool iterations, performs no retry,
+and sends one HTTP request. Stop the iteration or abort `signal` to cancel the
+request.
+
+```typescript
+const controller = new AbortController();
+
+for await (const event of broker.generateStreamEvents(
+  [Message.user('Classify this ticket as JSON.')],
+  { responseFormat: { type: 'json_object', schema } },
+  { signal: controller.signal }
+)) {
+  if (event.type === 'completed') {
+    // Only now is the content a complete result. Validate it before use.
+  }
+}
+```
+
+Content received before an `error` event is evidence, not a result. See
+[Streaming](./streaming.md#single-turn-streaming-with-terminal-completion-evidence)
+for the events, completion rules, and error reasons.

@@ -165,7 +165,8 @@ Captures:
 
 The response event also keeps four fields that the provider reports. The
 broker fills them for ordinary and structured responses, and for
-`generateStreamEvents`. The legacy `generateStream` API does not fill them.
+`generateStreamEvents`, where `metadata` is the provider metadata map from the
+terminal event. The legacy `generateStream` API does not fill them.
 
 | Field | Source | When the provider does not report it |
 | ----- | ------ | ------------------------------------ |

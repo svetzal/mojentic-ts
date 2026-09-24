@@ -3,14 +3,7 @@
  */
 
 import { LlmGateway } from '../gateway';
-import {
-  LlmMessage,
-  CompletionConfig,
-  CompletionUsage,
-  GatewayResponse,
-  StreamChunk,
-  ToolCall,
-} from '../models';
+import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk, ToolCall } from '../models';
 import { ToolDescriptor } from '../tools';
 import { Result, Ok, Err, GatewayError } from '../../error';
 import { adaptMessagesToOpenAI } from './openai-messages-adapter';
@@ -21,6 +14,9 @@ import {
   ModelType,
 } from './openai-model-registry';
 import { TokenizerGateway } from './tokenizerGateway';
+import { LlmStreamEvent } from '../stream-events';
+import { parseOpenAIStreamLine, toCompletionUsage } from './openai-stream-protocol';
+import { streamCompletionEvents } from './stream-event-transport';
 
 interface OpenAIUsage {
   prompt_tokens: number;
@@ -102,14 +98,6 @@ function toOpenAIResponseFormat(
   if (format.type === 'text') return { type: 'text' };
   if (format.schema === undefined) return { type: 'json_object' };
   return { type: 'json_schema', json_schema: { name: 'response', schema: format.schema } };
-}
-
-function toCompletionUsage(usage: OpenAIUsage): CompletionUsage {
-  return {
-    promptTokens: usage.prompt_tokens,
-    completionTokens: usage.completion_tokens,
-    totalTokens: usage.total_tokens,
-  };
 }
 
 /** Collect the provider-reported response fields that have no dedicated slot. */
@@ -535,6 +523,37 @@ export class OpenAIGateway implements LlmGateway {
         )
       );
     }
+  }
+
+  /**
+   * Stream one completion as content events ending in exactly one terminal event.
+   *
+   * Sends one request with no tools and asks the provider to report usage. Success needs a
+   * `stop` finish reason followed by `data: [DONE]`. Stopping iteration or aborting `signal`
+   * cancels the request.
+   */
+  async *generateStreamEvents(
+    model: string,
+    messages: LlmMessage[],
+    config?: CompletionConfig,
+    signal?: AbortSignal
+  ): AsyncGenerator<LlmStreamEvent> {
+    yield* streamCompletionEvents(
+      {
+        url: `${this.baseUrl}/chat/completions`,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: {
+          ...this.buildRequestBody(model, messages, config),
+          stream: true,
+          stream_options: { include_usage: true },
+        },
+      },
+      parseOpenAIStreamLine,
+      signal
+    );
   }
 
   async listModels(): Promise<Result<string[], Error>> {

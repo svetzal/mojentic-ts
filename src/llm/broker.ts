@@ -12,6 +12,7 @@ import {
   ToolRunner,
   ToolRunContext,
 } from './tools';
+import { LlmStreamEvent, StreamEventError, StreamEventsOptions } from './stream-events';
 import { Result, Ok, Err, isOk, ParseError, ToolError } from '../error';
 import { LlmResponseEvidence, TracerSystem } from '../tracer';
 import { randomUUID } from 'crypto';
@@ -23,6 +24,19 @@ function evidenceOf(reported: GatewayResponse): LlmResponseEvidence {
     providerModel: reported.model,
     finishReason: reported.finishReason,
     metadata: reported.metadata,
+  };
+}
+
+/** Carry the provider-reported evidence from the terminal event of a single-turn stream. */
+function terminalEvidenceOf(
+  terminal: Exclude<LlmStreamEvent, { type: 'content' }>
+): LlmResponseEvidence {
+  const evidence = terminal.type === 'completed' ? terminal.metadata : terminal.error.evidence;
+  return {
+    usage: evidence?.usage ?? undefined,
+    providerModel: evidence?.providerModel ?? undefined,
+    finishReason: evidence?.finishReason ?? undefined,
+    metadata: evidence?.metadata ?? undefined,
   };
 }
 
@@ -544,6 +558,100 @@ export class LlmBroker {
         }
       }
     }
+  }
+
+  /**
+   * Stream one turn as events that end in exactly one terminal event.
+   *
+   * Yields `content` events in order, then either `completed` (the provider finished with
+   * `stop` and sent its terminal marker) or `error`. Content yielded before an `error` is
+   * evidence of what the provider sent, not a result: do not act on it.
+   *
+   * The call supplies no tools, forces zero tool iterations, and never retries. It sends one
+   * HTTP request. Stopping iteration (`break`, `return()`) cancels that request, and so does
+   * aborting `options.signal`. A gateway without `generateStreamEvents` yields a
+   * `stream_events_unsupported` error before any request.
+   *
+   * @param messages - Complete conversation for this turn
+   * @param config - Optional completion configuration, including `responseFormat`
+   * @param options - Optional correlation id and abort signal
+   *
+   * @example
+   * ```typescript
+   * let text = '';
+   * for await (const event of broker.generateStreamEvents([Message.user('Summarize this')])) {
+   *   if (event.type === 'content') text += event.text;
+   *   if (event.type === 'completed') console.log(text, event.metadata.usage);
+   *   if (event.type === 'error') console.error(event.error.reason, event.error.evidence);
+   * }
+   * ```
+   */
+  async *generateStreamEvents(
+    messages: LlmMessage[],
+    config?: CompletionConfig,
+    options: StreamEventsOptions = {}
+  ): AsyncGenerator<LlmStreamEvent> {
+    if (!this.gateway.generateStreamEvents) {
+      yield {
+        type: 'error',
+        error: new StreamEventError(
+          'stream_events_unsupported',
+          `${this.gateway.constructor.name} does not support generateStreamEvents`
+        ),
+      };
+      return;
+    }
+
+    const source = 'LlmBroker.generateStreamEvents';
+    const corrId = options.correlationId ?? randomUUID();
+    this.tracer?.recordLlmCall(
+      this.model,
+      messages,
+      config?.temperature ?? 1.0,
+      undefined,
+      corrId,
+      source
+    );
+
+    const startTime = Date.now();
+    let content = '';
+    const recordResponse = (terminal: Exclude<LlmStreamEvent, { type: 'content' }>): void =>
+      this.tracer?.recordLlmResponse(
+        this.model,
+        content,
+        undefined,
+        Date.now() - startTime,
+        corrId,
+        source,
+        terminalEvidenceOf(terminal)
+      );
+
+    const events = this.gateway.generateStreamEvents(
+      this.model,
+      messages,
+      { ...config, maxToolIterations: 0 },
+      options.signal
+    );
+    for await (const event of events) {
+      if (event.type === 'content') {
+        content += event.text;
+        yield event;
+        continue;
+      }
+      recordResponse(event);
+      yield event;
+      return;
+    }
+
+    const incomplete: LlmStreamEvent = {
+      type: 'error',
+      error: new StreamEventError(
+        'incomplete_stream',
+        'The gateway ended the stream without a terminal event'
+      ),
+    };
+    recordResponse(incomplete);
+    yield incomplete;
   }
 
   /**
