@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add a single-response broker API for caller-owned context and native tool requests.
 - Support explicit unlimited tool rounds while retaining finite defaults.
 - The optional broker `toolContext` forwards cancellation and completion observations. Parallel concurrency must be a positive integer.
+- Streaming requests forward the configured `responseFormat`. OpenAI streaming no longer rejects a JSON schema; it sends `response_format` exactly as a non-streaming request does. OpenAI requests now also send `{type: "json_object"}` for JSON mode without a schema and `{type: "text"}` for text. Ollama streaming sends `format`. The request records what was asked for; callers still validate the content.
 
 ## [1.5.1] - 2026-06-16
 

@@ -38,3 +38,35 @@ for await (const result of broker.generateStream(messages, { tools })) {
   }
 }
 ```
+
+## Structured output in streaming requests
+
+Set `responseFormat` on the `CompletionConfig` to request a response format in a
+streaming request. The gateways send the same field that they send for a
+non-streaming request.
+
+| `responseFormat` | OpenAI `response_format` | Ollama `format` |
+| ---------------- | ------------------------ | --------------- |
+| not set | not sent | not sent |
+| `{ type: 'text' }` | `{ type: 'text' }` | not sent |
+| `{ type: 'json_object' }` | `{ type: 'json_object' }` | `"json"` |
+| `{ type: 'json_object', schema }` | `{ type: 'json_schema', json_schema: { name: 'response', schema } }` | the schema |
+
+```typescript
+const schema = {
+  type: 'object',
+  properties: { answer: { type: 'string' } },
+  required: ['answer'],
+};
+
+for await (const result of broker.generateStream(messages, {
+  responseFormat: { type: 'json_object', schema },
+})) {
+  if (isOk(result)) {
+    process.stdout.write(result.value);
+  }
+}
+```
+
+The request field records what you asked for. It does not prove that the
+provider enforced it. Parse and validate the complete content before you use it.

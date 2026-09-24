@@ -3,7 +3,7 @@
  */
 
 import { OpenAIGateway } from './openai';
-import { MessageRole, ToolCall } from '../models';
+import { CompletionConfig, Message, MessageRole, ToolCall } from '../models';
 import { isOk, isErr } from '../../error';
 
 // Mock fetch globally
@@ -244,6 +244,80 @@ describe('OpenAIGateway', () => {
       expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('not a reasoning model'));
 
       consoleWarnSpy.mockRestore();
+    });
+  });
+
+  describe('response format forwarding', () => {
+    const schema = { type: 'object', properties: { answer: { type: 'string' } } };
+
+    const formatCases: Array<[string, CompletionConfig['responseFormat'], unknown]> = [
+      [
+        'json object with schema as json_schema',
+        { type: 'json_object', schema },
+        { type: 'json_schema', json_schema: { name: 'response', schema } },
+      ],
+      [
+        'json object without schema as json_object',
+        { type: 'json_object' },
+        { type: 'json_object' },
+      ],
+      ['text as text', { type: 'text' }, { type: 'text' }],
+    ];
+
+    function sentBody(): Record<string, unknown> {
+      const init = mockFetch.mock.calls[0][1] as { body: string };
+      return JSON.parse(init.body) as Record<string, unknown>;
+    }
+
+    function stoppedStreamResponse(): Response {
+      return new Response(
+        'data: {"model":"gpt-4","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+      );
+    }
+
+    async function drain(iterable: AsyncIterable<unknown>): Promise<void> {
+      for await (const item of iterable) {
+        void item;
+      }
+    }
+
+    it.each(formatCases)(
+      'should forward %s in streaming requests',
+      async (_label, responseFormat, expected) => {
+        mockFetch.mockResolvedValueOnce(stoppedStreamResponse());
+
+        await drain(gateway.generateStream('gpt-4', [Message.user('Hi')], { responseFormat }));
+
+        expect(sentBody().response_format).toEqual(expected);
+      }
+    );
+
+    it.each(formatCases)(
+      'should forward %s in non-streaming requests',
+      async (_label, responseFormat, expected) => {
+        mockFetch.mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              model: 'gpt-4',
+              choices: [
+                { index: 0, message: { role: 'assistant', content: '{}' }, finish_reason: 'stop' },
+              ],
+            })
+          )
+        );
+
+        await gateway.generate('gpt-4', [Message.user('Hi')], { responseFormat });
+
+        expect(sentBody().response_format).toEqual(expected);
+      }
+    );
+
+    it('should leave the streaming request without response_format when none is configured', async () => {
+      mockFetch.mockResolvedValueOnce(stoppedStreamResponse());
+
+      await drain(gateway.generateStream('gpt-4', [Message.user('Hi')]));
+
+      expect(sentBody()).not.toHaveProperty('response_format');
     });
   });
 

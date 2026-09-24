@@ -3,7 +3,7 @@
  */
 
 import { OllamaGateway } from './ollama';
-import { MessageRole } from '../models';
+import { CompletionConfig, Message, MessageRole } from '../models';
 import { isOk } from '../../error';
 
 // Mock fetch globally
@@ -791,6 +791,54 @@ describe('OllamaGateway', () => {
 
       expect(errors.length).toBeGreaterThan(0);
       expect(errors[0].message).toContain('No response body');
+    });
+  });
+
+  describe('streaming response format forwarding', () => {
+    const schema = { type: 'object', properties: { answer: { type: 'string' } } };
+
+    function sentBody(): Record<string, unknown> {
+      const init = mockFetch.mock.calls[0][1] as { body: string };
+      return JSON.parse(init.body) as Record<string, unknown>;
+    }
+
+    async function streamWith(config?: CompletionConfig): Promise<void> {
+      mockFetch.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            model: 'llama3',
+            message: { role: 'assistant', content: '' },
+            done: true,
+          }) + '\n'
+        )
+      );
+      for await (const item of gateway.generateStream('llama3', [Message.user('Hi')], config)) {
+        void item;
+      }
+    }
+
+    test('should forward a json object schema as the format', async () => {
+      await streamWith({ responseFormat: { type: 'json_object', schema } });
+
+      expect(sentBody().format).toEqual(schema);
+    });
+
+    test('should forward json object mode without a schema as json', async () => {
+      await streamWith({ responseFormat: { type: 'json_object' } });
+
+      expect(sentBody().format).toBe('json');
+    });
+
+    test('should omit the format for text', async () => {
+      await streamWith({ responseFormat: { type: 'text' } });
+
+      expect(sentBody()).not.toHaveProperty('format');
+    });
+
+    test('should omit the format when none is configured', async () => {
+      await streamWith();
+
+      expect(sentBody()).not.toHaveProperty('format');
     });
   });
 

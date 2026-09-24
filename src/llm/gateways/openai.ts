@@ -81,6 +81,20 @@ interface OpenAIEmbeddingResponse {
 }
 
 /**
+ * Translate the configured response format into OpenAI's `response_format` field.
+ *
+ * Returns `undefined` when no format is configured, leaving the provider default in place.
+ */
+function toOpenAIResponseFormat(
+  format: CompletionConfig['responseFormat']
+): Record<string, unknown> | undefined {
+  if (format === undefined) return undefined;
+  if (format.type === 'text') return { type: 'text' };
+  if (format.schema === undefined) return { type: 'json_object' };
+  return { type: 'json_schema', json_schema: { name: 'response', schema: format.schema } };
+}
+
+/**
  * Gateway for OpenAI API provider.
  *
  * Supports chat completions, structured output, tool calling, streaming, and embeddings.
@@ -201,6 +215,71 @@ export class OpenAIGateway implements LlmGateway {
     }
   }
 
+  /**
+   * Build the chat completions request body shared by streaming and non-streaming calls.
+   */
+  private buildRequestBody(
+    model: string,
+    messages: LlmMessage[],
+    config?: CompletionConfig,
+    tools?: ToolDescriptor[]
+  ): Record<string, unknown> {
+    const args: Record<string, unknown> = {
+      model,
+      messages,
+      objectModel: config?.responseFormat?.schema,
+      tools,
+      temperature: config?.temperature ?? 1.0,
+      numCtx: config?.numCtx ?? 32768,
+      maxTokens: config?.maxTokens ?? 16384,
+      numPredict: config?.numPredict,
+      reasoningEffort: config?.reasoningEffort,
+    };
+
+    const adaptedArgs = this.adaptParametersForModel(model, args);
+    this.validateModelParameters(model, adaptedArgs);
+
+    const requestBody: Record<string, unknown> = {
+      model: adaptedArgs.model,
+      messages: adaptMessagesToOpenAI(messages),
+    };
+
+    if ('temperature' in adaptedArgs) {
+      requestBody.temperature = adaptedArgs.temperature;
+    }
+
+    const responseFormat = toOpenAIResponseFormat(config?.responseFormat);
+    if (responseFormat) {
+      requestBody.response_format = responseFormat;
+    }
+
+    if (adaptedArgs.tools && Array.isArray(adaptedArgs.tools) && adaptedArgs.tools.length > 0) {
+      requestBody.tools = (adaptedArgs.tools as ToolDescriptor[]).map((t) => ({
+        type: 'function',
+        function: {
+          name: t.function.name,
+          description: t.function.description,
+          parameters: t.function.parameters,
+        },
+      }));
+    }
+
+    if ('maxTokens' in adaptedArgs && adaptedArgs.maxTokens !== undefined) {
+      requestBody.max_tokens = adaptedArgs.maxTokens;
+    } else if (
+      'maxCompletionTokens' in adaptedArgs &&
+      adaptedArgs.maxCompletionTokens !== undefined
+    ) {
+      requestBody.max_completion_tokens = adaptedArgs.maxCompletionTokens;
+    }
+
+    if ('reasoning_effort' in adaptedArgs && adaptedArgs.reasoning_effort !== undefined) {
+      requestBody.reasoning_effort = adaptedArgs.reasoning_effort;
+    }
+
+    return requestBody;
+  }
+
   async generate(
     model: string,
     messages: LlmMessage[],
@@ -208,75 +287,7 @@ export class OpenAIGateway implements LlmGateway {
     tools?: ToolDescriptor[]
   ): Promise<Result<GatewayResponse, Error>> {
     try {
-      // Build args object for adaptation
-      const args: Record<string, unknown> = {
-        model,
-        messages,
-        objectModel: config?.responseFormat?.schema,
-        tools,
-        temperature: config?.temperature ?? 1.0,
-        numCtx: config?.numCtx ?? 32768,
-        maxTokens: config?.maxTokens ?? 16384,
-        numPredict: config?.numPredict,
-        reasoningEffort: config?.reasoningEffort,
-      };
-
-      // Adapt parameters based on model type
-      const adaptedArgs = this.adaptParametersForModel(model, args);
-
-      // Validate parameters after adaptation
-      this.validateModelParameters(model, adaptedArgs);
-
-      // Build OpenAI request
-      const openaiMessages = adaptMessagesToOpenAI(messages);
-
-      const requestBody: Record<string, unknown> = {
-        model: adaptedArgs.model,
-        messages: openaiMessages,
-      };
-
-      // Add temperature if specified
-      if ('temperature' in adaptedArgs) {
-        requestBody.temperature = adaptedArgs.temperature;
-      }
-
-      // Handle response format for structured output
-      if (config?.responseFormat?.type === 'json_object' && config?.responseFormat?.schema) {
-        requestBody.response_format = {
-          type: 'json_schema',
-          json_schema: {
-            name: 'response',
-            schema: config.responseFormat.schema,
-          },
-        };
-      }
-
-      // Add tools if provided
-      if (adaptedArgs.tools && Array.isArray(adaptedArgs.tools) && adaptedArgs.tools.length > 0) {
-        requestBody.tools = (adaptedArgs.tools as ToolDescriptor[]).map((t) => ({
-          type: 'function',
-          function: {
-            name: t.function.name,
-            description: t.function.description,
-            parameters: t.function.parameters,
-          },
-        }));
-      }
-
-      // Handle token limit parameters
-      if ('maxTokens' in adaptedArgs && adaptedArgs.maxTokens !== undefined) {
-        requestBody.max_tokens = adaptedArgs.maxTokens;
-      } else if (
-        'maxCompletionTokens' in adaptedArgs &&
-        adaptedArgs.maxCompletionTokens !== undefined
-      ) {
-        requestBody.max_completion_tokens = adaptedArgs.maxCompletionTokens;
-      }
-
-      // Handle reasoning effort parameter
-      if ('reasoning_effort' in adaptedArgs && adaptedArgs.reasoning_effort !== undefined) {
-        requestBody.reasoning_effort = adaptedArgs.reasoning_effort;
-      }
+      const requestBody = this.buildRequestBody(model, messages, config, tools);
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
@@ -349,25 +360,6 @@ export class OpenAIGateway implements LlmGateway {
     tools?: ToolDescriptor[]
   ): AsyncGenerator<Result<StreamChunk, Error>> {
     try {
-      // Build args object for adaptation
-      const args: Record<string, unknown> = {
-        model,
-        messages,
-        objectModel: config?.responseFormat?.schema,
-        tools,
-        temperature: config?.temperature ?? 1.0,
-        numCtx: config?.numCtx ?? 32768,
-        maxTokens: config?.maxTokens ?? 16384,
-        numPredict: config?.numPredict,
-        reasoningEffort: config?.reasoningEffort,
-      };
-
-      // Adapt parameters based on model type
-      const adaptedArgs = this.adaptParametersForModel(model, args);
-
-      // Validate parameters after adaptation
-      this.validateModelParameters(model, adaptedArgs);
-
       // Check if model supports streaming
       const capabilities = this.modelRegistry.getModelCapabilities(model);
       if (!capabilities.supportsStreaming) {
@@ -375,54 +367,10 @@ export class OpenAIGateway implements LlmGateway {
         return;
       }
 
-      // Structured output doesn't work with streaming
-      if (config?.responseFormat?.type === 'json_object' && config?.responseFormat?.schema) {
-        yield Err(
-          new GatewayError('Streaming with structured output (responseFormat) is not supported')
-        );
-        return;
-      }
-
-      // Build OpenAI request
-      const openaiMessages = adaptMessagesToOpenAI(messages);
-
-      const requestBody: Record<string, unknown> = {
-        model: adaptedArgs.model,
-        messages: openaiMessages,
+      const requestBody = {
+        ...this.buildRequestBody(model, messages, config, tools),
         stream: true,
       };
-
-      // Add temperature if specified
-      if ('temperature' in adaptedArgs) {
-        requestBody.temperature = adaptedArgs.temperature;
-      }
-
-      // Add tools if provided
-      if (adaptedArgs.tools && Array.isArray(adaptedArgs.tools) && adaptedArgs.tools.length > 0) {
-        requestBody.tools = (adaptedArgs.tools as ToolDescriptor[]).map((t) => ({
-          type: 'function',
-          function: {
-            name: t.function.name,
-            description: t.function.description,
-            parameters: t.function.parameters,
-          },
-        }));
-      }
-
-      // Handle token limit parameters
-      if ('maxTokens' in adaptedArgs && adaptedArgs.maxTokens !== undefined) {
-        requestBody.max_tokens = adaptedArgs.maxTokens;
-      } else if (
-        'maxCompletionTokens' in adaptedArgs &&
-        adaptedArgs.maxCompletionTokens !== undefined
-      ) {
-        requestBody.max_completion_tokens = adaptedArgs.maxCompletionTokens;
-      }
-
-      // Handle reasoning effort parameter
-      if ('reasoning_effort' in adaptedArgs && adaptedArgs.reasoning_effort !== undefined) {
-        requestBody.reasoning_effort = adaptedArgs.reasoning_effort;
-      }
 
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
