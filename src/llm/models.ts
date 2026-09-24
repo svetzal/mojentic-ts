@@ -111,19 +111,35 @@ export interface CompletionConfig {
 }
 
 /**
+ * Why the provider stopped generating.
+ *
+ * The named values are the common OpenAI-compatible reasons. Providers may report others
+ * (for example Ollama's `load`), which pass through unchanged.
+ */
+export type FinishReason = 'stop' | 'length' | 'tool_calls' | 'content_filter' | (string & {});
+
+/**
+ * Token usage as reported by the provider. Never estimated.
+ */
+export interface CompletionUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+/**
  * Response from an LLM gateway
  */
 export interface GatewayResponse {
   content: string;
   toolCalls?: ToolCall[];
-  finishReason?: 'stop' | 'length' | 'tool_calls' | 'content_filter';
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
+  finishReason?: FinishReason;
+  usage?: CompletionUsage;
+  /** Model name the provider reported, which can differ from the requested model. */
   model?: string;
   thinking?: string;
+  /** Other provider-reported response fields, such as response ids or timings. */
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -132,6 +148,6 @@ export interface GatewayResponse {
 export interface StreamChunk {
   content?: string;
   toolCalls?: ToolCall[];
-  finishReason?: 'stop' | 'length' | 'tool_calls' | 'content_filter';
+  finishReason?: FinishReason;
   done: boolean;
 }

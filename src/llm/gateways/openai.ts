@@ -3,7 +3,14 @@
  */
 
 import { LlmGateway } from '../gateway';
-import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk, ToolCall } from '../models';
+import {
+  LlmMessage,
+  CompletionConfig,
+  CompletionUsage,
+  GatewayResponse,
+  StreamChunk,
+  ToolCall,
+} from '../models';
 import { ToolDescriptor } from '../tools';
 import { Result, Ok, Err, GatewayError } from '../../error';
 import { adaptMessagesToOpenAI } from './openai-messages-adapter';
@@ -15,11 +22,18 @@ import {
 } from './openai-model-registry';
 import { TokenizerGateway } from './tokenizerGateway';
 
+interface OpenAIUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
 interface OpenAIResponse {
   id: string;
   object: string;
   created: number;
   model: string;
+  system_fingerprint?: string;
   choices: Array<{
     index: number;
     message: {
@@ -36,11 +50,7 @@ interface OpenAIResponse {
     };
     finish_reason: string;
   }>;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
+  usage?: OpenAIUsage;
 }
 
 interface OpenAIStreamDelta {
@@ -92,6 +102,23 @@ function toOpenAIResponseFormat(
   if (format.type === 'text') return { type: 'text' };
   if (format.schema === undefined) return { type: 'json_object' };
   return { type: 'json_schema', json_schema: { name: 'response', schema: format.schema } };
+}
+
+function toCompletionUsage(usage: OpenAIUsage): CompletionUsage {
+  return {
+    promptTokens: usage.prompt_tokens,
+    completionTokens: usage.completion_tokens,
+    totalTokens: usage.total_tokens,
+  };
+}
+
+/** Collect the provider-reported response fields that have no dedicated slot. */
+function responseMetadata(data: OpenAIResponse): Record<string, unknown> {
+  const metadata: Record<string, unknown> = { id: data.id, created: data.created };
+  if (data.system_fingerprint !== undefined) {
+    metadata.system_fingerprint = data.system_fingerprint;
+  }
+  return metadata;
 }
 
 /**
@@ -331,16 +358,13 @@ export class OpenAIGateway implements LlmGateway {
       const gatewayResponse: GatewayResponse = {
         content: message.content || '',
         toolCalls,
-        finishReason: data.choices[0]?.finish_reason as GatewayResponse['finishReason'],
+        finishReason: data.choices[0]?.finish_reason,
         model: data.model,
+        metadata: responseMetadata(data),
       };
 
       if (data.usage) {
-        gatewayResponse.usage = {
-          promptTokens: data.usage.prompt_tokens,
-          completionTokens: data.usage.completion_tokens,
-          totalTokens: data.usage.total_tokens,
-        };
+        gatewayResponse.usage = toCompletionUsage(data.usage);
       }
 
       return Ok(gatewayResponse);

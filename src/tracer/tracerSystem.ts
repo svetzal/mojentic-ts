@@ -10,6 +10,7 @@ import {
   TracerEventConstructor,
   LLMCallTracerEvent,
   LLMResponseTracerEvent,
+  LlmResponseEvidence,
   ToolCallTracerEvent,
   ToolBatchTracerEvent,
   AgentInteractionTracerEvent,
@@ -111,6 +112,7 @@ export class TracerSystem {
    * @param callDurationMs - The duration of the LLM call in milliseconds
    * @param correlationId - UUID string that is copied from cause-to-effect for tracing events
    * @param source - The source of the event
+   * @param evidence - Provider-reported usage, model, finish reason and metadata, if any
    */
   recordLlmResponse(
     model: string,
@@ -118,7 +120,8 @@ export class TracerSystem {
     toolCalls?: ToolCall[],
     callDurationMs?: number,
     correlationId?: string,
-    source?: string
+    source?: string,
+    evidence?: LlmResponseEvidence
   ): void {
     if (!this._enabled) {
       return;
@@ -130,7 +133,8 @@ export class TracerSystem {
       toolCalls,
       callDurationMs,
       correlationId,
-      source
+      source,
+      evidence
     );
     this.eventStore.store(event);
   }

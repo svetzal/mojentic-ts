@@ -157,6 +157,46 @@ describe('TracerEvent', () => {
   });
 
   describe('LLMResponseTracerEvent', () => {
+    it('should default provider evidence to null', () => {
+      const event = new LLMResponseTracerEvent('gpt-4', 'Hi');
+
+      expect(event).toMatchObject({
+        usage: null,
+        providerModel: null,
+        finishReason: null,
+        metadata: null,
+      });
+    });
+
+    it('should store provider evidence when provided', () => {
+      const usage = { promptTokens: 3, completionTokens: 4, totalTokens: 7 };
+
+      const event = new LLMResponseTracerEvent('gpt-4', 'Hi', undefined, 10, 'corr', 'test', {
+        usage,
+        providerModel: 'gpt-4-0613',
+        finishReason: 'length',
+        metadata: { id: 'abc' },
+      });
+
+      expect(event).toMatchObject({
+        model: 'gpt-4',
+        usage,
+        providerModel: 'gpt-4-0613',
+        finishReason: 'length',
+        metadata: { id: 'abc' },
+      });
+    });
+
+    it('should include reported usage and finish reason in the summary', () => {
+      const event = new LLMResponseTracerEvent('gpt-4', 'Hi', undefined, undefined, 'corr', 'x', {
+        usage: { promptTokens: 3, completionTokens: 4, totalTokens: 7 },
+        finishReason: 'length',
+      });
+
+      expect(event.printableSummary()).toContain('Usage: 3 prompt + 4 completion = 7 tokens');
+      expect(event.printableSummary()).toContain('Finish Reason: length');
+    });
+
     it('should store model and content', () => {
       const event = new LLMResponseTracerEvent('gpt-4', 'Hello, how can I help?');
 

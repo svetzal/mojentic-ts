@@ -321,6 +321,34 @@ describe('OpenAIGateway', () => {
     });
   });
 
+  describe('provider evidence', () => {
+    it('should report provider metadata for non-streaming responses', async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            id: 'chatcmpl-9',
+            created: 1700000000,
+            model: 'gpt-4-0613',
+            system_fingerprint: 'fp_1',
+            choices: [
+              { index: 0, message: { role: 'assistant', content: 'Hi' }, finish_reason: 'stop' },
+            ],
+          })
+        )
+      );
+
+      const result = await gateway.generate('gpt-4', [Message.user('Hi')]);
+
+      expect(result).toMatchObject({
+        ok: true,
+        value: {
+          model: 'gpt-4-0613',
+          metadata: { id: 'chatcmpl-9', created: 1700000000, system_fingerprint: 'fp_1' },
+        },
+      });
+    });
+  });
+
   describe('listModels', () => {
     it('should return list of available models', async () => {
       mockFetch.mockResolvedValueOnce({

@@ -3,7 +3,14 @@
  */
 
 import { LlmGateway } from '../gateway';
-import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk, ToolCall } from '../models';
+import {
+  LlmMessage,
+  CompletionConfig,
+  CompletionUsage,
+  GatewayResponse,
+  StreamChunk,
+  ToolCall,
+} from '../models';
 import { ToolDescriptor } from '../tools';
 import { Result, Ok, Err, GatewayError } from '../../error';
 
@@ -23,7 +30,18 @@ interface OllamaTool {
   };
 }
 
-interface OllamaResponse {
+/** Completion evidence Ollama reports on its final (`done: true`) frame. */
+interface OllamaCompletionStats {
+  done_reason?: string;
+  total_duration?: number;
+  load_duration?: number;
+  prompt_eval_count?: number;
+  prompt_eval_duration?: number;
+  eval_count?: number;
+  eval_duration?: number;
+}
+
+interface OllamaResponse extends OllamaCompletionStats {
   model: string;
   created_at: string;
   message: {
@@ -33,13 +51,9 @@ interface OllamaResponse {
     thinking?: string;
   };
   done: boolean;
-  total_duration?: number;
-  load_duration?: number;
-  prompt_eval_count?: number;
-  eval_count?: number;
 }
 
-interface OllamaStreamResponse {
+interface OllamaStreamResponse extends OllamaCompletionStats {
   model: string;
   created_at: string;
   message?: {
@@ -49,6 +63,31 @@ interface OllamaStreamResponse {
     thinking?: string;
   };
   done: boolean;
+}
+
+/** Usage from Ollama's eval counts, or undefined when either count is missing. */
+function ollamaUsage(stats: OllamaCompletionStats): CompletionUsage | undefined {
+  if (stats.prompt_eval_count === undefined || stats.eval_count === undefined) {
+    return undefined;
+  }
+  return {
+    promptTokens: stats.prompt_eval_count,
+    completionTokens: stats.eval_count,
+    totalTokens: stats.prompt_eval_count + stats.eval_count,
+  };
+}
+
+/** The reported completion fields that have no dedicated slot, or undefined when none. */
+function ollamaMetadata(stats: OllamaCompletionStats): Record<string, unknown> | undefined {
+  const { done_reason, total_duration, load_duration, prompt_eval_duration, eval_duration } = stats;
+  const reported = Object.entries({
+    done_reason,
+    total_duration,
+    load_duration,
+    prompt_eval_duration,
+    eval_duration,
+  }).filter(([, value]) => value !== undefined);
+  return reported.length > 0 ? Object.fromEntries(reported) : undefined;
 }
 
 interface OllamaPullProgress {
@@ -150,18 +189,12 @@ export class OllamaGateway implements LlmGateway {
       const gatewayResponse: GatewayResponse = {
         content: data.message.content,
         toolCalls: data.message.tool_calls,
-        finishReason: data.done ? 'stop' : undefined,
+        finishReason: data.done_reason ?? (data.done ? 'stop' : undefined),
         model: data.model,
         thinking: data.message.thinking,
+        usage: ollamaUsage(data),
+        metadata: ollamaMetadata(data),
       };
-
-      if (data.prompt_eval_count !== undefined && data.eval_count !== undefined) {
-        gatewayResponse.usage = {
-          promptTokens: data.prompt_eval_count,
-          completionTokens: data.eval_count,
-          totalTokens: data.prompt_eval_count + data.eval_count,
-        };
-      }
 
       return Ok(gatewayResponse);
     } catch (error) {

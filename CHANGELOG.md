@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support explicit unlimited tool rounds while retaining finite defaults.
 - The optional broker `toolContext` forwards cancellation and completion observations. Parallel concurrency must be a positive integer.
 - Streaming requests forward the configured `responseFormat`. OpenAI streaming no longer rejects a JSON schema; it sends `response_format` exactly as a non-streaming request does. OpenAI requests now also send `{type: "json_object"}` for JSON mode without a schema and `{type: "text"}` for text. Ollama streaming sends `format`. The request records what was asked for; callers still validate the content.
+- `LLMResponseTracerEvent` carries provider evidence: `usage`, `providerModel`, `finishReason` and `metadata` (each `null` when not reported). The broker fills them for ordinary and structured responses; `model` stays the configured model and usage is never estimated. `TracerSystem.recordLlmResponse` takes an optional `evidence` argument. `GatewayResponse` gains `metadata` (OpenAI: response id, created, system fingerprint; Ollama: `done_reason` and timings); new `CompletionUsage` and `FinishReason` types. The Ollama gateway's `generate` now reports `done_reason` as the finish reason (previously always `stop`). The legacy `generateStream` is unchanged.
 
 ## [1.5.1] - 2026-06-16
 

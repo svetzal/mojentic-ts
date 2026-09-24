@@ -5,7 +5,7 @@
  * but performs no operations, following the Null Object Pattern.
  */
 
-import { TracerEvent, TracerEventConstructor } from './tracerEvents';
+import { LlmResponseEvidence, TracerEvent, TracerEventConstructor } from './tracerEvents';
 import { ToolCall } from '../llm/models';
 import { FilterOptions } from './eventStore';
 
@@ -77,6 +77,7 @@ export class NullTracer {
    * @param _callDurationMs - The duration of the LLM call in milliseconds
    * @param _correlationId - UUID string that is copied from cause-to-effect for tracing events
    * @param _source - The source of the event
+   * @param _evidence - Provider-reported evidence about the response
    */
   recordLlmResponse(
     _model: string,
@@ -84,7 +85,8 @@ export class NullTracer {
     _toolCalls?: ToolCall[],
     _callDurationMs?: number,
     _correlationId?: string,
-    _source?: string
+    _source?: string,
+    _evidence?: LlmResponseEvidence
   ): void {
     // Do nothing
   }

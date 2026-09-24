@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { ToolCall } from '../llm/models';
+import { FinishReason, CompletionUsage, ToolCall } from '../llm/models';
 
 /**
  * Type alias for TracerEvent constructor functions.
@@ -169,6 +169,23 @@ export class LLMCallTracerEvent extends TracerEvent {
 }
 
 /**
+ * Provider-reported evidence about an LLM response.
+ *
+ * Every field is optional. A missing field means the provider did not report it; the
+ * tracer never estimates it.
+ */
+export interface LlmResponseEvidence {
+  /** Token usage exactly as the gateway reported it. */
+  usage?: CompletionUsage;
+  /** Model name the provider reported. */
+  providerModel?: string;
+  /** Provider finish reason. */
+  finishReason?: FinishReason;
+  /** Other gateway response metadata. */
+  metadata?: Record<string, unknown>;
+}
+
+/**
  * Records when an LLM responds to a call.
  *
  * @example
@@ -203,19 +220,44 @@ export class LLMResponseTracerEvent extends TracerEvent {
    */
   readonly callDurationMs?: number;
 
+  /**
+   * Token usage the gateway reported, or null when it reported none
+   */
+  readonly usage: CompletionUsage | null;
+
+  /**
+   * Model name the provider reported, or null. `model` stays the configured request model.
+   */
+  readonly providerModel: string | null;
+
+  /**
+   * Provider finish reason, or null when none was reported
+   */
+  readonly finishReason: FinishReason | null;
+
+  /**
+   * Other gateway response metadata, or null when none was reported
+   */
+  readonly metadata: Record<string, unknown> | null;
+
   constructor(
     model: string,
     content: string,
     toolCalls?: ToolCall[],
     callDurationMs?: number,
     correlationId?: string,
-    source?: string
+    source?: string,
+    evidence: LlmResponseEvidence = {}
   ) {
     super(Date.now(), correlationId || randomUUID(), source);
     this.model = model;
     this.content = content;
     this.toolCalls = toolCalls;
     this.callDurationMs = callDurationMs;
+    this.usage = evidence.usage ?? null;
+    this.providerModel = evidence.providerModel ?? null;
+    this.finishReason = evidence.finishReason ?? null;
+    this.metadata = evidence.metadata ?? null;
   }
 
   printableSummary(): string {
@@ -235,6 +277,15 @@ export class LLMResponseTracerEvent extends TracerEvent {
 
     if (this.callDurationMs !== undefined) {
       summary += `\n   Duration: ${this.callDurationMs.toFixed(2)}ms`;
+    }
+
+    if (this.usage !== null) {
+      const { promptTokens, completionTokens, totalTokens } = this.usage;
+      summary += `\n   Usage: ${promptTokens} prompt + ${completionTokens} completion = ${totalTokens} tokens`;
+    }
+
+    if (this.finishReason !== null) {
+      summary += `\n   Finish Reason: ${this.finishReason}`;
     }
 
     return summary;

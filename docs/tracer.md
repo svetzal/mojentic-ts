@@ -161,6 +161,33 @@ Captures:
 - Correlation ID
 - Timestamp
 
+#### Provider evidence in response traces
+
+The response event also keeps four fields that the provider reports. The
+broker fills them for ordinary and structured responses, and for
+`generateStreamEvents`. The legacy `generateStream` API does not fill them.
+
+| Field | Source | When the provider does not report it |
+| ----- | ------ | ------------------------------------ |
+| `usage` | gateway response usage, unchanged | `null` |
+| `providerModel` | model name that the provider reported | `null` |
+| `finishReason` | provider finish reason | `null` |
+| `metadata` | other gateway response fields, such as the response id or Ollama timings | `null` |
+
+The `model` field stays the model that you configured on the broker. The tracer
+does not estimate usage from text length or with a tokenizer. Unknown usage
+stays `null`.
+
+To record evidence yourself, pass it as the last argument:
+
+```typescript
+tracer.recordLlmResponse('gpt-4', 'Hello there!', undefined, 150.5, correlationId, 'my-source', {
+  usage: { promptTokens: 12, completionTokens: 3, totalTokens: 15 },
+  providerModel: 'gpt-4-0613',
+  finishReason: 'stop',
+});
+```
+
 ### ToolCallTracerEvent
 
 Records when a tool is executed:

@@ -168,6 +168,18 @@ describe('TracerSystem', () => {
       expect(event.toolCalls).toEqual(toolCalls);
     });
 
+    it('should record provider evidence', () => {
+      const usage = { promptTokens: 1, completionTokens: 2, totalTokens: 3 };
+
+      tracer.recordLlmResponse('gpt-4', 'Hi', undefined, 5, 'corr', 'test', {
+        usage,
+        providerModel: 'gpt-4-0613',
+      });
+
+      const event = tracer.getEvents()[0] as LLMResponseTracerEvent;
+      expect(event.usage).toEqual(usage);
+    });
+
     it('should record with call duration', () => {
       tracer.recordLlmResponse('gpt-4', 'Response', undefined, 150.5);
 

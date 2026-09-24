@@ -393,3 +393,18 @@ The optional broker `toolContext` forwards cancellation and completion observati
 Native responses preserve the fields supplied by the gateway. Missing provider
 usage or termination evidence must remain unknown; configured model names and
 text length are not substitutes for reported metadata.
+
+## Provider evidence in response traces
+
+When the broker has a tracer, each `LLMResponseTracerEvent` from
+`generate`, `generateResponse`, and `generateObject` keeps the evidence that the
+gateway reported: `usage`, `providerModel`, `finishReason`, and `metadata`. The
+event `model` field stays the configured model. A field that the provider did
+not report is `null`. The broker does not estimate usage.
+
+The legacy `generateStream` API keeps its current trace, without this evidence.
+Use `generateStreamEvents` when you need streamed usage and completion evidence.
+
+Ollama reports usage from `prompt_eval_count` and `eval_count`. Its
+`done_reason` becomes the finish reason, and its timings go into `metadata`.
+See [Tracer System](./tracer.md#provider-evidence-in-response-traces).

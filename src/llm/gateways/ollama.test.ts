@@ -842,6 +842,46 @@ describe('OllamaGateway', () => {
     });
   });
 
+  describe('provider evidence', () => {
+    const finalFrame = {
+      model: 'llama3:8b',
+      created_at: '2026-01-01T00:00:00Z',
+      message: { role: 'assistant', content: '' },
+      done: true,
+      done_reason: 'length',
+      total_duration: 900,
+      load_duration: 100,
+      prompt_eval_count: 11,
+      prompt_eval_duration: 200,
+      eval_count: 4,
+      eval_duration: 600,
+    };
+
+    const expectedMetadata = {
+      done_reason: 'length',
+      total_duration: 900,
+      load_duration: 100,
+      prompt_eval_duration: 200,
+      eval_duration: 600,
+    };
+
+    test('should report the provider done reason and timing metadata', async () => {
+      mockFetch.mockResolvedValueOnce(new Response(JSON.stringify(finalFrame)));
+
+      const result = await gateway.generate('llama3', [Message.user('Hi')]);
+
+      expect(result).toMatchObject({
+        ok: true,
+        value: {
+          finishReason: 'length',
+          model: 'llama3:8b',
+          usage: { promptTokens: 11, completionTokens: 4, totalTokens: 15 },
+          metadata: expectedMetadata,
+        },
+      });
+    });
+  });
+
   describe('calculateEmbeddings', () => {
     test('should calculate embeddings for text', async () => {
       const mockEmbeddings = Array(768)

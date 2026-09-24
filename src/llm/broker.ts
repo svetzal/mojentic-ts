@@ -13,8 +13,18 @@ import {
   ToolRunContext,
 } from './tools';
 import { Result, Ok, Err, isOk, ParseError, ToolError } from '../error';
-import { TracerSystem } from '../tracer';
+import { LlmResponseEvidence, TracerSystem } from '../tracer';
 import { randomUUID } from 'crypto';
+
+/** Carry the provider-reported evidence from a gateway response. */
+function evidenceOf(reported: GatewayResponse): LlmResponseEvidence {
+  return {
+    usage: reported.usage,
+    providerModel: reported.model,
+    finishReason: reported.finishReason,
+    metadata: reported.metadata,
+  };
+}
 
 /**
  * Main broker for LLM interactions with automatic tool execution and streaming support.
@@ -184,7 +194,8 @@ export class LlmBroker {
           response.toolCalls,
           callDurationMs,
           corrId,
-          'LlmBroker.generateResponse'
+          'LlmBroker.generateResponse',
+          evidenceOf(response)
         );
       }
 
@@ -354,7 +365,8 @@ export class LlmBroker {
           undefined,
           callDurationMs,
           corrId,
-          'LlmBroker.generateObject'
+          'LlmBroker.generateObject',
+          evidenceOf(response)
         );
       }
 
