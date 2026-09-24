@@ -158,7 +158,12 @@ describe('OllamaGateway.generateStreamEvents', () => {
 
     const result = await collect(events());
 
-    expect(lastEvent(result)).toEqual(errorWith({ reason: 'incomplete_stream' }));
+    expect(lastEvent(result)).toEqual(
+      errorWith({
+        reason: 'incomplete_stream',
+        evidence: { finishReason: null, usage: null, providerModel: 'llama3:8b', metadata: null },
+      })
+    );
   });
 
   it('should report unexpected tool calls when a frame carries tool calls', async () => {
@@ -178,6 +183,27 @@ describe('OllamaGateway.generateStreamEvents', () => {
     const result = await collect(events());
 
     expect(lastEvent(result)).toEqual(errorWith({ reason: 'unexpected_tool_calls' }));
+  });
+
+  it('should report a non-success HTTP status as a provider error carrying the status', async () => {
+    mockFetch.mockResolvedValueOnce(new Response('model not found', { status: 404 }));
+
+    const result = await collect(events());
+
+    expect(lastEvent(result)).toEqual(
+      errorWith({
+        reason: 'provider_error',
+        detail: { status: 404, body: 'model not found' },
+      })
+    );
+  });
+
+  it('should report a network failure as a failed request', async () => {
+    mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+
+    const result = await collect(events());
+
+    expect(lastEvent(result)).toEqual(errorWith({ reason: 'request_failed' }));
   });
 
   it('should report a provider error frame as a provider error', async () => {

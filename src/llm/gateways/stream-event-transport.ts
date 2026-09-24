@@ -118,7 +118,7 @@ export async function* streamCompletionEvents(
   const interrupted = (evidence: CompletionEvidence, cause: unknown): LlmStreamEvent =>
     callerSignal?.aborted
       ? failure('cancelled', 'The request was cancelled', evidence)
-      : failure('transport_error', `Stream transport failed: ${describe(cause)}`, evidence, cause);
+      : failure('request_failed', `Request failed: ${describe(cause)}`, evidence, cause);
 
   try {
     let response: Response;
@@ -144,7 +144,7 @@ export async function* streamCompletionEvents(
     }
 
     if (!response.body) {
-      yield failure('transport_error', 'The response has no body', NO_EVIDENCE);
+      yield failure('request_failed', 'The response has no body', NO_EVIDENCE);
       return;
     }
 

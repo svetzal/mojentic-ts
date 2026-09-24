@@ -148,6 +148,37 @@ describe('OpenAIGateway.generateStreamEvents', () => {
     expect(lastEvent(result)).toEqual(errorWith({ reason: 'incomplete_stream' }));
   });
 
+  it('should keep the evidence that arrived before an incomplete stream ended', async () => {
+    serveFrames([frame({ content: 'Hi' }), frame({}, 'stop'), usageFrame]);
+
+    const result = await collect(events());
+
+    expect(lastEvent(result)).toEqual(
+      errorWith({
+        reason: 'incomplete_stream',
+        evidence: {
+          finishReason: 'stop',
+          usage: reportedUsage,
+          providerModel: 'gpt-4o-2024-08-06',
+          metadata: { id: 'c1', system_fingerprint: 'fp_7' },
+        },
+      })
+    );
+  });
+
+  it('should report null evidence when the stream ended before any frame', async () => {
+    serveFrames([]);
+
+    const result = await collect(events());
+
+    expect(lastEvent(result)).toEqual(
+      errorWith({
+        reason: 'incomplete_stream',
+        evidence: { finishReason: null, usage: null, providerModel: null, metadata: null },
+      })
+    );
+  });
+
   it('should report unexpected tool calls when a tool-call delta arrives', async () => {
     serveFrames([
       frame({ tool_calls: [{ index: 0, id: 'call_1', function: { name: 'x', arguments: '' } }] }),
@@ -191,12 +222,12 @@ describe('OpenAIGateway.generateStreamEvents', () => {
     expect(lastEvent(result)).toEqual(errorWith({ reason: 'invalid_stream_event' }));
   });
 
-  it('should report a network failure as a transport error', async () => {
+  it('should report a network failure as a failed request', async () => {
     mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
 
     const result = await collect(events());
 
-    expect(lastEvent(result)).toEqual(errorWith({ reason: 'transport_error' }));
+    expect(lastEvent(result)).toEqual(errorWith({ reason: 'request_failed' }));
   });
 
   it('should end with exactly one terminal event', async () => {

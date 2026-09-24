@@ -32,7 +32,7 @@ export interface CompletionEvidence {
  * - `unexpected_tool_calls`: the provider asked for a tool call, which this API never executes.
  * - `invalid_stream_event`: a frame could not be understood.
  * - `stream_events_unsupported`: the gateway does not implement the API; no request was sent.
- * - `transport_error`: the HTTP request or body read failed.
+ * - `request_failed`: the connection or the body read failed.
  * - `cancelled`: the caller's `AbortSignal` fired.
  */
 export type StreamEventErrorReason =
@@ -42,7 +42,7 @@ export type StreamEventErrorReason =
   | 'unexpected_tool_calls'
   | 'invalid_stream_event'
   | 'stream_events_unsupported'
-  | 'transport_error'
+  | 'request_failed'
   | 'cancelled';
 
 /**

@@ -118,6 +118,8 @@ for await (const event of broker.generateStreamEvents([Message.user('Summarize t
 - Ollama: success needs a final frame with `done: true` and a `done_reason` of
   `stop`. A different or missing `done_reason` gives an
   `incomplete_completion` error.
+  Ollama servers that are too old to send `done_reason` cannot use this API:
+  every stream from them ends with `incomplete_completion`.
 - The `incomplete_completion` error keeps the evidence in `error.evidence`:
   finish reason, usage, provider model, and provider metadata.
 
@@ -125,12 +127,12 @@ Other values of `error.reason`:
 
 | Reason | Cause |
 | ------ | ----- |
-| `incomplete_stream` | The stream ended without a terminal marker |
-| `provider_error` | The provider sent an error frame or a non-success HTTP status. `error.detail` holds the payload |
+| `incomplete_stream` | The stream ended without a terminal marker. `error.evidence` keeps what arrived before the end (for example model and usage), with `null` fields when nothing arrived |
+| `provider_error` | The provider sent an error frame, or a non-success HTTP status. `error.detail` holds the payload, or `{ status, body }` for an HTTP status |
 | `unexpected_tool_calls` | The provider asked for a tool call |
 | `invalid_stream_event` | A frame could not be understood |
 | `stream_events_unsupported` | The gateway does not implement this API. No request was sent |
-| `transport_error` | The HTTP request or the body read failed |
+| `request_failed` | The connection or the body read failed |
 | `cancelled` | The `AbortSignal` in `options.signal` fired |
 
 Content that you received before an `error` event is evidence of what the
@@ -153,7 +155,8 @@ valid JSON.
   Other gateways give a `stream_events_unsupported` error before any request.
 - With a tracer, the broker records the LLM call when the request starts. At the
   terminal event, it records the response with the content so far and the
-  evidence fields. See [Tracer System](./tracer.md#provider-evidence-in-response-traces).
+  evidence fields. If you stop the iteration before the terminal event,
+  the tracer has the call and no response. This is not an error. See [Tracer System](./tracer.md#provider-evidence-in-response-traces).
 
 The existing `generateStream` API keeps its behaviour. It does not give this
 terminal proof.
