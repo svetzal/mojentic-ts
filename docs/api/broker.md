@@ -164,22 +164,27 @@ const result = await broker.generateObject(messages, schema);
 ### generateStream
 
 ```typescript
-async generateStream(
+async *generateStream(
   messages: LlmMessage[],
+  config?: CompletionConfig,
   tools?: LlmTool[],
-  config?: CompletionConfig
-): Promise<Result<AsyncGenerator<StreamChunk, void, unknown>, Error>>
+  correlationId?: string
+): AsyncGenerator<Result<string, Error>>
 ```
 
-Generate a streaming response.
+Generate a streaming response. The broker runs the tool calls that the LLM requests, then
+streams the next response.
 
 **Parameters:**
 - `messages`: Conversation history
-- `tools`: Optional tools the LLM can call
 - `config`: Optional configuration overrides
+- `tools`: Optional tools the LLM can call
+- `correlationId`: Optional id for the tracer events. The default is a new UUID.
 
-**Returns:**
-- `Result<AsyncGenerator<StreamChunk>, Error>`: Ok with async generator or Err with error
+**Yields:**
+- `Result<string, Error>`: Ok with the text of one chunk, or Err with an error
+
+`generateStream` is an async generator. Do not `await` it. Use `for await` to read the items.
 
 **Example:**
 ```typescript
@@ -187,37 +192,24 @@ const messages = [
   Message.user('Write a short story')
 ];
 
-const result = await broker.generateStream(messages);
-
-if (isOk(result)) {
-  for await (const chunk of result.value) {
-    process.stdout.write(chunk.content);
-
-    if (chunk.isComplete) {
-      console.log('\n---Complete---');
-      if (chunk.finishReason) {
-        console.log(`Reason: ${chunk.finishReason}`);
-      }
-    }
+for await (const result of broker.generateStream(messages)) {
+  if (isOk(result)) {
+    process.stdout.write(result.value);
+  } else {
+    console.error('Stream error:', result.error);
+    break;
   }
 }
 ```
 
-**Error Handling:**
+**With tools:**
 ```typescript
-const result = await broker.generateStream(messages);
-
-if (isErr(result)) {
-  console.error('Failed to start stream:', result.error);
-  return;
-}
-
-try {
-  for await (const chunk of result.value) {
-    process.stdout.write(chunk.content);
+for await (const result of broker.generateStream(messages, { temperature: 0.7 }, [
+  new DateResolverTool(),
+])) {
+  if (isOk(result)) {
+    process.stdout.write(result.value);
   }
-} catch (error) {
-  console.error('Stream error:', error);
 }
 ```
 

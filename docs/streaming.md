@@ -30,7 +30,7 @@ import { DateResolverTool } from 'mojentic';
 
 const tools = [new DateResolverTool()];
 
-for await (const result of broker.generateStream(messages, { tools })) {
+for await (const result of broker.generateStream(messages, {}, tools)) {
   // The stream will contain text chunks.
   // Tool execution happens transparently in the background.
   if (isOk(result)) {

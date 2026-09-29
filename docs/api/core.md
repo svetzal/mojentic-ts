@@ -407,6 +407,7 @@ Configuration for LLM generation.
 - `reasoningEffort`: Extended thinking effort level ('low', 'medium', 'high')
   - Ollama: Maps to `think: true` parameter for extended thinking
   - OpenAI: Maps to `reasoning_effort` API parameter for reasoning models (o1, o3, etc.)
+  - oMLX: Maps to `reasoning_effort`, unchanged, for all models
 
 ## Gateway Types
 
@@ -416,13 +417,11 @@ Configuration for LLM generation.
 interface GatewayResponse {
   content: string;
   toolCalls?: ToolCall[];
-  finishReason?: string;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
+  finishReason?: FinishReason;
+  usage?: CompletionUsage;
+  model?: string;
   thinking?: string;
+  metadata?: Record<string, unknown>;
 }
 ```
 
@@ -431,28 +430,32 @@ Response from LLM gateway.
 **Properties:**
 - `content`: Generated text
 - `toolCalls`: Tool calls requested by LLM
-- `finishReason`: Why generation stopped
-- `usage`: Token usage statistics
-- `thinking`: Model's reasoning trace (populated by Ollama when reasoningEffort is set)
+- `finishReason`: Why generation stopped (`stop`, `length`, `tool_calls`, `content_filter`, or
+  a different value from the provider)
+- `usage`: Token counts that the provider reported (`promptTokens`, `completionTokens`,
+  `totalTokens`). The gateway never estimates them.
+- `model`: Model name that the provider reported. It is not always the requested model.
+- `thinking`: Model's reasoning trace (Ollama and oMLX only)
+- `metadata`: Other fields that the provider reported, for example response ids or timings
 
 ### StreamChunk
 
 ```typescript
 interface StreamChunk {
-  content: string;
-  isComplete: boolean;
+  content?: string;
   toolCalls?: ToolCall[];
-  finishReason?: string;
+  finishReason?: FinishReason;
+  done: boolean;
 }
 ```
 
-Chunk in a streaming response.
+Chunk in a streaming response from `LlmGateway.generateStream`.
 
 **Properties:**
-- `content`: Partial or complete text
-- `isComplete`: Whether this is the final chunk
-- `toolCalls`: Tool calls (only in final chunk)
-- `finishReason`: Why generation stopped (only in final chunk)
+- `content`: Text in this chunk. Some chunks have no text.
+- `toolCalls`: Tool calls (only in the last chunk)
+- `finishReason`: Why generation stopped (only in the last chunk)
+- `done`: True for the last chunk
 
 ## See Also
 

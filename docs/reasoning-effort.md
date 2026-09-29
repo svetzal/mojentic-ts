@@ -68,7 +68,7 @@ const config: CompletionConfig = {
   reasoningEffort: 'high'
 };
 
-for await (const result of broker.generateStream(messages, { config })) {
+for await (const result of broker.generateStream(messages, config)) {
   if (isOk(result)) {
     process.stdout.write(result.value);
   }

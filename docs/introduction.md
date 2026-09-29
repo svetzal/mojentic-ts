@@ -17,7 +17,7 @@ The TypeScript implementation of Mojentic follows these principles:
 ### Layer 1: LLM Integration
 
 - **LLM Broker**: Central interface for LLM interactions with any provider
-- **Multiple Gateways**: Support for Ollama (OpenAI and Anthropic planned)
+- **Multiple Gateways**: Ollama, OpenAI and oMLX
 - **Tool Calling**: Automatic recursive tool execution
 - **Structured Output**: Schema-based JSON parsing and validation
 - **Streaming**: Real-time response streaming
@@ -62,8 +62,8 @@ if (isOk(result)) {
 Mojentic is organized into layers:
 
 1. **Layer 1**: Core LLM integration (Broker, Gateways, Tools, Messages)
-2. **Layer 2**: Advanced features (ChatSession, Tracer system - planned)
-3. **Layer 3**: Agent system for complex workflows (planned)
+2. **Layer 2**: Advanced features (ChatSession, Tracer system, Embeddings)
+3. **Layer 3**: Agent system for complex workflows
 
 ## Next Steps
 
@@ -149,31 +149,29 @@ if (isOk(result)) {
 
 Mojentic is built in layers:
 
-### Layer 1: LLM Integration (Current)
+### Layer 1: LLM Integration
 
 The foundation provides direct LLM interaction:
 
 - **LlmBroker** - Main interface for all operations
 - **LlmGateway** - Abstract interface for providers
-- **Gateway Implementations** - Ollama, OpenAI, Anthropic
+- **Gateway Implementations** - Ollama, OpenAI, oMLX
 - **Tool System** - Extensible function calling
 - **Message Models** - Type-safe message handling
 
-### Layer 2: Advanced Features (Planned)
-
-Future enhancements:
+### Layer 2: Advanced Features
 
 - **ChatSession** - Conversation state management
 - **Tracer System** - Observability and debugging
-- **Embeddings** - Vector generation and search
+- **Embeddings** - Vector generation
 
-### Layer 3: Agent System (Future)
+### Layer 3: Agent System
 
 Multi-agent orchestration:
 
 - **Event System** - Event-driven coordination
 - **Agent Behaviors** - Reusable agent patterns
-- **Workflow Engine** - Complex agent workflows
+- **Dispatcher and Router** - Event routing between agents
 
 ## Philosophy
 

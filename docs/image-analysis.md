@@ -259,10 +259,12 @@ Large images consume significant memory when base64-encoded. Consider:
 - Using appropriate model context windows
 
 ### Gateway Support
-Currently, multimodal image support is implemented for:
-- ✅ OllamaGateway
+`OllamaGateway` accepts the items that `imageContent` makes. It sends the base64 part of each
+data URI in the `images` field.
 
-Support for other gateways (OpenAI, Anthropic) coming soon.
+`OpenAIGateway` and `OMLXGateway` do not accept these items. Their message adapter sends an
+image only when `image_url.url` is a path to a local file. It ignores data URIs and `http` URLs,
+and it sends only the text of the message. Thus the model does not see the image.
 
 ## Error Handling
 
