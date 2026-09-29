@@ -66,7 +66,7 @@ export function adaptMessagesToOpenAI(messages: LlmMessage[]): OpenAIMessage[] {
     if (m.role === 'system') {
       newMessages.push({
         role: 'system',
-        content: typeof m.content === 'string' ? m.content : '',
+        content: getTextFromContent(m),
       });
     } else if (m.role === 'user') {
       newMessages.push({ role: 'user', content: adaptUserContent(m) });
@@ -92,7 +92,7 @@ export function adaptMessagesToOpenAI(messages: LlmMessage[]): OpenAIMessage[] {
       if (m.tool_call_id) {
         newMessages.push({
           role: 'tool',
-          content: typeof m.content === 'string' ? m.content : '',
+          content: getTextFromContent(m),
           tool_call_id: m.tool_call_id,
         });
       }

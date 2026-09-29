@@ -299,7 +299,8 @@ Tools go in `tools`, in the OpenAI format.
 The OpenAI message adapter changes each message as follows:
 
 - A system message with string content goes to OpenAI without changes. A system message with
-  content items goes with empty content.
+  content items goes as one string. The adapter joins the text items with a newline. It does not
+  send the image items.
 - A user message with no image items goes as one string. The adapter joins the text items with
   a newline.
 - A user message with image items goes as a list of `text` and `image_url` content parts, in
@@ -310,8 +311,8 @@ The OpenAI message adapter changes each message as follows:
 - An assistant message goes with its text and its `tool_calls`. The `arguments` stay a JSON
   string. If a tool call has no `id`, the adapter sends an empty `id`.
 - A tool message goes with its string content and its `tool_call_id`. A tool message with
-  content items goes with empty content. If the message has no `tool_call_id`, the
-  adapter does not send it.
+  content items goes as one string. The adapter joins the text items with a newline. It does not
+  send the image items. If the message has no `tool_call_id`, the adapter does not send it.
 - For a message with an unknown role, the adapter writes an error to the console. It does not
   send that message.
 

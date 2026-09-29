@@ -40,6 +40,34 @@ describe('adaptMessagesToOpenAI', () => {
       expect(result[0].role).toBe('tool');
       expect(result[0].content).toBe('{"temperature":22}');
     });
+
+    it('should join text content items with a newline', () => {
+      const message = {
+        role: MessageRole.Tool,
+        content: [textContent('first line'), textContent('second line')],
+        tool_call_id: 'call_items',
+      };
+
+      const result = adaptMessagesToOpenAI([message]);
+
+      expect(result[0]).toEqual({
+        role: 'tool',
+        tool_call_id: 'call_items',
+        content: 'first line\nsecond line',
+      });
+    });
+
+    it('should not send image content items', () => {
+      const message = {
+        role: MessageRole.Tool,
+        content: [textContent('chart attached'), imageUrlItem(PNG_DATA_URI)],
+        tool_call_id: 'call_image',
+      };
+
+      const result = adaptMessagesToOpenAI([message]);
+
+      expect(result[0].content).toBe('chart attached');
+    });
   });
 
   describe('assistant role with tool_calls (Bug #2)', () => {
@@ -108,6 +136,28 @@ describe('adaptMessagesToOpenAI', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({ role: 'system', content: 'You are a helpful assistant.' });
+    });
+
+    it('should join text content items with a newline', () => {
+      const message = {
+        role: MessageRole.System,
+        content: [textContent('You are terse.'), textContent('Answer in French.')],
+      };
+
+      const result = adaptMessagesToOpenAI([message]);
+
+      expect(result[0]).toEqual({ role: 'system', content: 'You are terse.\nAnswer in French.' });
+    });
+
+    it('should not send image content items', () => {
+      const message = {
+        role: MessageRole.System,
+        content: [textContent('Describe images briefly.'), imageUrlItem(PNG_DATA_URI)],
+      };
+
+      const result = adaptMessagesToOpenAI([message]);
+
+      expect(result[0].content).toBe('Describe images briefly.');
     });
   });
 
