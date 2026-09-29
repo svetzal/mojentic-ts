@@ -18,11 +18,15 @@ export class MojenticError extends Error {
 
 /**
  * Error for gateway-related issues (network, API, etc.)
+ *
+ * For a provider's non-success HTTP response, `statusCode` holds the status and, where the
+ * gateway records it, `body` holds the response body exactly as received.
  */
 export class GatewayError extends MojenticError {
   constructor(
     message: string,
-    public readonly statusCode?: number
+    public readonly statusCode?: number,
+    public readonly body?: string
   ) {
     super(message, 'GATEWAY_ERROR');
     this.name = 'GatewayError';
