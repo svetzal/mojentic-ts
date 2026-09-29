@@ -3,7 +3,7 @@
  */
 
 import { OllamaGateway } from './ollama';
-import { CompletionConfig, Message, MessageRole } from '../models';
+import { CompletionConfig, LlmMessage, Message, MessageRole } from '../models';
 import { isOk } from '../../error';
 
 // Mock fetch globally
@@ -635,6 +635,111 @@ describe('OllamaGateway', () => {
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
       expect(body.think).toBeUndefined();
+    });
+  });
+
+  describe('system and tool message adaptation', () => {
+    const PNG_BASE64 = 'iVBORw0KGgo';
+    const PNG_DATA_URI = `data:image/png;base64,${PNG_BASE64}`;
+
+    async function sendAndCaptureMessage(message: LlmMessage): Promise<unknown> {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          model: 'llama2',
+          created_at: '2023-01-01T00:00:00Z',
+          message: { role: 'assistant', content: 'OK' },
+          done: true,
+        }),
+      });
+      await gateway.generate('llama2', [message]);
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      return body.messages[0];
+    }
+
+    test('should pass system string content through unchanged', async () => {
+      const message = { role: MessageRole.System, content: 'You are a helpful assistant.' };
+
+      const sent = await sendAndCaptureMessage(message);
+
+      expect(sent).toEqual({ role: 'system', content: 'You are a helpful assistant.' });
+    });
+
+    test('should join system text content items with a newline', async () => {
+      const message = {
+        role: MessageRole.System,
+        content: [
+          { type: 'text' as const, text: 'You are terse.' },
+          { type: 'text' as const, text: 'Answer in French.' },
+        ],
+      };
+
+      const sent = await sendAndCaptureMessage(message);
+
+      expect(sent).toEqual({ role: 'system', content: 'You are terse.\nAnswer in French.' });
+    });
+
+    test('should send system image content items as base64 images', async () => {
+      const message = {
+        role: MessageRole.System,
+        content: [
+          { type: 'text' as const, text: 'Describe images briefly.' },
+          { type: 'image_url' as const, image_url: { url: PNG_DATA_URI } },
+        ],
+      };
+
+      const sent = await sendAndCaptureMessage(message);
+
+      expect(sent).toEqual({
+        role: 'system',
+        content: 'Describe images briefly.',
+        images: [PNG_BASE64],
+      });
+    });
+
+    test('should pass tool string content through and drop tool_call_id and name', async () => {
+      const message = {
+        role: MessageRole.Tool,
+        content: '{"temperature":22}',
+        tool_call_id: 'call_string',
+        name: 'get_weather',
+      };
+
+      const sent = await sendAndCaptureMessage(message);
+
+      expect(sent).toEqual({ role: 'tool', content: '{"temperature":22}' });
+    });
+
+    test('should join tool text content items with a newline and drop tool_call_id and name', async () => {
+      const message = {
+        role: MessageRole.Tool,
+        content: [
+          { type: 'text' as const, text: 'first line' },
+          { type: 'text' as const, text: 'second line' },
+        ],
+        tool_call_id: 'call_items',
+        name: 'get_weather',
+      };
+
+      const sent = await sendAndCaptureMessage(message);
+
+      expect(sent).toEqual({ role: 'tool', content: 'first line\nsecond line' });
+    });
+
+    test('should send tool image content items as base64 images', async () => {
+      const message = {
+        role: MessageRole.Tool,
+        content: [
+          { type: 'text' as const, text: 'chart attached' },
+          { type: 'image_url' as const, image_url: { url: PNG_DATA_URI } },
+        ],
+        tool_call_id: 'call_image',
+      };
+
+      const sent = await sendAndCaptureMessage(message);
+
+      expect(sent).toEqual({ role: 'tool', content: 'chart attached', images: [PNG_BASE64] });
     });
   });
 
