@@ -9,7 +9,7 @@ A modern LLM integration framework for TypeScript with full feature parity acros
 
 ## 🚀 Features
 
-- **🔌 Multi-Provider Support**: OpenAI and Ollama gateways
+- **🔌 Multi-Provider Support**: OpenAI, Ollama and oMLX gateways
 - **🤖 Agent System**: Complete event-driven agent framework with ReAct pattern
 - **🛠️ Tool System**: Extensible function calling with automatic recursive execution
 - **📊 Structured Output**: Type-safe response parsing with JSON schemas
@@ -188,7 +188,7 @@ Mojentic is structured in three layers:
 
 - **LlmBroker** - Main interface for LLM interactions
 - **LlmGateway** interface - Abstract interface for LLM providers
-- **OllamaGateway** / **OpenAiGateway** - Provider implementations
+- **OllamaGateway** / **OpenAiGateway** / **OMLXGateway** - Provider implementations
 - **ChatSession** - Conversational session management
 - **TokenizerGateway** - Token counting with tiktoken
 - **EmbeddingsGateway** - Vector embeddings
@@ -392,7 +392,7 @@ Mojentic is structured in three layers:
 
 - `LlmBroker` - Main interface for LLM interactions
 - `LlmGateway` interface - Abstract interface for LLM providers
-- `OllamaGateway` / `OpenAiGateway` - Provider implementations
+- `OllamaGateway` / `OpenAiGateway` / `OMLXGateway` - Provider implementations
 - `ChatSession` - Conversational session management
 - `TokenizerGateway` - Token counting with tiktoken
 - `EmbeddingsGateway` - Vector embeddings

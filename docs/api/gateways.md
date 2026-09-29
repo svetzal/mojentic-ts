@@ -499,6 +499,159 @@ if (isOk(result)) {
 }
 ```
 
+## OMLXGateway
+
+Gateway for [oMLX](https://github.com/jundot/omlx), an LLM server for Apple Silicon.
+
+oMLX uses the OpenAI chat completions protocol. Do not use `OpenAIGateway` for it. The OpenAI
+gateway changes requests for model names that it does not know, discards `reasoning_content`,
+and chunks embedding input with the OpenAI tokenizer. `OMLXGateway` uses the OpenAI message
+adapter and the OpenAI stream parsers. It does not use the OpenAI model registry, and it does
+not change parameters for each model.
+
+### Configuration
+
+```typescript
+class OMLXGateway implements LlmGateway {
+  constructor(host?: string, apiKey?: string, timeout?: number);
+}
+```
+
+| Parameter | Environment variable | Default |
+| --------- | -------------------- | ------- |
+| `host` | `OMLX_HOST` | `http://localhost:8000` |
+| `apiKey` | `OMLX_API_KEY` | none |
+| `timeout` (milliseconds) | `OMLX_TIMEOUT` | `600000` (10 minutes) |
+
+- The gateway uses the constructor value first, then the environment variable, then the
+  default.
+- Give the host without `/v1`. The gateway adds `/v1` to each path.
+- When there is an API key, the gateway sends `Authorization: Bearer <key>`. When there is no
+  key, the gateway sends no `Authorization` header.
+- The timeout applies to each request that does not stream, and to `loadModel`. Local models
+  are slow, so the default is long. A reply of 16384 tokens at 16 tokens each second takes
+  17 minutes.
+- The timeout does not apply to streams. A fetch timeout includes the full response body, so it
+  would stop a long reply. To stop a stream, stop the iteration, or abort the `signal` that you
+  give to `generateStreamEvents`.
+- If `OMLX_TIMEOUT` is not a positive integer, the gateway uses the default.
+
+```typescript
+import { LlmBroker, Message, OMLXGateway } from 'mojentic';
+
+const gateway = new OMLXGateway(); // OMLX_HOST, OMLX_API_KEY, OMLX_TIMEOUT
+const broker = new LlmBroker('Qwen3.8-27B-MLX-8bit', gateway);
+const result = await broker.generate([Message.user('Hello')]);
+```
+
+### Request body
+
+| `CompletionConfig` | Request body |
+| ------------------ | ------------ |
+| `temperature` | `temperature` (default `1.0`) |
+| `maxTokens` | `max_tokens` (default `16384`). Never `max_completion_tokens` |
+| `topP`, `topK` | `top_p`, `top_k`, when set |
+| `reasoningEffort` | `reasoning_effort`, unchanged, when set |
+| `responseFormat` | `response_format`, as the OpenAI gateway sends it |
+| `numCtx`, `numPredict` | Not sent. oMLX sets the context length for each model |
+
+Tools go in `tools`, in the OpenAI format.
+
+### Thinking
+
+The gateway puts `reasoning_content` from the response in `GatewayResponse.thinking`. When the
+response has no `reasoning_content`, `thinking` is `undefined`.
+
+The gateway sends `reasoningEffort` to the chat template of the model. The effect of the value
+depends on the model. When `reasoningEffort` is not set, the model uses its default. Qwen 3
+models think by default.
+
+### Truncated replies
+
+When the finish reason is not `stop`, `content` is not an answer. Examine `finishReason` before
+you use `content`.
+
+If `maxTokens` stops generation during thinking, a response that does not stream puts the
+partial reasoning in `content`. Its `thinking` is `undefined`, and its finish reason is
+`length`. The gateway does not move text between the two fields.
+
+### Structured output
+
+`LlmBroker.generateObject`, and a `responseFormat` of `json_object` with a schema, send this
+`response_format`:
+
+```json
+{ "type": "json_schema", "json_schema": { "name": "response", "schema": { } } }
+```
+
+If oMLX cannot compile a grammar for the schema, it adds instructions to the prompt instead. It
+reports this in a `Warning` response header. When the request asked for JSON (with or without a
+schema) and the response has a `Warning` header, the gateway:
+
+- puts the header value in `metadata.response_format_warning` (it joins several headers with
+  `, `)
+- logs a warning with `console.warn`
+
+The gateway does not try the request again, and does not fail. You must validate the content.
+The gateway ignores the header when the request asked for text, or for no format.
+
+### Usage
+
+`GatewayResponse.usage` holds the prompt, completion and total token counts that oMLX reported.
+oMLX reports more fields, for example `model_load_duration`, `time_to_first_token` and
+`generation_tokens_per_second`. The gateway keeps the full `usage` object, unchanged, in
+`metadata.usage`. The gateway never estimates usage.
+
+### Streaming
+
+The gateway supports `generateStreamEvents` (and `LlmBroker.generateStreamEvents`). The rules
+are the same as for the OpenAI gateway. The request asks oMLX to report usage.
+`reasoning_content` deltas make no events. The `metadata` of the completion evidence holds the
+`usage` object that oMLX reported.
+
+`generateStream` operates as it does for the OpenAI gateway. It does not send
+`reasoning_content`. oMLX sends each tool call in one delta, and the gateway yields it as one
+chunk.
+
+oMLX starts each stream with a keep-alive frame, a `data:` frame whose `model` is `keepalive`.
+It sends more of these frames during a long prompt evaluation. The gateway removes these frames
+in the two streaming APIs. Thus `keepalive` is never the reported provider model.
+
+### Models
+
+```typescript
+const models = await gateway.listModels(); // model ids, sorted
+await gateway.loadModel('Qwen3.8-27B-MLX-8bit'); // Result<void, Error>
+await gateway.unloadModel('Qwen3.8-27B-MLX-8bit'); // Result<void, Error>
+```
+
+- `loadModel` returns when the model is in memory. A chat request loads its model
+  automatically, so use `loadModel` only to prepare a model before you use it.
+- If you unload a model that is not loaded, oMLX returns HTTP 400. The gateway returns this as
+  a `GatewayError`.
+- oMLX downloads models only through its admin dashboard. The gateway has no pull operation.
+
+### Embeddings
+
+```typescript
+const embedding = await gateway.calculateEmbeddings('some text', 'my-embedding-model');
+```
+
+You must give a model. oMLX has no default embedding model. If the model is missing or empty,
+`calculateEmbeddings` throws a `ValidationError` and sends no request. The gateway sends the
+text in one request, with no chunks and no tokenizer. A chat model returns HTTP 400, and the
+gateway returns a `GatewayError`.
+
+### Errors
+
+- An HTTP error status gives a `GatewayError`. `statusCode` holds the status and `body` holds the
+  response body, unchanged. The gateway does not parse the error message.
+- A request that is longer than the timeout gives a `TimeoutError`.
+- In `generateStreamEvents`, an HTTP error status gives a `provider_error` event. Its `detail`
+  holds `{ status, body }`.
+
+See `examples/omlx.ts` for one chat turn against a local server.
+
 ## Future Gateways
 
 Planned gateway implementations:
