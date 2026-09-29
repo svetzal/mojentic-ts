@@ -4,11 +4,14 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { LlmMessage, ToolCall } from '../models';
+import { ContentItem, LlmMessage, ToolCall } from '../models';
+
+type OpenAIContentPart =
+  { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
 
 interface OpenAIMessage {
   role: string;
-  content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+  content: string | OpenAIContentPart[];
   tool_calls?: Array<{
     id: string;
     type: 'function';
@@ -66,44 +69,7 @@ export function adaptMessagesToOpenAI(messages: LlmMessage[]): OpenAIMessage[] {
         content: typeof m.content === 'string' ? m.content : '',
       });
     } else if (m.role === 'user') {
-      // Check for images in content array
-      const imagePaths = extractImagePaths(m);
-
-      if (imagePaths.length > 0) {
-        // Create a content structure with text and images
-        const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
-
-        // Add text content
-        const textContent = typeof m.content === 'string' ? m.content : getTextFromContent(m);
-        if (textContent) {
-          content.push({ type: 'text', text: textContent });
-        }
-
-        // Add each image as a base64-encoded URL
-        for (const imagePath of imagePaths) {
-          try {
-            const binaryData = readFileAsBinary(imagePath);
-            const base64Image = encodeBase64(binaryData);
-            const imageType = getImageType(imagePath);
-
-            content.push({
-              type: 'image_url',
-              image_url: {
-                url: `data:image/${imageType};base64,${base64Image}`,
-              },
-            });
-          } catch (e) {
-            console.error(`Failed to encode image: ${e} (${imagePath})`);
-          }
-        }
-
-        newMessages.push({ role: 'user', content });
-      } else {
-        newMessages.push({
-          role: 'user',
-          content: typeof m.content === 'string' ? m.content : getTextFromContent(m),
-        });
-      }
+      newMessages.push({ role: 'user', content: adaptUserContent(m) });
     } else if (m.role === 'assistant') {
       const msg: OpenAIMessage = {
         role: 'assistant',
@@ -139,24 +105,67 @@ export function adaptMessagesToOpenAI(messages: LlmMessage[]): OpenAIMessage[] {
 }
 
 /**
- * Extract image paths from a message.
+ * Adapt the content of a user message.
+ *
+ * A message with image items becomes a list of content parts in the order given.
+ * A message without image items becomes plain text.
  */
-function extractImagePaths(message: LlmMessage): string[] {
-  if (!Array.isArray(message.content)) {
+function adaptUserContent(message: LlmMessage): string | OpenAIContentPart[] {
+  if (!Array.isArray(message.content) || !message.content.some(isImageItem)) {
+    return getTextFromContent(message);
+  }
+
+  return message.content.flatMap(toContentParts);
+}
+
+function isImageItem(item: ContentItem): boolean {
+  return item.type === 'image_url' && Boolean(item.image_url?.url);
+}
+
+/**
+ * Convert one content item to zero or one OpenAI content parts.
+ */
+function toContentParts(item: ContentItem): OpenAIContentPart[] {
+  if (item.type === 'text') {
+    return item.text ? [{ type: 'text', text: item.text }] : [];
+  }
+
+  const url = item.image_url?.url;
+  if (!url) {
     return [];
   }
 
-  const paths: string[] = [];
-  for (const item of message.content) {
-    if (item.type === 'image_url' && item.image_url?.url) {
-      // If it's a file path (not a data URI or URL), add it
-      const url = item.image_url.url;
-      if (!url.startsWith('data:') && !url.startsWith('http')) {
-        paths.push(url);
-      }
-    }
+  const imageUrl = resolveImageUrl(url);
+  return imageUrl === null ? [] : [{ type: 'image_url', image_url: { url: imageUrl } }];
+}
+
+/**
+ * Resolve an image reference to a URL that OpenAI accepts.
+ *
+ * Data URIs and http(s) URLs pass through unchanged. Any other value is a local
+ * file path: it is read and encoded as a base64 data URI. A file that cannot be
+ * read is logged and gives null, so the image is skipped.
+ */
+function resolveImageUrl(url: string): string | null {
+  if (isDataUri(url) || isHttpUrl(url)) {
+    return url;
   }
-  return paths;
+
+  try {
+    const base64Image = encodeBase64(readFileAsBinary(url));
+    return `data:image/${getImageType(url)};base64,${base64Image}`;
+  } catch (e) {
+    console.error(`Failed to encode image: ${e} (${url})`);
+    return null;
+  }
+}
+
+function isDataUri(url: string): boolean {
+  return /^data:/i.test(url);
+}
+
+function isHttpUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
 }
 
 /**

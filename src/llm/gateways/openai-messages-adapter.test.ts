@@ -2,8 +2,19 @@
  * Tests for OpenAI Messages Adapter
  */
 
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { adaptMessagesToOpenAI } from './openai-messages-adapter';
 import { Message, MessageRole } from '../models';
+import { imageContent, textContent } from '../utils/image';
+
+const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PNG_DATA_URI = `data:image/png;base64,${PNG_BYTES.toString('base64')}`;
+
+function imageUrlItem(url: string): { type: 'image_url'; image_url: { url: string } } {
+  return { type: 'image_url', image_url: { url } };
+}
 
 describe('adaptMessagesToOpenAI', () => {
   describe('tool role messages (Bug #1)', () => {
@@ -108,6 +119,128 @@ describe('adaptMessagesToOpenAI', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({ role: 'user', content: 'Hello!' });
+    });
+  });
+
+  describe('user messages with images', () => {
+    let tempDir: string;
+    let pngPath: string;
+
+    beforeEach(() => {
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openai-adapter-test-'));
+      pngPath = path.join(tempDir, 'pixel.png');
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test setup with controlled tempDir path
+      fs.writeFileSync(pngPath, PNG_BYTES);
+    });
+
+    afterEach(() => {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      jest.restoreAllMocks();
+    });
+
+    it('should pass a data URI image through unchanged', () => {
+      const dataUri = 'data:image/jpeg;base64,/9j/4AAQ';
+      const messages = [
+        { role: MessageRole.User, content: [textContent('What is this?'), imageUrlItem(dataUri)] },
+      ];
+
+      const result = adaptMessagesToOpenAI(messages);
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'What is this?' },
+            { type: 'image_url', image_url: { url: dataUri } },
+          ],
+        },
+      ]);
+    });
+
+    it.each(['https://example.com/cat.png', 'http://example.com/cat.png'])(
+      'should pass the URL %s through unchanged',
+      (url) => {
+        const messages = [
+          { role: MessageRole.User, content: [textContent('What is this?'), imageUrlItem(url)] },
+        ];
+
+        const result = adaptMessagesToOpenAI(messages);
+
+        expect(result[0].content).toEqual([
+          { type: 'text', text: 'What is this?' },
+          { type: 'image_url', image_url: { url } },
+        ]);
+      }
+    );
+
+    it('should encode a local file path as a data URI', () => {
+      const messages = [
+        { role: MessageRole.User, content: [textContent('What is this?'), imageUrlItem(pngPath)] },
+      ];
+
+      const result = adaptMessagesToOpenAI(messages);
+
+      expect(result[0].content).toEqual([
+        { type: 'text', text: 'What is this?' },
+        { type: 'image_url', image_url: { url: PNG_DATA_URI } },
+      ]);
+    });
+
+    it('should send an image made by imageContent', () => {
+      const messages = [
+        { role: MessageRole.User, content: [textContent('What is this?'), imageContent(pngPath)] },
+      ];
+
+      const result = adaptMessagesToOpenAI(messages);
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'What is this?' },
+            { type: 'image_url', image_url: { url: PNG_DATA_URI } },
+          ],
+        },
+      ]);
+    });
+
+    it('should keep text and image parts in the order given', () => {
+      const messages = [
+        {
+          role: MessageRole.User,
+          content: [
+            textContent('Compare these two images:'),
+            imageUrlItem('https://example.com/before.png'),
+            imageUrlItem(pngPath),
+            textContent('What are the key differences?'),
+          ],
+        },
+      ];
+
+      const result = adaptMessagesToOpenAI(messages);
+
+      expect(result[0].content).toEqual([
+        { type: 'text', text: 'Compare these two images:' },
+        { type: 'image_url', image_url: { url: 'https://example.com/before.png' } },
+        { type: 'image_url', image_url: { url: PNG_DATA_URI } },
+        { type: 'text', text: 'What are the key differences?' },
+      ]);
+    });
+
+    it('should skip an image file that cannot be read and log the failure', () => {
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const missingPath = path.join(tempDir, 'missing.png');
+      const messages = [
+        {
+          role: MessageRole.User,
+          content: [textContent('What is this?'), imageUrlItem(missingPath)],
+        },
+      ];
+
+      const result = adaptMessagesToOpenAI(messages);
+
+      expect(result[0].content).toEqual([{ type: 'text', text: 'What is this?' }]);
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining(missingPath));
     });
   });
 });

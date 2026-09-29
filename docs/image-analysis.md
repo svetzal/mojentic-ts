@@ -262,9 +262,16 @@ Large images consume significant memory when base64-encoded. Consider:
 `OllamaGateway` accepts the items that `imageContent` makes. It sends the base64 part of each
 data URI in the `images` field.
 
-`OpenAIGateway` and `OMLXGateway` do not accept these items. Their message adapter sends an
-image only when `image_url.url` is a path to a local file. It ignores data URIs and `http` URLs,
-and it sends only the text of the message. Thus the model does not see the image.
+`OpenAIGateway` and `OMLXGateway` send each image item as an `image_url` content part. Their
+message adapter uses the value of `image_url.url` as follows:
+
+- A data URI goes to the model without changes. `imageContent` makes this type of value.
+- An `http` or `https` URL goes to the model without changes.
+- The adapter reads all other values as paths to local files. It changes the file into a
+  base64 data URI.
+
+The adapter keeps the text items and the image items in the order that you give them. If the
+adapter cannot read a file, it writes an error to the console. It does not send that image.
 
 ## Error Handling
 
