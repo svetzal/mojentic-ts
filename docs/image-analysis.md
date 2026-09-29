@@ -250,7 +250,8 @@ const message = {
 ## Implementation Notes
 
 ### Base64 Encoding
-Images are automatically converted to base64-encoded data URIs when using the provided utilities. This is required by the Ollama API for image inputs.
+`imageContent` reads the image file and changes it into a base64 data URI. All gateways accept
+data URIs. Refer to [Gateway Support](#gateway-support) for the procedure that each gateway uses.
 
 ### Memory Considerations
 Large images consume significant memory when base64-encoded. Consider:

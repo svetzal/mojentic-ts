@@ -294,6 +294,27 @@ When it changes a value, it logs a warning with `console.warn`.
 
 Tools go in `tools`, in the OpenAI format.
 
+### Messages
+
+The OpenAI message adapter changes each message as follows:
+
+- A system message with string content goes to OpenAI without changes. A system message with
+  content items goes with empty content.
+- A user message with no image items goes as one string. The adapter joins the text items with
+  a newline.
+- A user message with image items goes as a list of `text` and `image_url` content parts, in
+  the order that you give them. A data URI or an `http(s)` URL goes without changes. The
+  adapter reads all other image values as paths to local files and changes each file into a
+  base64 data URI. If the adapter cannot read a file, it writes an error to the console. It
+  does not send that image. Refer to [Image Analysis](../image-analysis.md#gateway-support).
+- An assistant message goes with its text and its `tool_calls`. The `arguments` stay a JSON
+  string. If a tool call has no `id`, the adapter sends an empty `id`.
+- A tool message goes with its string content and its `tool_call_id`. A tool message with
+  content items goes with empty content. If the message has no `tool_call_id`, the
+  adapter does not send it.
+- For a message with an unknown role, the adapter writes an error to the console. It does not
+  send that message.
+
 ### Response
 
 - `usage` holds the token counts that OpenAI reported.
@@ -382,6 +403,11 @@ const result = await broker.generate([Message.user('Hello')]);
 | `numCtx`, `numPredict` | Not sent. oMLX sets the context length for each model |
 
 Tools go in `tools`, in the OpenAI format.
+
+### Messages
+
+`OMLXGateway` uses the OpenAI message adapter. It changes messages as `OpenAIGateway` does.
+Refer to [OpenAIGateway Messages](#messages-1).
 
 ### Thinking
 
