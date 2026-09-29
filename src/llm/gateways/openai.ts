@@ -3,10 +3,18 @@
  */
 
 import { LlmGateway } from '../gateway';
-import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk, ToolCall } from '../models';
+import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk } from '../models';
 import { ToolDescriptor } from '../tools';
 import { Result, Ok, Err, GatewayError } from '../../error';
 import { adaptMessagesToOpenAI } from './openai-messages-adapter';
+import {
+  OpenAIResponseToolCall,
+  parseOpenAILegacyStream,
+  parseOpenAIToolCalls,
+  readLines,
+  toOpenAIResponseFormat,
+  toOpenAITools,
+} from './openai-chat-protocol';
 import {
   getModelRegistry,
   getTokenLimitParam,
@@ -35,44 +43,11 @@ interface OpenAIResponse {
     message: {
       role: string;
       content: string | null;
-      tool_calls?: Array<{
-        id: string;
-        type: 'function';
-        function: {
-          name: string;
-          arguments: string;
-        };
-      }>;
+      tool_calls?: OpenAIResponseToolCall[];
     };
     finish_reason: string;
   }>;
   usage?: OpenAIUsage;
-}
-
-interface OpenAIStreamDelta {
-  role?: string;
-  content?: string | null;
-  tool_calls?: Array<{
-    index: number;
-    id?: string;
-    type?: string;
-    function?: {
-      name?: string;
-      arguments?: string;
-    };
-  }>;
-}
-
-interface OpenAIStreamChunk {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: Array<{
-    index: number;
-    delta: OpenAIStreamDelta;
-    finish_reason: string | null;
-  }>;
 }
 
 interface OpenAIModelsResponse {
@@ -84,20 +59,6 @@ interface OpenAIEmbeddingResponse {
     embedding: number[];
     index: number;
   }>;
-}
-
-/**
- * Translate the configured response format into OpenAI's `response_format` field.
- *
- * Returns `undefined` when no format is configured, leaving the provider default in place.
- */
-function toOpenAIResponseFormat(
-  format: CompletionConfig['responseFormat']
-): Record<string, unknown> | undefined {
-  if (format === undefined) return undefined;
-  if (format.type === 'text') return { type: 'text' };
-  if (format.schema === undefined) return { type: 'json_object' };
-  return { type: 'json_schema', json_schema: { name: 'response', schema: format.schema } };
 }
 
 /** Collect the provider-reported response fields that have no dedicated slot. */
@@ -269,14 +230,7 @@ export class OpenAIGateway implements LlmGateway {
     }
 
     if (adaptedArgs.tools && Array.isArray(adaptedArgs.tools) && adaptedArgs.tools.length > 0) {
-      requestBody.tools = (adaptedArgs.tools as ToolDescriptor[]).map((t) => ({
-        type: 'function',
-        function: {
-          name: t.function.name,
-          description: t.function.description,
-          parameters: t.function.parameters,
-        },
-      }));
+      requestBody.tools = toOpenAITools(adaptedArgs.tools as ToolDescriptor[]);
     }
 
     if ('maxTokens' in adaptedArgs && adaptedArgs.maxTokens !== undefined) {
@@ -330,22 +284,9 @@ export class OpenAIGateway implements LlmGateway {
         return Err(new GatewayError('No message in OpenAI response'));
       }
 
-      // Parse tool calls if present
-      let toolCalls: ToolCall[] | undefined;
-      if (message.tool_calls && message.tool_calls.length > 0) {
-        toolCalls = message.tool_calls.map((tc) => ({
-          id: tc.id,
-          type: 'function' as const,
-          function: {
-            name: tc.function.name,
-            arguments: tc.function.arguments,
-          },
-        }));
-      }
-
       const gatewayResponse: GatewayResponse = {
         content: message.content || '',
-        toolCalls,
+        toolCalls: parseOpenAIToolCalls(message.tool_calls),
         finishReason: data.choices[0]?.finish_reason,
         model: data.model,
         metadata: responseMetadata(data),
@@ -409,112 +350,8 @@ export class OpenAIGateway implements LlmGateway {
         return;
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      // Accumulate tool calls as they stream in
-      // OpenAI streams tool arguments incrementally, indexed by tool call index
-      const toolCallsAccumulator: Map<
-        number,
-        { id: string | null; name: string | null; arguments: string }
-      > = new Map();
-
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
-
-          if (trimmedLine.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(trimmedLine.slice(6)) as OpenAIStreamChunk;
-              const choice = data.choices[0];
-              if (!choice) continue;
-
-              const delta = choice.delta;
-              const finishReason = choice.finish_reason;
-
-              // Yield content chunks as they arrive
-              if (delta.content) {
-                yield Ok({ content: delta.content, done: false });
-              }
-
-              // Accumulate tool call chunks
-              if (delta.tool_calls) {
-                for (const toolCallDelta of delta.tool_calls) {
-                  const index = toolCallDelta.index;
-
-                  // Initialize accumulator for this tool call if needed
-                  if (!toolCallsAccumulator.has(index)) {
-                    toolCallsAccumulator.set(index, { id: null, name: null, arguments: '' });
-                  }
-
-                  // We just ensured the key exists above, so this is guaranteed to be defined
-                  const acc = toolCallsAccumulator.get(index);
-                  if (!acc) continue;
-
-                  // First chunk has id and name
-                  if (toolCallDelta.id) {
-                    acc.id = toolCallDelta.id;
-                  }
-
-                  if (toolCallDelta.function?.name) {
-                    acc.name = toolCallDelta.function.name;
-                  }
-
-                  // All chunks may have argument fragments
-                  if (toolCallDelta.function?.arguments) {
-                    acc.arguments += toolCallDelta.function.arguments;
-                  }
-                }
-              }
-
-              // When stream is complete with tool_calls, yield accumulated tool calls
-              if (finishReason === 'tool_calls' && toolCallsAccumulator.size > 0) {
-                const completeToolCalls: ToolCall[] = [];
-
-                // Sort by index to maintain order
-                const sortedIndices = Array.from(toolCallsAccumulator.keys()).sort((a, b) => a - b);
-
-                for (const index of sortedIndices) {
-                  const tc = toolCallsAccumulator.get(index);
-                  if (!tc) continue;
-                  // Keep arguments as string for ToolCall interface
-                  completeToolCalls.push({
-                    id: tc.id || '',
-                    type: 'function' as const,
-                    function: {
-                      name: tc.name || '',
-                      arguments: tc.arguments,
-                    },
-                  });
-                }
-
-                if (completeToolCalls.length > 0) {
-                  yield Ok({
-                    toolCalls: completeToolCalls,
-                    done: true,
-                    finishReason: 'tool_calls',
-                  });
-                }
-              }
-
-              if (finishReason && finishReason !== 'tool_calls') {
-                yield Ok({ done: true, finishReason: finishReason as StreamChunk['finishReason'] });
-              }
-            } catch (parseError) {
-              console.error(`Failed to parse stream chunk: ${trimmedLine}`, parseError);
-            }
-          }
-        }
+      for await (const chunk of parseOpenAILegacyStream(readLines(response.body))) {
+        yield Ok(chunk);
       }
     } catch (error) {
       yield Err(
