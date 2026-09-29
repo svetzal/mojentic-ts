@@ -34,6 +34,14 @@ List all available models from the Ollama gateway.
 npm run example:list-models
 ```
 
+#### `omlx.ts`
+One chat turn against a local [oMLX](https://github.com/jundot/omlx) server. It shows the thinking,
+the answer, the finish reason, and the usage oMLX reported. Set `OMLX_MODEL` to choose a model;
+otherwise it uses the first model the server lists.
+```bash
+npm run example:omlx
+```
+
 #### `structured_output.ts`
 Generate structured JSON output using a schema.
 ```bash
@@ -184,6 +192,9 @@ You can customize behavior using environment variables:
 
 - `OLLAMA_HOST` - Ollama server URL (default: `http://localhost:11434`)
 - `OPENAI_API_KEY` - API key for OpenAI gateway
+- `OMLX_HOST` - oMLX server URL, without `/v1` (default: `http://localhost:8000`)
+- `OMLX_API_KEY` - API key for the oMLX gateway (optional)
+- `OMLX_TIMEOUT` - oMLX request timeout in milliseconds (default: `600000`)
 
 ## Running Examples
 
