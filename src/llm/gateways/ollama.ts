@@ -15,11 +15,36 @@ import {
 } from './ollama-stream-protocol';
 import { streamCompletionEvents } from './stream-event-transport';
 
+interface OllamaToolCall {
+  id?: string;
+  type?: 'function';
+  function: {
+    name: string;
+    arguments: string | Record<string, unknown>;
+  };
+}
+
+/** Convert provider arguments to the broker's JSON-string contract. */
+function normalizeToolCall(call: OllamaToolCall): ToolCall {
+  return {
+    // Elixir keeps missing IDs absent. The TypeScript contract needs a string.
+    id: call.id ?? '',
+    type: 'function',
+    function: {
+      name: call.function.name,
+      arguments:
+        typeof call.function.arguments === 'string'
+          ? call.function.arguments
+          : JSON.stringify(call.function.arguments),
+    },
+  };
+}
+
 interface OllamaMessage {
   role: string;
   content: string;
   images?: string[];
-  tool_calls?: ToolCall[];
+  tool_calls?: OllamaToolCall[];
 }
 
 interface OllamaTool {
@@ -37,7 +62,7 @@ interface OllamaResponse extends OllamaCompletionStats {
   message: {
     role: string;
     content: string;
-    tool_calls?: ToolCall[];
+    tool_calls?: OllamaToolCall[];
     thinking?: string;
   };
   done: boolean;
@@ -49,7 +74,7 @@ interface OllamaStreamResponse extends OllamaCompletionStats {
   message?: {
     role: string;
     content: string;
-    tool_calls?: ToolCall[];
+    tool_calls?: OllamaToolCall[];
     thinking?: string;
   };
   done: boolean;
@@ -192,7 +217,7 @@ export class OllamaGateway implements LlmGateway {
 
       const gatewayResponse: GatewayResponse = {
         content: data.message.content,
-        toolCalls: data.message.tool_calls,
+        toolCalls: data.message.tool_calls?.map(normalizeToolCall),
         finishReason: data.done_reason ?? (data.done ? 'stop' : undefined),
         model: data.model,
         thinking: data.message.thinking,
@@ -265,7 +290,7 @@ export class OllamaGateway implements LlmGateway {
               const data = JSON.parse(line) as OllamaStreamResponse;
               const chunk: StreamChunk = {
                 content: data.message?.content,
-                toolCalls: data.message?.tool_calls,
+                toolCalls: data.message?.tool_calls?.map(normalizeToolCall),
                 done: data.done,
               };
               if (data.done) {
@@ -358,7 +383,14 @@ export class OllamaGateway implements LlmGateway {
 
       // Handle tool calls
       if (msg.tool_calls) {
-        ollamaMsg.tool_calls = msg.tool_calls;
+        ollamaMsg.tool_calls = msg.tool_calls.map((call) => ({
+          id: call.id,
+          type: call.type,
+          function: {
+            name: call.function.name,
+            arguments: JSON.parse(call.function.arguments) as Record<string, unknown>,
+          },
+        }));
       }
 
       return ollamaMsg;

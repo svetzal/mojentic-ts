@@ -221,11 +221,18 @@ Tools go in `tools`, in the Ollama format.
 
 ### Messages
 
-- The gateway sends `tool_calls` of an assistant message to Ollama without changes. The
-  `arguments` stay a JSON string.
+- The gateway sends `tool_calls` of an assistant message to Ollama. It parses each JSON
+  string in `arguments` into an object.
 - For a message with content items, the gateway joins the text items with a newline. It sends
   each image item in `images`. If the image URL is a data URI, the gateway sends the base64 part
   only.
+
+### Tool calls in responses
+
+For `generate` and `generateStream`, the gateway converts each object in `arguments` to a JSON
+string. If `arguments` is already a string, the gateway keeps it unchanged.
+The gateway keeps each tool call ID. A missing ID becomes an empty string.
+The gateway sets `type` to `function` and drops Ollama fields such as `index`.
 
 ### Errors
 

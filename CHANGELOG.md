@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Fixed: `OllamaGateway` converts object arguments in tool calls to JSON strings for the broker, in both responses and streams. Assistant tool calls sent back to Ollama use object arguments. Tools now run instead of returning a JSON parse error.
+
 - Fixed: OpenAI embedding averages weight each part by its token count. A short final part no longer has the same weight as a full 8191-token part. Single-part embeddings are unchanged.
 
 - Upgraded TypeScript to 7.0.2. `npm run build` now runs the TypeScript 7 native compiler, installed as `@typescript/native` (`npm:typescript@^7.0.2`), against the new `tsconfig.build.json`. The `typescript` dependency is the `@typescript/typescript6` compatibility package, which keeps the TypeScript 6 API that ts-jest, ts-node and typescript-eslint still require. TypeScript 7 removed `moduleResolution: node10`, so `tsconfig.build.json` overrides the base config with `node16` module and resolution; package.json declares no `"type"`, so the published CommonJS output is unchanged.

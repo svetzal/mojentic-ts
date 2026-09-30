@@ -5,6 +5,8 @@
 import { OllamaGateway } from './ollama';
 import { CompletionConfig, LlmMessage, Message, MessageRole } from '../models';
 import { isOk } from '../../error';
+import { LlmBroker } from '../broker';
+import { DateResolverTool } from '../tools/date-resolver';
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -533,11 +535,11 @@ describe('OllamaGateway', () => {
           content: '',
           tool_calls: [
             {
-              id: 'call_123',
-              type: 'function',
+              id: 'call_3ktggmd0',
               function: {
+                index: 0,
                 name: 'get_weather',
-                arguments: '{"location":"Tokyo"}',
+                arguments: { city: 'Toronto' },
               },
             },
           ],
@@ -569,7 +571,13 @@ describe('OllamaGateway', () => {
       expect(isOk(result)).toBe(true);
       if (isOk(result)) {
         expect(result.value.toolCalls).toHaveLength(1);
-        expect(result.value.toolCalls?.[0].function.name).toBe('get_weather');
+        expect(result.value.toolCalls).toEqual([
+          {
+            id: 'call_3ktggmd0',
+            type: 'function',
+            function: { name: 'get_weather', arguments: '{"city":"Toronto"}' },
+          },
+        ]);
       }
     });
 
@@ -635,6 +643,128 @@ describe('OllamaGateway', () => {
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
       expect(body.think).toBeUndefined();
+    });
+  });
+
+  describe('tool call normalization', () => {
+    const call = {
+      id: 'call_3ktggmd0',
+      function: { index: 0, name: 'get_weather', arguments: { city: 'Toronto' } },
+    };
+    const normalized = {
+      id: call.id,
+      type: 'function' as const,
+      function: { name: 'get_weather', arguments: '{"city":"Toronto"}' },
+    };
+
+    test('should normalize tool calls in an NDJSON stream', async () => {
+      const frame =
+        JSON.stringify({ message: { content: '', tool_calls: [call] }, done: true }) + '\n';
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode(frame));
+            controller.close();
+          },
+        }),
+      });
+
+      const chunks = [];
+      for await (const chunk of gateway.generateStream('gemma4:latest', [
+        Message.user('Weather?'),
+      ])) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toEqual([
+        {
+          ok: true,
+          value: { content: '', toolCalls: [normalized], done: true, finishReason: 'stop' },
+        },
+      ]);
+    });
+
+    test.each([
+      [{ function: call.function }, { ...normalized, id: '' }],
+      [{ ...call, function: { name: 'get_weather', arguments: '{"city":"Toronto"}' } }, normalized],
+    ])(
+      'should keep absent IDs empty and pass string arguments through',
+      async (reported, expected) => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ message: { content: '', tool_calls: [reported] }, done: true }),
+        });
+
+        const result = await gateway.generate('gemma4:latest', [Message.user('Weather?')]);
+
+        expect(result).toEqual(
+          expect.objectContaining({
+            ok: true,
+            value: expect.objectContaining({ toolCalls: [expected] }),
+          })
+        );
+      }
+    );
+
+    test('should send assistant arguments as objects on the next turn', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: { content: '', tool_calls: [call] }, done: true }),
+      });
+      const response = await gateway.generate('gemma4:latest', [Message.user('Weather?')]);
+      expect(response).toEqual(
+        expect.objectContaining({
+          ok: true,
+          value: expect.objectContaining({ toolCalls: [normalized] }),
+        })
+      );
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: { content: 'Sunny' }, done: true }),
+      });
+
+      await gateway.generate('gemma4:latest', [Message.assistant('', [normalized])]);
+
+      const body = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(body.messages[0].tool_calls).toEqual([
+        { ...normalized, function: { name: 'get_weather', arguments: { city: 'Toronto' } } },
+      ]);
+    });
+
+    test('should let the broker run the tool with parsed Ollama arguments', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          message: {
+            content: '',
+            tool_calls: [
+              {
+                id: 'date_call',
+                function: {
+                  index: 0,
+                  name: 'resolve_date',
+                  arguments: { date_string: 'next Friday' },
+                },
+              },
+            ],
+          },
+          done: true,
+        }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: { content: 'Friday' }, done: true }),
+      });
+      const tool = new DateResolverTool();
+      const run = jest.spyOn(tool, 'run');
+      const broker = new LlmBroker('gemma4:latest', gateway);
+
+      const result = await broker.generate([Message.user('What date is next Friday?')], [tool]);
+
+      expect(run).toHaveBeenCalledTimes(1);
+      expect(run).toHaveBeenCalledWith({ date_string: 'next Friday' }, { signal: undefined });
+      expect(result).toEqual({ ok: true, value: 'Friday' });
     });
   });
 
