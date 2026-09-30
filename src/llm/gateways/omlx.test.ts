@@ -748,6 +748,16 @@ describe('OMLXGateway', () => {
   });
 
   describe('models', () => {
+    it.each(['', '   '])(
+      'should reject blank model ids (%j) before load or unload',
+      async (model) => {
+        await expect(gateway.loadModel(model)).rejects.toThrow(ValidationError);
+        await expect(gateway.unloadModel(model)).rejects.toThrow(ValidationError);
+
+        expect(mockFetch).not.toHaveBeenCalled();
+      }
+    );
+
     it('should list the available model ids, sorted', async () => {
       respondWith('{"object":"list","data":[{"id":"zeta"},{"id":"Alpha"},{"id":"beta"}]}');
 

@@ -354,6 +354,7 @@ export class OMLXGateway implements LlmGateway {
    *
    * A chat request loads its model automatically; this only warms it up. Loading from cold can
    * take minutes; the gateway timeout covers it.
+   * @throws ValidationError when the model id is blank.
    */
   async loadModel(model: string): Promise<Result<void, Error>> {
     return this.changeModelResidency(model, 'load');
@@ -361,6 +362,7 @@ export class OMLXGateway implements LlmGateway {
 
   /**
    * Unload a model from memory. Unloading a model that is not loaded is a provider error (400).
+   * @throws ValidationError when the model id is blank.
    */
   async unloadModel(model: string): Promise<Result<void, Error>> {
     return this.changeModelResidency(model, 'unload');
@@ -370,6 +372,10 @@ export class OMLXGateway implements LlmGateway {
     model: string,
     action: 'load' | 'unload'
   ): Promise<Result<void, Error>> {
+    if (model.trim() === '') {
+      throw new ValidationError('oMLX model residency changes need a nonblank model id', 'model');
+    }
+
     try {
       const path = `/models/${encodeURIComponent(model)}/${action}`;
       const response = await this.send('POST', path, this.timeout);
