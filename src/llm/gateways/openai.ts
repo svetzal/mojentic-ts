@@ -432,7 +432,7 @@ export class OpenAIGateway implements LlmGateway {
       const chunks = this.chunkedTokens(tokenizer, text, 8191);
 
       const allEmbeddings: number[][] = [];
-      const lengths: number[] = [];
+      const tokenCounts: number[] = [];
 
       for (const chunk of chunks) {
         const response = await fetch(`${this.baseUrl}/embeddings`, {
@@ -463,7 +463,7 @@ export class OpenAIGateway implements LlmGateway {
 
         if (embedding) {
           allEmbeddings.push(embedding);
-          lengths.push(embedding.length);
+          tokenCounts.push(chunk.length);
         }
       }
 
@@ -478,8 +478,8 @@ export class OpenAIGateway implements LlmGateway {
         return Ok(allEmbeddings[0]);
       }
 
-      // Average the embeddings weighted by length
-      const average = this.weightedAverageEmbeddings(allEmbeddings, lengths);
+      // Average the embeddings weighted by each chunk's token count
+      const average = this.weightedAverageEmbeddings(allEmbeddings, tokenCounts);
       return Ok(average);
     } catch (error) {
       return Err(

@@ -339,7 +339,8 @@ one `Err` item and sends no request.
 - `listModels` returns the model ids, sorted.
 - `calculateEmbeddings` uses `text-embedding-3-large` as the default model. The gateway divides
   a long text into parts of 8191 tokens or fewer. It sends one request for each part. When there
-  is more than one part, it returns the mean of the vectors, normalized to length 1.
+  is more than one part, it weights each vector by its part's token count. It returns the
+  weighted mean, normalized to length 1.
 
 ### Errors
 

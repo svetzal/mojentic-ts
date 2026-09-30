@@ -4,7 +4,7 @@
 
 import { OpenAIGateway } from './openai';
 import { CompletionConfig, Message, MessageRole, ToolCall } from '../models';
-import { isOk, isErr } from '../../error';
+import { isOk, isErr, Ok } from '../../error';
 
 // Mock fetch globally
 const mockFetch = jest.fn();
@@ -399,8 +399,30 @@ describe('OpenAIGateway', () => {
 
       expect(isOk(result)).toBe(true);
       if (isOk(result)) {
-        expect(result.value.length).toBe(4);
+        expect(result.value).toEqual([0.1, 0.2, 0.3, 0.4]);
       }
+    });
+
+    it('should weight chunk embeddings by token count and normalize the mean', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ data: [{ embedding: [1, 0], index: 0 }] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ data: [{ embedding: [0, 1], index: 0 }] }),
+        });
+
+      const result = await gateway.calculateEmbeddings(' a'.repeat(8291));
+
+      const norm = Math.hypot(8191, 100);
+      expect(result).toEqual(Ok([expect.closeTo(8191 / norm, 10), expect.closeTo(100 / norm, 10)]));
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      const firstRequest = JSON.parse(mockFetch.mock.calls[0][1].body);
+      const secondRequest = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(firstRequest.input).toHaveLength(8191);
+      expect(secondRequest.input).toHaveLength(100);
     });
 
     it('should use specified model', async () => {
