@@ -67,12 +67,13 @@ const errorFrameSchema = z.object({ error: z.unknown().refine((error) => error !
 
 type OllamaFrame = z.infer<typeof frameSchema>;
 
-function finalEvidence(frame: OllamaFrame, evidence: CompletionEvidence): CompletionEvidence {
+function reportedEvidence(frame: OllamaFrame, evidence: CompletionEvidence): CompletionEvidence {
+  const metadata = ollamaMetadata(frame);
   return {
-    finishReason: frame.done_reason ?? null,
-    usage: ollamaUsage(frame) ?? null,
+    finishReason: frame.done_reason ?? evidence.finishReason,
+    usage: ollamaUsage(frame) ?? evidence.usage,
     providerModel: frame.model ?? evidence.providerModel,
-    metadata: ollamaMetadata(frame) ?? null,
+    metadata: metadata ? { ...evidence.metadata, ...metadata } : evidence.metadata,
   };
 }
 
@@ -103,10 +104,7 @@ export function parseOllamaStreamLine(line: string, evidence: CompletionEvidence
     );
   }
 
-  const seen: CompletionEvidence = {
-    ...evidence,
-    providerModel: frame.data.model ?? evidence.providerModel,
-  };
+  const seen = reportedEvidence(frame.data, evidence);
   if ((frame.data.message?.tool_calls?.length ?? 0) > 0) {
     return fail('unexpected_tool_calls', 'Provider requested a tool call', seen);
   }
@@ -115,5 +113,5 @@ export function parseOllamaStreamLine(line: string, evidence: CompletionEvidence
   const events: LlmStreamEvent[] = content ? [{ type: 'content', text: content }] : [];
   if (!frame.data.done) return { events, evidence: seen };
 
-  return finish(events, finalEvidence(frame.data, seen));
+  return finish(events, { ...seen, finishReason: frame.data.done_reason ?? null });
 }

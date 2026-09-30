@@ -153,6 +153,44 @@ describe('OllamaGateway.generateStreamEvents', () => {
     expect(lastEvent(result)).toEqual(errorWith({ reason: 'incomplete_completion' }));
   });
 
+  it('should retain early reported usage and timings through later content and EOF', async () => {
+    serveLines([
+      JSON.stringify({
+        model: 'early-model',
+        done: false,
+        prompt_eval_count: 3,
+        eval_count: 2,
+        total_duration: 99,
+      }),
+      JSON.stringify({ done: false, message: { content: 'Hi' } }),
+    ]);
+
+    const result = await collect(events());
+
+    expect(lastEvent(result)).toEqual(
+      errorWith({
+        reason: 'incomplete_stream',
+        evidence: {
+          finishReason: null,
+          usage: { promptTokens: 3, completionTokens: 2, totalTokens: 5 },
+          providerModel: 'early-model',
+          metadata: { total_duration: 99 },
+        },
+      })
+    );
+  });
+
+  it.each([{ done: 1 }, { done: true, done_reason: 7 }])(
+    'should reject malformed terminal fields %j',
+    async (frame) => {
+      serveLines([JSON.stringify(frame)]);
+
+      const result = await collect(events());
+
+      expect(lastEvent(result)).toEqual(errorWith({ reason: 'invalid_stream_event' }));
+    }
+  );
+
   it('should report an incomplete stream when the body ends without a final frame', async () => {
     serveLines([contentLine('Hi')]);
 
