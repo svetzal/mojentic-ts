@@ -24,4 +24,38 @@ describe('legacy streamed tool calls', () => {
     expect(ids).not.toContain('');
     expect(new Set(ids).size).toBe(2);
   });
+  it('should flush pending calls at DONE without a tool finish frame', async () => {
+    const chunks = await collect([twoCalls, 'data: [DONE]']);
+
+    expect(chunks).toEqual([
+      {
+        toolCalls: [
+          {
+            id: expect.any(String),
+            type: 'function',
+            function: { name: 'first', arguments: '{}' },
+          },
+          {
+            id: expect.any(String),
+            type: 'function',
+            function: { name: 'second', arguments: '{}' },
+          },
+        ],
+        done: true,
+        finishReason: 'tool_calls',
+      },
+    ]);
+  });
+
+  it('should emit calls once when both a finish frame and DONE arrive', async () => {
+    const chunks = await collect([twoCalls, toolFinish, 'data: [DONE]']);
+
+    expect(chunks).toHaveLength(1);
+  });
+
+  it('should leave an unterminated stream without a completed call batch', async () => {
+    const chunks = await collect([twoCalls]);
+
+    expect(chunks).toEqual([]);
+  });
 });

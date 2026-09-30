@@ -192,6 +192,7 @@ function chunksForFrame(
       done: true,
       finishReason: 'tool_calls',
     });
+    accumulator.clear();
   }
 
   if (finishReason && finishReason !== 'tool_calls') {
@@ -203,7 +204,8 @@ function chunksForFrame(
  * Turn the SSE lines of a streamed chat completion into stream chunks.
  *
  * Content is yielded as it arrives. Tool calls are accumulated across deltas and yielded once,
- * complete, when the finish reason is `tool_calls`. Frames that cannot be parsed are logged and
+ * complete, when the finish reason is `tool_calls` or the terminal `[DONE]` marker arrives.
+ * A stream that ends without either marker leaves pending calls uncompleted. Frames that cannot be parsed are logged and
  * skipped. Fields this parser does not know, such as `reasoning_content`, are ignored.
  */
 export async function* parseOpenAILegacyStream(
@@ -213,7 +215,17 @@ export async function* parseOpenAILegacyStream(
 
   for await (const line of lines) {
     const trimmedLine = line.trim();
-    if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
+    if (!trimmedLine) continue;
+    if (trimmedLine === 'data: [DONE]') {
+      if (accumulator.size > 0) {
+        yield {
+          toolCalls: completedToolCalls(accumulator),
+          done: true,
+          finishReason: 'tool_calls',
+        };
+      }
+      return;
+    }
     if (!trimmedLine.startsWith('data: ')) continue;
 
     const chunks: StreamChunk[] = [];

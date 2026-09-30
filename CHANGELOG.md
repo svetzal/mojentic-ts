@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Fixed: legacy OpenAI-compatible streams flush pending tool calls at `[DONE]` when the provider omits the tool finish frame. Calls already emitted at `finish_reason: "tool_calls"` are not repeated.
+
 - Fixed: legacy OpenAI-compatible streams assign distinct ids to tool calls when the provider omits them, preventing separate calls from sharing a broker result.
 
 - Fixed: `OllamaGateway` converts object arguments in tool calls to JSON strings for the broker, in both responses and streams. Assistant tool calls sent back to Ollama use object arguments. Tools now run instead of returning a JSON parse error.
