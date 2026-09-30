@@ -1,4 +1,4 @@
-import { Ok, isOk } from '../../error';
+import { Ok, unwrap } from '../../error';
 import { LlmBroker } from '../broker';
 import { Message } from '../models';
 import { LlmTool } from '../tools';
@@ -63,8 +63,7 @@ describe.each([
         undefined,
         [tool]
       )) {
-        if (!isOk(chunk)) throw chunk.error;
-        chunks.push(chunk.value);
+        chunks.push(unwrap(chunk));
       }
 
       expect(chunks.join('')).toBe('Sunny in Paris.');
