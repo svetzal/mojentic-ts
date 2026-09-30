@@ -725,6 +725,17 @@ describe('OMLXGateway', () => {
       ]);
     });
 
+    it('should cancel the legacy response body when consumption stops early', async () => {
+      const stream = serveStream(contentFrame('hello'), 17, { close: false });
+
+      for await (const chunk of gateway.generateStream(MODEL, [Message.user('hi')])) {
+        expect(unwrap(chunk).content).toBe('hello');
+        break;
+      }
+
+      expect(stream.wasCancelled()).toBe(true);
+    });
+
     it('should drop keep-alive frames', async () => {
       serveStream(keepAliveFrame('ignored') + contentFrame('Hel'));
 

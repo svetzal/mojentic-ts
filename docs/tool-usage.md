@@ -462,3 +462,5 @@ const result = await broker.generate(messages, tools);
 Legacy OpenAI-compatible streams preserve provider tool call ids. When an id is missing, the parser assigns a unique id so each call keeps its own result.
 
 Pending streamed tool calls complete when the provider sends `finish_reason: "tool_calls"` or `[DONE]`. Each batch is emitted once. A disconnected stream without either marker does not complete its pending calls.
+
+Breaking out of a legacy OpenAI-compatible stream cancels the response body.
