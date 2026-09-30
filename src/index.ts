@@ -10,4 +10,4 @@ export * from './context';
 export * from './realtime';
 
 // Version
-export const VERSION = '0.1.0';
+export const VERSION = '2.1.0';

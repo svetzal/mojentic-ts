@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-30
+
 - Fixed: Ollama stream events retain usage and timing evidence reported before the terminal frame, including when later content is followed by a disconnect.
 
 - Fixed: stopping a legacy OpenAI-compatible stream cancels its response body and releases the reader.
