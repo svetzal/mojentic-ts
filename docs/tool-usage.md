@@ -458,3 +458,5 @@ const result = await broker.generate(messages, tools);
 - [Broker Guide](/broker)
 - [API Reference - Tools](/api/tools)
 - [Best Practices](/best-practices)
+
+Legacy OpenAI-compatible streams preserve provider tool call ids. When an id is missing, the parser assigns a unique id so each call keeps its own result.

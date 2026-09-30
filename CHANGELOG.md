@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Fixed: legacy OpenAI-compatible streams assign distinct ids to tool calls when the provider omits them, preventing separate calls from sharing a broker result.
+
 - Fixed: `OllamaGateway` converts object arguments in tool calls to JSON strings for the broker, in both responses and streams. Assistant tool calls sent back to Ollama use object arguments. Tools now run instead of returning a JSON parse error.
 
 - Fixed: OpenAI embedding averages weight each part by its token count. A short final part no longer has the same weight as a full 8191-token part. Single-part embeddings are unchanged.

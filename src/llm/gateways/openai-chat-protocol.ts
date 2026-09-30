@@ -5,6 +5,8 @@
  * streaming parser that turns SSE lines into {@link StreamChunk} values.
  */
 
+import { randomUUID } from 'node:crypto';
+
 import { CompletionConfig, StreamChunk, ToolCall } from '../models';
 import { ToolDescriptor } from '../tools';
 
@@ -153,7 +155,7 @@ function completedToolCalls(accumulator: Map<number, ToolCallInProgress>): ToolC
   return Array.from(accumulator.entries())
     .sort(([a], [b]) => a - b)
     .map(([, tc]) => ({
-      id: tc.id || '',
+      id: tc.id || randomUUID(),
       type: 'function' as const,
       function: {
         name: tc.name || '',
