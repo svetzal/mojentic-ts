@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Security: removed `sprintf-js` (GHSA-hp3w-g68c-fv3c) from the dev dependency tree by overriding `argparse` to `^2.0.1`. The advisory lists no patched `sprintf-js` release (`first_patched_version: null`, affects `<= 1.1.3`), and its only consumer was the unused `js-yaml@3` CLI pulled in by Jest coverage tooling.
+
 ## [2.1.0] - 2026-09-30
 
 - Fixed: Ollama stream events retain usage and timing evidence reported before the terminal frame, including when later content is followed by a disconnect.
