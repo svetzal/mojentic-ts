@@ -3,6 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { Err, Ok, Result, MojenticError } from '../error';
 import { GatewayResponse } from './models';
 import { observeCompletionPrefix } from './recovery-progress';
+import { CompletionTransportGateway, CompletionTransportResponse } from './recovery-transport';
+
+const transport = new CompletionTransportGateway();
 
 export type RecoveryProvider = 'ollama' | 'omlx' | 'openai';
 export type RecoveryCategory =
@@ -266,7 +269,7 @@ async function sleep(delayMs: number, signal: AbortSignal): Promise<void> {
 interface AttemptState {
   identity: RecoveryIdentity;
   progress: RecoveryProgress;
-  response?: Response;
+  response?: CompletionTransportResponse;
   bytes: Uint8Array;
   category: RecoveryCategory;
   reason?: RecoveryReason;
@@ -351,15 +354,9 @@ async function execute(
   structured: boolean
 ): Promise<GatewayResponse | undefined> {
   try {
-    // fetch cannot distinguish connecting, sending, and awaiting headers.
+    // No connection-phase claim; the transport sends exactly once per engine attempt.
     state.phase = undefined;
-    state.response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body,
-      redirect: 'manual',
-      signal,
-    });
+    state.response = await transport.send(url, headers, body, signal);
     state.phase = 'streaming';
     state.progress = Object.freeze({ ...state.progress, headersReceived: true });
     state.category = state.response.ok ? 'transport' : 'http';

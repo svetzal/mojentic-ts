@@ -5,6 +5,42 @@ and OpenAI. No streaming acceptance or cross-port parity claim. Git finalization
 belongs to Foundry; this worktree contains uncommitted changes, with no release,
 ref changes, sibling/harness changes, dependency upgrades, or live inference.
 
+## Hidden transport resend correction
+
+This correction starts at preserved commit
+`285efe64d04ca502643c6fc1bd584e214ddbb8a9`, already present at HEAD. The initial
+working tree was clean. Fetch was attempted and rejected by the read-only Git
+metadata mount. A read-only `git ls-remote origin refs/heads/main` confirmed
+`a764be2553e85bd313efe91e2b503c4195959ab7`, the preserved commit's parent; no
+reconciliation conflicts or unrelated changes were present. No refs were changed.
+
+The new `.foundry/proof.json` replaces the inherited proof description below for
+this correction. Before expanding fixtures, docs, or gates, the six public
+adapter/operation loopback cases failed with exit 1: HTTP 421 followed by a valid
+reply caused two server-observed POSTs despite `maxAttempts: 1`. The same assertions
+passed with exit 0 after replacing recovery's `fetch` call with a thin Node HTTP/
+HTTPS gateway. This boundary has no automatic status retry or redirect behavior;
+only the existing recovery engine creates further sends. Actual request buffers
+match sensitive capture bytes, response bytes match the 421 error body, and
+capture IDs match structured failure/history and ordered lifecycle transitions.
+
+The retained matrix also proves 301/302/303/307/308 redirects never contact a
+separate loopback destination server. It correlates source-server bytes, capture
+bytes, statuses, attempt IDs, history, and terminal lifecycle. Bodyless responses
+204/205/304 are recorded without throwing in the transport callback. The existing
+six admitted 503 cases retain identical request bytes and distinct attempt IDs;
+broker/session integration, completed-tool-once behavior, private original causes,
+cancellation, admission, and disabled compatibility remain covered.
+
+A separate read-only comparison of this correction with Rust revision
+`4ca1ed279c02eab37827a1ed07c30e961155ecf3` found the audited adapter's
+`src/llm/recovery/adapter.rs:53-55` explicitly disables reqwest retries and
+redirects. Its engine performs one `client.execute(request)` under an accounted
+identity, captures headers/status, and owns policy retries. TypeScript now enforces
+that same transport rule using Node HTTP without changing the established engine.
+This focused source comparison is not whole-mission sign-off or streaming parity.
+Reference/source hashes and complete captured logs are retained in `.foundry/`.
+
 ## Authority and reference
 
 - Repository `TRANSIENT-RECOVERY-2026-10.md` and `RECOVERY-REQUEST-2026-10.txt`.
@@ -46,7 +82,7 @@ remote termination source; streaming recovery pending. The reviewed provider
 endpoint links and migration examples are in `docs/completion-recovery.md` and
 `examples/completion_recovery.ts`.
 
-## Behavioral proof before expansion
+## Preserved implementation proof (prior run)
 
 `.foundry/proof.json` links actual rejecting and corrected logs. The initial
 public `LlmBroker.generateResponse` -> `OllamaGateway.generate` -> loopback HTTP
@@ -58,10 +94,10 @@ checks secret exclusion. It was recorded before the broader matrix and full gate
 The rejecting exit was 1 and corrected exit 0. No marker toggles or private helper
 probes were used.
 
-A second RED/GREEN probe added escaped partial JSON keys: the rejecting scanner
+In that prior run, a second RED/GREEN probe added escaped partial JSON keys: the rejecting scanner
 sent a second completion after escaped semantic content; the corrected lexical
-scanner prevents this resend. Both captured logs are preserved in the evidence
-manifest, alongside the original proof logs.
+scanner prevents this resend. Those earlier logs were reported by the preserved implementation; the current
+evidence manifest contains this correction's actual captured runs.
 
 ## Acceptance mapping
 
@@ -90,7 +126,8 @@ execution are used. Only tool/tokenizer boundary doubles are injected.
 | Transport | `retains transport causes…`: real socket reset, observed request buffers, original transport object, empty incomplete response capture, one eligible retry without SDK resends |
 | Backoff/limits | `uses bounded exponential full jitter…`: exact 0/100/250-ms delays for 0/.5/1 injected jitter; `rechecks the recovery budget…` proves no send at deadline; unresolved admission budget aborts its signal |
 | Active generation | `does not apply recovery budgets…`: successful active response completes after expired deadline/budget; no generation timeout introduced |
-| Redirects | `rejects redirects…`: HTTP 307 is terminal and the server sees one request, with one request/response hook pair |
+| Redirects | `rejects HTTP %s redirects…`: 301/302/303/307/308 are terminal, a separate destination sees zero requests, and source bytes/identities/history/lifecycle match capture |
+| Hidden transport resend | `accounts for a terminal 421…`: all six combinations send once at maxAttempts=1, preserve exact request/response bytes, and return structured 421 history with matching identities |
 | Eligibility vs permission | `honors category selection…` and `requires ambiguous local admission…`: HTTP category/status both needed; local ambiguity refuses resend without hook; OpenAI policy admission distinct |
 | Default/disabled | `keeps the opt-in default…` proves max one; `keeps disabled recovery…` retains legacy status errors with no lifecycle; existing gateway/streaming tests exercise untouched behavior |
 | Privacy | `omits echoed credential/payload metadata…`, `keeps recognized metadata private…`: valid UUID/known code echoes disappear from safe metadata/events/errors; raw bytes, headers, and causes remain available by explicit inspection |
@@ -117,7 +154,19 @@ audit, outdated-dependency inspection, library build, and VitePress docs build.
 No audit allowlist, dependency pin, coverage exclusion, floor, or runtime pin is
 modified. Security findings, if any, must be surfaced rather than suppressed.
 
-## Final measured results
+## Correction measured results
+
+All 48 suites and 1,192 tests pass, including the 321 conformance matrix cases
+and the existing standalone recovery HTTP probe. Coverage is statements 85.47%,
+branches 79.34%, functions 89.47%, lines 86.00%; all global 70% floors are unchanged.
+Formatting, zero-warning lint, format check, full tests, coverage, library build,
+and docs build exit 0. Production moderate and unfiltered audits both exit 0 with
+zero vulnerabilities. Outdated inspection exits 1 for Prettier 3.9.9 -> 3.9.10;
+this is informational and no dependency was changed. Docs build exits 0 with the
+existing VitePress/Rolldown bundle-assignment and deprecation diagnostics retained
+in the full log. Gate receipts and final source hashes are in the evidence manifest.
+
+## Preserved implementation results (prior run)
 
 All 274 new public recovery cases passed within the full 48-suite, 1,144-test run.
 The full coverage run also passed: statements 85.38%, branches 79.31%, functions

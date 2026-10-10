@@ -220,6 +220,36 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
 
   describe.each(['ordinary', 'structured'] as const)('%s', (operation) => {
     const content = operation === 'ordinary' ? 'answer' : '{"answer":42}';
+    it('accounts for a terminal 421 without a hidden transport resend', async () => {
+      replies = [
+        jsonReply(421, { error: 'misdirected request' }),
+        jsonReply(200, provider.success(content)),
+      ];
+      const result = await call(operation, policy({ maxAttempts: 1 }));
+
+      assertSends(1);
+      const error = failed(result);
+      expect(error.failure).toMatchObject({
+        category: 'http',
+        httpStatus: 421,
+        operation,
+        classification: { eligible: false },
+      });
+      assertHistory(error, [421]);
+      expect(events.map((event) => event.type)).toEqual([
+        'attempt_started',
+        'attempt_failed',
+        'interrupted',
+      ]);
+      expect(wires.map((wire) => [wire.direction, wire.status, wire.complete])).toEqual([
+        ['request', undefined, true],
+        ['response', 421, true],
+      ]);
+      expect(Buffer.from(wires[1].bytes)).toEqual(Buffer.from('{"error":"misdirected request"}'));
+      expect(
+        wires.map((wire) => [wire.logicalRequestId, wire.attemptId, wire.wireAttempt])
+      ).toEqual(Array(2).fill([error.failure.logicalRequestId, error.failure.attemptId, 1]));
+    });
     it('recovers a 503 with exact bytes, supported controls, history, identities, and ordered lifecycle', async () => {
       replies = [
         jsonReply(503, { error: 'payload-secret credential-secret' }),
@@ -783,15 +813,62 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
       expect(error.failure.progress.observed.contentBytes).toBe(14);
       expect(sends.map((send) => send.path)).toEqual([provider.path]);
     });
-    it('rejects redirects without an invisible resend', async () => {
-      replies = [jsonReply(307, {}, { Location: provider.path })];
-      const error = failed(await call(operation, policy()));
+    it.each([301, 302, 303, 307, 308])(
+      'rejects HTTP %s redirects before reaching a second endpoint',
+      async (status) => {
+        const redirected: Buffer[] = [];
+        const destination = createServer(async (request, response) => {
+          const chunks: Buffer[] = [];
+          for await (const chunk of request) chunks.push(Buffer.from(chunk));
+          redirected.push(Buffer.concat(chunks));
+          jsonReply(200, provider.success(content))(response, request);
+        });
+        await new Promise<void>((resolve) => destination.listen(0, '127.0.0.1', resolve));
+        try {
+          const port = (destination.address() as AddressInfo).port;
+          replies = [jsonReply(status, {}, { Location: `http://127.0.0.1:${port}/redirected` })];
+          const error = failed(await call(operation, policy({ maxAttempts: 1 })));
 
-      expect(error.failure.httpStatus).toBe(307);
-      expect(error.failure.classification.eligible).toBe(false);
-      expect(sends.map((send) => send.path)).toEqual([provider.path]);
-      expect(wires.map((wire) => wire.direction)).toEqual(['request', 'response']);
-    });
+          expect(redirected).toEqual([]);
+          assertSends(1);
+          assertHistory(error, [status]);
+          expect(error.failure.classification.eligible).toBe(false);
+          expect(events.map((event) => event.type)).toEqual([
+            'attempt_started',
+            'attempt_failed',
+            'interrupted',
+          ]);
+          expect(wires.map((wire) => [wire.direction, wire.status])).toEqual([
+            ['request', undefined],
+            ['response', status],
+          ]);
+          expect(wires.map((wire) => wire.attemptId)).toEqual(
+            Array(2).fill(error.failure.attemptId)
+          );
+          expect(Buffer.from(wires[1].bytes)).toEqual(Buffer.from('{}'));
+        } finally {
+          destination.closeAllConnections();
+          await new Promise<void>((resolve) => destination.close(() => resolve()));
+        }
+      }
+    );
+    it.each([204, 205, 304])(
+      'records bodyless HTTP %s without throwing in the transport',
+      async (status) => {
+        replies = [
+          (response) => {
+            response.writeHead(status);
+            response.end();
+          },
+        ];
+        const error = failed(await call(operation, policy({ maxAttempts: 1 })));
+
+        assertSends(1);
+        assertHistory(error, [status]);
+        expect(wires[1]).toMatchObject({ direction: 'response', status, complete: true });
+        expect(Buffer.from(wires[1].bytes)).toEqual(Buffer.alloc(0));
+      }
+    );
     it('keeps recognized metadata private when echoed from credentials or payload', async () => {
       const uuid = '12345678-1234-1234-1234-123456789abc';
       replies = [jsonReply(503, { error: { code: 'server_error' } }, { 'x-request-id': uuid })];

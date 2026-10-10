@@ -56,6 +56,21 @@ interactions. Each completion in a tool loop receives its own logical identity;
 only its HTTP attempts share that identity. `generateObject` retains its existing
 schema argument and does not gain tools or schema-validation capabilities.
 
+## Transport migration
+
+Recovery-enabled ordinary and structured completions now use Node's HTTP/HTTPS
+request boundary, with one POST per engine attempt. Node `fetch` can silently
+resend a POST after HTTP 421 even with `redirect: 'manual'`; it is therefore no
+longer used for these recovery calls. A 421 is returned as a structured HTTP
+failure under the default policy. All redirects are recorded as failures without
+contacting the destination. Only the recovery engine can authorize another send.
+
+Applications that intercept global `fetch` should use the sensitive `onWire` hook
+for recovery request/response capture instead. The existing disabled and streaming
+paths retain their transports. There are no new dependencies or policy defaults.
+Admitted 503 recovery still reuses the exact encoded payload with distinct attempt
+IDs under one logical request ID; completed tools are never resent by recovery.
+
 ## Policy and timing
 
 Default eligibility is transport failure, HTTP 429, 500, 502, 503, or 504.
