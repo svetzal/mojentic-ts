@@ -600,3 +600,8 @@ if (isOk(result)) {
 - [Core API](/api/core)
 - [OpenAI Model Registry](/api/openai-model-registry)
 - [Streaming Guide](/streaming)
+
+## Opt-in non-streaming recovery
+
+See [completion recovery](/completion-recovery) for policy configuration, structured
+failures, admission, cancellation, and provider limits. Streaming recovery is pending.

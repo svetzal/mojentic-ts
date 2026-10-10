@@ -7,6 +7,7 @@ import { LlmMessage, MessageRole } from './models';
 import { LlmTool } from './tools';
 import { Tokenizer } from './gateways/tokenizer';
 import { TokenizerGateway } from './gateways/tokenizerGateway';
+import { RecoveryOptions } from './recovery';
 import { isOk } from '../error';
 
 /**
@@ -79,7 +80,9 @@ export class ChatSession {
    * Also records the query and response in the ongoing chat session.
    *
    * @param query - The query to send to the LLM
+   * @param recovery - Opt-in non-streaming policy; completed tool history survives failure.
    * @returns The response from the LLM
+   * @throws RecoveryError when an enabled completion fails; retains structured attempt history.
    *
    * @example
    * ```typescript
@@ -87,7 +90,7 @@ export class ChatSession {
    * console.log(response);
    * ```
    */
-  async send(query: string): Promise<string> {
+  async send(query: string, recovery?: RecoveryOptions): Promise<string> {
     // Add user message
     this.insertMessage({
       role: MessageRole.User,
@@ -97,8 +100,11 @@ export class ChatSession {
     // Generate response
     const result = await this.llm.generate(this.messages as LlmMessage[], this.tools, {
       temperature: this.temperature,
+      recovery,
     });
 
+    // Recovery preserves tool history even when the final completion fails.
+    if (recovery) this.ensureAllMessagesAreSized();
     if (!result.ok) {
       throw result.error;
     }

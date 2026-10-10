@@ -1,7 +1,9 @@
+import { z } from 'zod';
 /**
  * Ollama gateway implementation
  */
 
+import { recoverCompletion, completionRecoveryCapabilities } from '../recovery';
 import { LlmGateway } from '../gateway';
 import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk, ToolCall } from '../models';
 import { ToolDescriptor } from '../tools';
@@ -89,10 +91,54 @@ interface OllamaPullProgress {
 
 export type PullProgressCallback = (progress: OllamaPullProgress) => void;
 
-/**
- * Gateway for Ollama local LLM provider
- */
+const recoveredOllamaSchema = z.object({
+  model: z.string().optional(),
+  done: z.literal(true),
+  done_reason: z.string().optional(),
+  message: z.object({
+    role: z.string(),
+    content: z.string(),
+    thinking: z.string().optional(),
+    tool_calls: z
+      .array(
+        z.object({
+          id: z.string().optional(),
+          type: z.literal('function').optional(),
+          function: z.object({
+            name: z.string(),
+            arguments: z.union([z.string(), z.record(z.string(), z.unknown())]),
+          }),
+        })
+      )
+      .optional(),
+  }),
+  eval_count: z.number().optional(),
+  prompt_eval_count: z.number().optional(),
+  total_duration: z.number().optional(),
+  load_duration: z.number().optional(),
+  prompt_eval_duration: z.number().optional(),
+  eval_duration: z.number().optional(),
+});
+function decodeRecoveredOllama(json: unknown): GatewayResponse {
+  return toGatewayResponse(recoveredOllamaSchema.parse(json));
+}
+function toGatewayResponse(
+  data: Pick<OllamaResponse, 'message' | 'done'> & OllamaCompletionStats & { model?: string }
+): GatewayResponse {
+  return {
+    content: data.message.content,
+    toolCalls: data.message.tool_calls?.map(normalizeToolCall),
+    finishReason: data.done_reason ?? (data.done ? 'stop' : undefined),
+    model: data.model,
+    thinking: data.message.thinking,
+    usage: ollamaUsage(data),
+    metadata: ollamaMetadata(data),
+  };
+}
+
+/** Gateway for the Ollama local provider; recovery is opt-in through CompletionConfig. */
 export class OllamaGateway implements LlmGateway {
+  readonly recoveryCapabilities = completionRecoveryCapabilities;
   private readonly baseUrl: string;
 
   constructor(baseUrl?: string) {
@@ -189,6 +235,17 @@ export class OllamaGateway implements LlmGateway {
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
   ): Promise<Result<GatewayResponse, Error>> {
+    if (config?.recovery) {
+      return recoverCompletion(
+        'ollama',
+        `${this.baseUrl}/api/chat`,
+        { 'Content-Type': 'application/json' },
+        { ...this.buildRequestBody(model, messages, config, tools), stream: false },
+        config.recovery,
+        decodeRecoveredOllama,
+        config.responseFormat?.type === 'json_object'
+      );
+    }
     try {
       const requestBody = {
         ...this.buildRequestBody(model, messages, config, tools),
@@ -215,17 +272,7 @@ export class OllamaGateway implements LlmGateway {
 
       const data = (await response.json()) as OllamaResponse;
 
-      const gatewayResponse: GatewayResponse = {
-        content: data.message.content,
-        toolCalls: data.message.tool_calls?.map(normalizeToolCall),
-        finishReason: data.done_reason ?? (data.done ? 'stop' : undefined),
-        model: data.model,
-        thinking: data.message.thinking,
-        usage: ollamaUsage(data),
-        metadata: ollamaMetadata(data),
-      };
-
-      return Ok(gatewayResponse);
+      return Ok(toGatewayResponse(data));
     } catch (error) {
       return Err(
         new GatewayError(

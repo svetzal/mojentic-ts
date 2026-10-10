@@ -1,7 +1,9 @@
+import { z } from 'zod';
 /**
  * OpenAI gateway implementation for chat completions, embeddings, and streaming.
  */
 
+import { recoverCompletion, completionRecoveryCapabilities } from '../recovery';
 import { LlmGateway } from '../gateway';
 import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk } from '../models';
 import { ToolDescriptor } from '../tools';
@@ -62,7 +64,9 @@ interface OpenAIEmbeddingResponse {
 }
 
 /** Collect the provider-reported response fields that have no dedicated slot. */
-function responseMetadata(data: OpenAIResponse): Record<string, unknown> {
+function responseMetadata(
+  data: Partial<Pick<OpenAIResponse, 'id' | 'created' | 'system_fingerprint'>>
+): Record<string, unknown> {
   const metadata: Record<string, unknown> = { id: data.id, created: data.created };
   if (data.system_fingerprint !== undefined) {
     metadata.system_fingerprint = data.system_fingerprint;
@@ -70,12 +74,50 @@ function responseMetadata(data: OpenAIResponse): Record<string, unknown> {
   return metadata;
 }
 
-/**
- * Gateway for OpenAI API provider.
- *
- * Supports chat completions, structured output, tool calling, streaming, and embeddings.
- */
+const recoveredOpenAISchema = z.object({
+  id: z.string().optional(),
+  created: z.number().optional(),
+  model: z.string().optional(),
+  system_fingerprint: z.string().optional(),
+  choices: z
+    .array(
+      z.object({
+        finish_reason: z.string().nullish(),
+        message: z.object({
+          content: z.string().nullable(),
+          tool_calls: z
+            .array(
+              z.object({
+                id: z.string(),
+                type: z.literal('function'),
+                function: z.object({ name: z.string(), arguments: z.string() }),
+              })
+            )
+            .optional(),
+        }),
+      })
+    )
+    .min(1),
+  usage: z
+    .object({ prompt_tokens: z.number(), completion_tokens: z.number(), total_tokens: z.number() })
+    .optional(),
+});
+function decodeRecoveredOpenAI(json: unknown): GatewayResponse {
+  const data = recoveredOpenAISchema.parse(json);
+  const choice = data.choices[0];
+  return {
+    content: choice.message.content ?? '',
+    toolCalls: parseOpenAIToolCalls(choice.message.tool_calls),
+    finishReason: choice.finish_reason ?? undefined,
+    model: data.model,
+    usage: data.usage && toCompletionUsage(data.usage),
+    metadata: responseMetadata(data),
+  };
+}
+
+/** OpenAI chat, streaming, and embedding gateway. Completion recovery is opt-in. */
 export class OpenAIGateway implements LlmGateway {
+  readonly recoveryCapabilities = completionRecoveryCapabilities;
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly modelRegistry = getModelRegistry();
@@ -255,6 +297,20 @@ export class OpenAIGateway implements LlmGateway {
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
   ): Promise<Result<GatewayResponse, Error>> {
+    if (config?.recovery) {
+      return recoverCompletion(
+        'openai',
+        `${this.baseUrl}/chat/completions`,
+        {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        this.buildRequestBody(model, messages, config, tools),
+        config.recovery,
+        decodeRecoveredOpenAI,
+        config.responseFormat?.type === 'json_object'
+      );
+    }
     try {
       const requestBody = this.buildRequestBody(model, messages, config, tools);
 

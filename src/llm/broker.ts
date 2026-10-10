@@ -219,7 +219,7 @@ export class LlmBroker {
     }
   }
 
-  /** Generate text with automatic tool dispatch. */
+  /** Generate text with automatic tool dispatch. Recovery retains tool messages in caller history. */
   /**
    * Generate a text completion from the LLM with automatic recursive tool execution.
    *
@@ -252,7 +252,8 @@ export class LlmBroker {
     correlationId?: string
   ): Promise<Result<string, Error>> {
     try {
-      const currentMessages = [...messages];
+      // Opt-in recovery retains completed tool history even when a later completion fails.
+      const currentMessages = config?.recovery ? messages : [...messages];
       let iterations = 0;
 
       const maxToolIterations =

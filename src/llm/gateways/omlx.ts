@@ -8,6 +8,7 @@
  */
 
 import { z } from 'zod';
+import { recoverCompletion, completionRecoveryCapabilities } from '../recovery';
 import { LlmGateway } from '../gateway';
 import { CompletionConfig, GatewayResponse, LlmMessage, StreamChunk } from '../models';
 import { ToolDescriptor } from '../tools';
@@ -188,6 +189,7 @@ function toGatewayResponse(
  * and `response_format_warning` when oMLX did not enforce a requested JSON format.
  */
 export class OMLXGateway implements LlmGateway {
+  readonly recoveryCapabilities = completionRecoveryCapabilities;
   private readonly baseUrl: string;
   private readonly apiKey: string | undefined;
   private readonly timeout: number;
@@ -258,6 +260,24 @@ export class OMLXGateway implements LlmGateway {
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
   ): Promise<Result<GatewayResponse, Error>> {
+    if (config?.recovery) {
+      return recoverCompletion(
+        'omlx',
+        `${this.baseUrl}/chat/completions`,
+        this.headers(true),
+        this.buildRequestBody(model, messages, config, tools),
+        config.recovery,
+        (json, headers) =>
+          toGatewayResponse(
+            chatResponseSchema.parse(json),
+            reportedUsage(json),
+            config?.responseFormat?.type === 'json_object'
+              ? (headers.get('warning') ?? undefined)
+              : undefined
+          ),
+        config.responseFormat?.type === 'json_object'
+      );
+    }
     try {
       const body = this.buildRequestBody(model, messages, config, tools);
       const response = await this.send('POST', '/chat/completions', this.timeout, body);

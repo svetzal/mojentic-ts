@@ -158,3 +158,8 @@ In this tutorial, we've learned how to:
 3.  Customize the session with system prompts and tools.
 
 By leveraging chat sessions, you can create engaging conversational experiences that maintain context across multiple interactions.
+
+## Opt-in non-streaming recovery
+
+See [completion recovery](/completion-recovery) for policy configuration, structured
+failures, admission, cancellation, and provider limits. Streaming recovery is pending.

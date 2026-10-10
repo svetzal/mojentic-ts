@@ -91,6 +91,8 @@ export type ReasoningEffort = 'low' | 'medium' | 'high';
  * Configuration for LLM completion requests
  */
 export interface CompletionConfig {
+  /** Opt-in recovery for a single non-streaming completion. Omit for legacy behavior. */
+  recovery?: import('./recovery').RecoveryOptions;
   temperature?: number;
   maxTokens?: number;
   numPredict?: number;

@@ -11,6 +11,8 @@ import { LlmStreamEvent } from './stream-events';
  * Interface for LLM gateway implementations
  */
 export interface LlmGateway {
+  /** Capabilities for opt-in completion recovery, when implemented. */
+  readonly recoveryCapabilities?: typeof import('./recovery').completionRecoveryCapabilities;
   /**
    * Generate a completion from the LLM
    */
