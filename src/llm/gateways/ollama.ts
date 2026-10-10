@@ -1,3 +1,4 @@
+import { recoverStreamChunks, recoverStreamEvents } from '../streaming-recovery';
 import { z } from 'zod';
 /**
  * Ollama gateway implementation
@@ -218,6 +219,23 @@ export class OllamaGateway implements LlmGateway {
     config?: CompletionConfig,
     signal?: AbortSignal
   ): AsyncGenerator<LlmStreamEvent> {
+    if (config?.recovery) {
+      yield* recoverStreamEvents(
+        'ollama',
+        `${this.baseUrl}/api/chat`,
+        { 'Content-Type': 'application/json' },
+        { ...this.buildRequestBody(model, messages, config), stream: true },
+        {
+          ...config.recovery,
+          signal:
+            signal && config.recovery.signal
+              ? AbortSignal.any([signal, config.recovery.signal])
+              : (signal ?? config.recovery.signal),
+        },
+        parseOllamaStreamLine
+      );
+      return;
+    }
     yield* streamCompletionEvents(
       {
         url: `${this.baseUrl}/api/chat`,
@@ -288,6 +306,17 @@ export class OllamaGateway implements LlmGateway {
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
   ): AsyncGenerator<Result<StreamChunk, Error>> {
+    if (config?.recovery) {
+      yield* recoverStreamChunks(
+        'ollama',
+        `${this.baseUrl}/api/chat`,
+        { 'Content-Type': 'application/json' },
+        { ...this.buildRequestBody(model, messages, config, tools), stream: true },
+        config.recovery,
+        parseOllamaStreamLine
+      );
+      return;
+    }
     try {
       const requestBody = {
         ...this.buildRequestBody(model, messages, config, tools),

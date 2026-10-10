@@ -436,7 +436,7 @@ Content received before an `error` event is evidence, not a result. See
 [Streaming](./streaming.md#single-turn-streaming-with-terminal-completion-evidence)
 for the events, completion rules, and error reasons.
 
-## Opt-in non-streaming recovery
+## Opt-in completion recovery
 
 See [completion recovery](/completion-recovery) for policy configuration, structured
-failures, admission, cancellation, and provider limits. Streaming recovery is pending.
+failures, admission, cancellation, and provider limits. Both streaming forms accept the same opt-in recovery policy.

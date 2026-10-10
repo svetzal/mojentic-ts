@@ -56,7 +56,7 @@ function stringToken(text: string, start: number): StringToken {
 }
 
 /** Count only actual message fields and tool array objects, including escaped JSON keys. */
-export function observeCompletionPrefix(bytes: Uint8Array): SemanticProgress {
+export function observeCompletionPrefix(bytes: Uint8Array, streaming = false): SemanticProgress {
   const text = new TextDecoder().decode(bytes);
   const stack: Context[] = [];
   let contentBytes = 0;
@@ -81,11 +81,15 @@ export function observeCompletionPrefix(bytes: Uint8Array): SemanticProgress {
       continue;
     }
     if (char === '{' || char === '[') {
-      const tool = char === '{' && parent?.tools === true;
+      const tool =
+        char === '{' &&
+        (parent?.tools === true ||
+          (streaming && parent?.message === true && parent.key === 'function_call'));
       if (tool) toolFragments++;
       stack.push({
         kind: char === '{' ? 'object' : 'array',
-        message: char === '{' && parent?.key === 'message',
+        message:
+          char === '{' && (parent?.key === 'message' || (streaming && parent?.key === 'delta')),
         tools: char === '[' && parent?.message === true && parent.key === 'tool_calls',
         tool,
         expecting: char === '{' ? 'key' : 'value',

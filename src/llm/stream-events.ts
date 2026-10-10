@@ -26,6 +26,7 @@ export interface CompletionEvidence {
 /**
  * Why a single-turn stream failed.
  *
+ * - `interrupted_stream`: opt-in recovery blocked replay after output or protocol failure.
  * - `incomplete_completion`: the provider finished for a reason other than `stop`.
  * - `incomplete_stream`: the stream ended without a terminal marker.
  * - `provider_error`: the provider sent an error frame or a non-success HTTP status.
@@ -36,6 +37,7 @@ export interface CompletionEvidence {
  * - `cancelled`: the caller's `AbortSignal` fired.
  */
 export type StreamEventErrorReason =
+  | 'interrupted_stream'
   | 'incomplete_completion'
   | 'incomplete_stream'
   | 'provider_error'
@@ -55,17 +57,24 @@ export class StreamEventError extends MojenticError {
   readonly reason: StreamEventErrorReason;
   readonly evidence?: CompletionEvidence;
   readonly detail?: unknown;
+  /** Structured opt-in recovery outcome and exact attempt history. */
+  readonly recovery?: import('./recovery').RecoveryError;
 
   constructor(
     reason: StreamEventErrorReason,
     message: string,
-    options: { evidence?: CompletionEvidence; detail?: unknown } = {}
+    options: {
+      evidence?: CompletionEvidence;
+      detail?: unknown;
+      recovery?: import('./recovery').RecoveryError;
+    } = {}
   ) {
     super(message, 'STREAM_EVENT_ERROR');
     this.name = 'StreamEventError';
     this.reason = reason;
     this.evidence = options.evidence;
     this.detail = options.detail;
+    this.recovery = options.recovery;
     Object.setPrototypeOf(this, StreamEventError.prototype);
   }
 }

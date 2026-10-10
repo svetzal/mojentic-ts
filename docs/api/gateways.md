@@ -601,7 +601,7 @@ if (isOk(result)) {
 - [OpenAI Model Registry](/api/openai-model-registry)
 - [Streaming Guide](/streaming)
 
-## Opt-in non-streaming recovery
+## Opt-in completion recovery
 
 See [completion recovery](/completion-recovery) for policy configuration, structured
-failures, admission, cancellation, and provider limits. Streaming recovery is pending.
+failures, admission, cancellation, and provider limits. Both streaming forms accept the same opt-in recovery policy.

@@ -162,4 +162,4 @@ By leveraging chat sessions, you can create engaging conversational experiences 
 ## Opt-in non-streaming recovery
 
 See [completion recovery](/completion-recovery) for policy configuration, structured
-failures, admission, cancellation, and provider limits. Streaming recovery is pending.
+failures, admission, cancellation, and provider limits. `sendStream` has no recovery argument; use the broker streaming APIs for opt-in recovery.

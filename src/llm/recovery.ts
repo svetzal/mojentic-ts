@@ -1,4 +1,4 @@
-/** Opt-in recovery of a single non-streaming HTTP completion. */
+/** Opt-in admission and retry policy for a single HTTP completion. */
 import { randomUUID } from 'node:crypto';
 import { Err, Ok, Result, MojenticError } from '../error';
 import { GatewayResponse } from './models';
@@ -49,7 +49,7 @@ export type RetryAfter =
   | { readonly kind: 'date'; readonly unixMs: number; readonly delayMs: number };
 export interface RecoveryFailure extends RecoveryIdentity {
   readonly provider: RecoveryProvider;
-  readonly operation: 'ordinary' | 'structured';
+  readonly operation: 'ordinary' | 'structured' | 'streaming';
   readonly category: RecoveryCategory;
   readonly httpStatus?: number;
   readonly providerCode?: string;
@@ -62,6 +62,8 @@ export interface RecoveryFailure extends RecoveryIdentity {
   readonly classification: { readonly eligible: boolean; readonly reason: RecoveryReason };
 }
 export type RecoveryTransition =
+  | 'progress'
+  | 'metrics'
   | 'attempt_started'
   | 'attempt_succeeded'
   | 'attempt_failed'
@@ -80,6 +82,8 @@ export interface RecoveryEvent extends RecoveryIdentity {
   readonly phase?: RecoveryFailure['phase'];
   readonly failure?: RecoveryFailure;
   readonly delayMs?: number;
+  readonly frameIndex?: number;
+  readonly metrics?: Readonly<Record<string, number | boolean>>;
 }
 export interface RecoveryAdmission {
   readonly failure: RecoveryFailure;
@@ -93,6 +97,8 @@ export interface RecoveryWireEvent extends RecoveryIdentity {
   readonly headers: Headers;
   readonly status?: number;
   readonly complete: boolean;
+  /** Response chunks are exact wire bytes; index resets for each attempt. */
+  readonly frameIndex?: number;
 }
 export interface RecoveryOptions {
   readonly maxAttempts?: number;
@@ -119,6 +125,7 @@ export interface RecoveryEvidence {
   readonly admissionCause?: unknown;
   readonly delayCause?: unknown;
   readonly bytes: Uint8Array;
+  readonly responseEvidence?: import('./stream-events').CompletionEvidence;
   readonly headers?: Headers;
 }
 const evidence = new WeakMap<RecoveryFailure, RecoveryEvidence>();
@@ -132,6 +139,7 @@ export function inspectRecoveryFailure(failure: RecoveryFailure): RecoveryEviden
       admissionCause: original.admissionCause,
       delayCause: original.delayCause,
       bytes: original.bytes.slice(),
+      responseEvidence: original.responseEvidence && structuredClone(original.responseEvidence),
       headers: original.headers && new Headers(original.headers),
     }
   );
@@ -162,7 +170,7 @@ export const completionRecoveryCapabilities = Object.freeze({
   requestStatus: 'unsupported',
   idempotency: 'unknown',
   remoteTerminationEvidence: 'none',
-  streamingRecovery: 'pending',
+  streamingRecovery: 'supported',
 } as const);
 
 const emptySemantic = (): SemanticProgress =>
@@ -266,7 +274,7 @@ async function sleep(delayMs: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-interface AttemptState {
+export interface RecoveryAttemptState {
   identity: RecoveryIdentity;
   progress: RecoveryProgress;
   response?: CompletionTransportResponse;
@@ -275,18 +283,27 @@ interface AttemptState {
   reason?: RecoveryReason;
   cause?: unknown;
   captureCause?: unknown;
+  streaming?: boolean;
+  responseEvidence?: import('./stream-events').CompletionEvidence;
   phase?: RecoveryFailure['phase'];
 }
-function classify(state: AttemptState, policy: RecoveryOptions): RecoveryFailure['classification'] {
+function classify(
+  state: RecoveryAttemptState,
+  policy: RecoveryOptions
+): RecoveryFailure['classification'] {
   if (state.category === 'cancellation') return { eligible: false, reason: 'cancelled' };
   const status = state.response?.status;
   if (status === 400 || status === 401 || status === 403)
     return { eligible: false, reason: 'permanent' };
   if (state.reason === 'capture_failed') return { eligible: false, reason: 'capture_failed' };
-  if (Object.values(state.progress.observed).some((value) => value > 0))
+  if (
+    [...Object.values(state.progress.observed), ...Object.values(state.progress.delivered)].some(
+      (value) => value > 0
+    )
+  )
     return { eligible: false, reason: 'semantic_output' };
   if (state.category === 'protocol') return { eligible: false, reason: 'malformed' };
-  if (state.response?.ok && state.progress.rawBytes > 0)
+  if (!state.streaming && state.response?.ok && state.progress.rawBytes > 0)
     return { eligible: false, reason: 'partial_response' };
   const categories = policy.retryableCategories ?? ['transport', 'http'];
   const eligible =
@@ -297,7 +314,7 @@ function classify(state: AttemptState, policy: RecoveryOptions): RecoveryFailure
   return { eligible, reason: eligible ? 'transient' : 'permanent' };
 }
 function failureOf(
-  state: AttemptState,
+  state: RecoveryAttemptState,
   provider: RecoveryProvider,
   operation: RecoveryFailure['operation'],
   policy: RecoveryOptions,
@@ -327,6 +344,7 @@ function failureOf(
     cause: state.cause,
     captureCause: state.captureCause,
     bytes: state.bytes.slice(),
+    responseEvidence: state.responseEvidence && structuredClone(state.responseEvidence),
     headers: headers && new Headers(headers),
   });
   return failure;
@@ -344,7 +362,7 @@ async function capture(
     );
 }
 async function execute(
-  state: AttemptState,
+  state: RecoveryAttemptState,
   url: string,
   headers: Headers | Record<string, string>,
   body: string,
@@ -457,7 +475,17 @@ export async function recoverCompletion(
   payload: object,
   options: RecoveryOptions,
   decode: (json: unknown, headers: Headers) => GatewayResponse,
-  structured: boolean
+  structured: boolean,
+  streaming?: {
+    readonly execute: (
+      state: RecoveryAttemptState,
+      body: string,
+      headers: Headers,
+      signal: AbortSignal,
+      policy: RecoveryOptions,
+      sensitive: (value: string) => boolean
+    ) => Promise<GatewayResponse | undefined>;
+  }
 ): Promise<Result<GatewayResponse, Error>> {
   const policy: RecoveryOptions = Object.freeze({
     ...options,
@@ -468,16 +496,27 @@ export async function recoverCompletion(
   validate(policy);
   const body = JSON.stringify(payload);
   const frozenHeaders = new Headers(headers);
+  const requestStrings: string[] = [];
+  const collectStrings = (value: unknown): void => {
+    if (typeof value === 'string' && value.length > 0) requestStrings.push(value);
+    else if (Array.isArray(value)) value.forEach(collectStrings);
+    else if (typeof value === 'object' && value !== null)
+      Object.values(value).forEach(collectStrings);
+  };
+  collectStrings(JSON.parse(body) as unknown);
+  for (const value of frozenHeaders.values()) {
+    requestStrings.push(value);
+    if (value.startsWith('Bearer ')) requestStrings.push(value.slice(7));
+  }
   const sensitive = (value: string): boolean =>
-    body.includes(value) ||
-    Array.from(frozenHeaders.values()).some((header) => header.includes(value));
+    body.includes(value) || requestStrings.some((secret) => value.includes(secret));
   const logicalRequestId = randomUUID();
   const signal = policy.signal ?? new AbortController().signal;
   const monotonic = policy.monotonicClock ?? (() => performance.now());
   const wall = policy.wallClock ?? Date.now;
   const history: RecoveryFailure[] = [];
   let firstFailure: number | undefined;
-  let state: AttemptState = {
+  let state: RecoveryAttemptState = {
     identity: { logicalRequestId, attemptId: randomUUID(), wireAttempt: 0 },
     progress: emptyProgress(),
     bytes: new Uint8Array(),
@@ -523,7 +562,7 @@ export async function recoverCompletion(
     const cancellation = failureOf(
       { ...state, category: 'cancellation', reason: undefined, cause: signal.reason },
       provider,
-      structured ? 'structured' : 'ordinary',
+      streaming ? 'streaming' : structured ? 'structured' : 'ordinary',
       policy,
       sensitive
     );
@@ -536,6 +575,7 @@ export async function recoverCompletion(
       progress: emptyProgress(),
       bytes: new Uint8Array(),
       category: 'transport',
+      streaming: streaming !== undefined,
     };
     try {
       await capture(
@@ -557,7 +597,13 @@ export async function recoverCompletion(
       state.reason = 'capture_failed';
       return finish(
         'interrupted',
-        failureOf(state, provider, structured ? 'structured' : 'ordinary', policy, sensitive)
+        failureOf(
+          state,
+          provider,
+          streaming ? 'streaming' : structured ? 'structured' : 'ordinary',
+          policy,
+          sensitive
+        )
       );
     }
     if (signal.aborted) return cancelled();
@@ -565,26 +611,21 @@ export async function recoverCompletion(
       return finish('deadline', history[history.length - 1]);
     state.identity = Object.freeze({ ...state.identity, wireAttempt: number });
     emit('attempt_started');
-    const result = await execute(
-      state,
-      url,
-      frozenHeaders,
-      body,
-      policy,
-      signal,
-      decode,
-      structured
-    );
+    const result = streaming
+      ? await streaming.execute(state, body, frozenHeaders, signal, policy, sensitive)
+      : await execute(state, url, frozenHeaders, body, policy, signal, decode, structured);
     if (result && !signal.aborted) {
-      state.progress = Object.freeze({ ...state.progress, delivered: state.progress.observed });
+      if (!streaming)
+        state.progress = Object.freeze({ ...state.progress, delivered: state.progress.observed });
       emit('attempt_succeeded');
       if (!signal.aborted) return Ok(result);
-      state.progress = Object.freeze({ ...state.progress, delivered: emptySemantic() });
+      if (!streaming)
+        state.progress = Object.freeze({ ...state.progress, delivered: emptySemantic() });
     }
     const failure = failureOf(
       state,
       provider,
-      structured ? 'structured' : 'ordinary',
+      streaming ? 'streaming' : structured ? 'structured' : 'ordinary',
       policy,
       sensitive
     );

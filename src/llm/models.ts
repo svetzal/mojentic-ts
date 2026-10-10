@@ -91,7 +91,7 @@ export type ReasoningEffort = 'low' | 'medium' | 'high';
  * Configuration for LLM completion requests
  */
 export interface CompletionConfig {
-  /** Opt-in recovery for a single non-streaming completion. Omit for legacy behavior. */
+  /** Opt-in recovery for a single completion (including streaming). Omit for legacy behavior. */
   recovery?: import('./recovery').RecoveryOptions;
   temperature?: number;
   maxTokens?: number;
@@ -148,6 +148,11 @@ export interface GatewayResponse {
  * Stream chunk from an LLM gateway
  */
 export interface StreamChunk {
+  /** Opt-in recovery exposes observed reasoning and partial calls without executing them. */
+  reasoning?: string;
+  toolCallFragments?: readonly unknown[];
+  frameIndex?: number;
+  evidence?: import('./stream-events').CompletionEvidence;
   content?: string;
   toolCalls?: ToolCall[];
   finishReason?: FinishReason;

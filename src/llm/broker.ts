@@ -458,7 +458,7 @@ export class LlmBroker {
     }
 
     const toolDescriptors = tools?.map((t) => t.descriptor());
-    const currentMessages = [...messages];
+    const currentMessages = config?.recovery ? messages : [...messages];
     let accumulatedContent = '';
     const accumulatedToolCalls: ToolCall[] = [];
 
@@ -485,6 +485,7 @@ export class LlmBroker {
     )) {
       if (!isOk(chunkResult)) {
         yield chunkResult;
+        if (config?.recovery) return;
         continue;
       }
 
@@ -542,6 +543,7 @@ export class LlmBroker {
           corrId,
           iterationsRemaining - 1
         );
+        if (config?.recovery) return;
       } else if (chunk.done) {
         // Stream done without tool calls
         const callDurationMs = Date.now() - startTime;

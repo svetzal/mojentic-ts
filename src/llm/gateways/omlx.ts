@@ -1,3 +1,4 @@
+import { recoverStreamChunks, recoverStreamEvents } from '../streaming-recovery';
 /**
  * oMLX gateway: chat completions, streaming, model loading and embeddings against an oMLX server.
  *
@@ -306,6 +307,17 @@ export class OMLXGateway implements LlmGateway {
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
   ): AsyncGenerator<Result<StreamChunk, Error>> {
+    if (config?.recovery) {
+      yield* recoverStreamChunks(
+        'omlx',
+        `${this.baseUrl}/chat/completions`,
+        this.headers(true),
+        { ...this.buildRequestBody(model, messages, config, tools), stream: true },
+        config.recovery,
+        parseOMLXStreamLine
+      );
+      return;
+    }
     try {
       const body = { ...this.buildRequestBody(model, messages, config, tools), stream: true };
       const response = await this.send('POST', '/chat/completions', undefined, body);
@@ -340,6 +352,27 @@ export class OMLXGateway implements LlmGateway {
     config?: CompletionConfig,
     signal?: AbortSignal
   ): AsyncGenerator<LlmStreamEvent> {
+    if (config?.recovery) {
+      yield* recoverStreamEvents(
+        'omlx',
+        `${this.baseUrl}/chat/completions`,
+        this.headers(true),
+        {
+          ...this.buildRequestBody(model, messages, config),
+          stream: true,
+          stream_options: { include_usage: true },
+        },
+        {
+          ...config.recovery,
+          signal:
+            signal && config.recovery.signal
+              ? AbortSignal.any([signal, config.recovery.signal])
+              : (signal ?? config.recovery.signal),
+        },
+        parseOMLXStreamLine
+      );
+      return;
+    }
     yield* streamCompletionEvents(
       {
         url: `${this.baseUrl}/chat/completions`,

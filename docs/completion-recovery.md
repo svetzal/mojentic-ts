@@ -1,4 +1,4 @@
-# Non-streaming completion recovery
+# Completion recovery
 
 Recovery is opt-in for Ollama, oMLX, and OpenAI chat completions. Existing calls
 without `CompletionConfig.recovery` retain their original success, error, timeout,
@@ -58,7 +58,7 @@ schema argument and does not gain tools or schema-validation capabilities.
 
 ## Transport migration
 
-Recovery-enabled ordinary and structured completions now use Node's HTTP/HTTPS
+Recovery-enabled ordinary, structured, and streaming completions use Node's HTTP/HTTPS
 request boundary, with one POST per engine attempt. Node `fetch` can silently
 resend a POST after HTTP 421 even with `redirect: 'manual'`; it is therefore no
 longer used for these recovery calls. A 421 is returned as a structured HTTP
@@ -66,7 +66,7 @@ failure under the default policy. All redirects are recorded as failures without
 contacting the destination. Only the recovery engine can authorize another send.
 
 Applications that intercept global `fetch` should use the sensitive `onWire` hook
-for recovery request/response capture instead. The existing disabled and streaming
+for recovery request/response capture instead. The existing disabled
 paths retain their transports. There are no new dependencies or policy defaults.
 Admitted 503 recovery still reuses the exact encoded payload with distinct attempt
 IDs under one logical request ID; completed tools are never resent by recovery.
@@ -77,7 +77,8 @@ Default eligibility is transport failure, HTTP 429, 500, 502, 503, or 504.
 `retryableCategories` and `retryableStatuses` select eligible failures; HTTP needs
 both category and status permission. Known 400/401/403 stay permanent even if
 body transport fails or a caller selects them. Protocol errors and any observed
-semantic output are never replayed. Partial successful HTTP bodies fail closed.
+semantic output are never replayed. Partial ordinary/structured successful HTTP bodies fail closed; streaming
+keepalive-only failures remain eligible for admission.
 Provider error codes are retained only from a fixed known set; arbitrary codes
 and request IDs are available only through inspection. Validated UUID request IDs
 and known codes that echo encoded request contents or credentials are omitted.
@@ -165,9 +166,65 @@ format. Unsupported controls remain unsupported. `LlmMessage` has no native
 reasoning-history field; this feature adds none. Ordinary finish handling and
 disabled-reasoning parity remain separate work.
 
-Streaming recovery acceptance is **pending**. `generateStream`,
-`generateStreamEvents`, and `sendStream` retain their existing paths and ignore
-this non-streaming recovery policy. Realtime voice, embeddings, and residency
-operations are outside its scope. See the repository `RECOVERY-CONFORMANCE.md`
-for assertion locations, actual results, reference revision, and remaining review
-gaps. There is no cross-port parity or whole-mission approval claim.
+## Streaming migration
+
+Both `generateStream` and `generateStreamEvents` accept the same opt-in policy
+through `CompletionConfig.recovery`. Omitted recovery retains the existing
+transport, parsing, finish handling and tool contracts.
+
+```typescript
+for await (const result of broker.generateStream(messages, { recovery }, tools)) {
+  if (result.ok) process.stdout.write(result.value);
+  else if (result.error instanceof RecoveryError) {
+    console.error(result.error.outcome, result.error.failure.progress);
+  }
+}
+
+for await (const event of broker.generateStreamEvents(messages, { recovery }, { signal: controller.signal })) {
+  if (event.type === 'content') process.stdout.write(event.text);
+  else if (event.type === 'error' && event.error.recovery) {
+    console.error(event.error.recovery.outcome, event.error.recovery.history);
+  }
+}
+```
+
+A retry may replace only an attempt with no observed reasoning, content, or tool
+fragments. Even undelivered semantic bytes block replay, including when a capture
+hook fails. Keepalive bytes alone do not block an eligible retry, but ambiguous
+local execution still needs caller admission. Failure after semantic evidence
+returns `RecoveryError.outcome === 'interrupted'`; the event API also uses
+`interrupted_stream` and exposes the typed outcome as `event.error.recovery`.
+Exhaustion cannot become successful completion.
+
+Direct gateway chunks expose opt-in `reasoning` and `toolCallFragments` alongside
+content. Partial calls never execute. Accepted terminal chunks carry completed
+calls and provider `evidence`; rejected finishes retain evidence through
+`inspectRecoveryFailure`. The broker continues its existing recursive tool loop,
+retains completed assistant/tool history in the supplied message array when
+recovery is enabled, and stops on recovery failure. Each subsequent completion
+has a fresh logical request ID. Single-turn events continue to forbid tools.
+`ChatSession.sendStream` has no recovery argument; use the broker entrypoint when
+streaming recovery is needed.
+
+Cancellation closes the local HTTP request and reader while a consumer is paused,
+without waiting for its next iteration. Abort wins over queued content, terminal
+telemetry, and completion. A failed actual attempt precedes exactly one cancelled
+lifecycle event. Returning from iteration also closes owned resources. Neither
+operation proves remote inference terminated. Both an explicit event API signal
+and the recovery signal remain authoritative.
+
+Streaming `onWire` receives exact response byte chunks, plus empty transport-end
+markers. Concatenate response bytes per attempt to reconstruct the observed body.
+`complete` reports HTTP EOF; a semantic terminal marker can close consumption
+before HTTP EOF. Capture sequence indices reset per attempt. The hook is sensitive
+and opt-in, and a failure is retained privately without another send. Ollama safe
+lifecycle telemetry reports validated frame `progress` and numeric `metrics` before
+success or failure, including length finishes. Decoded frame indices also restart
+per attempt. Malformed frames produce no invented telemetry. Available provider
+identity and usage remain in accepted completion evidence; failure metadata
+omits request and credential echoes, while explicit inspection retains originals.
+
+Realtime voice, embeddings, and residency operations are outside recovery scope.
+See `RECOVERY-CONFORMANCE.md` for assertion locations, measured results and review
+prerequisites. Whole-mission independent approval and cross-port alignment remain
+unclaimed.

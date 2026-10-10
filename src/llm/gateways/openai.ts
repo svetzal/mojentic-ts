@@ -1,3 +1,4 @@
+import { recoverStreamChunks, recoverStreamEvents } from '../streaming-recovery';
 import { z } from 'zod';
 /**
  * OpenAI gateway implementation for chat completions, embeddings, and streaming.
@@ -376,6 +377,17 @@ export class OpenAIGateway implements LlmGateway {
         return;
       }
 
+      if (config?.recovery) {
+        yield* recoverStreamChunks(
+          'openai',
+          `${this.baseUrl}/chat/completions`,
+          { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
+          { ...this.buildRequestBody(model, messages, config, tools), stream: true },
+          config.recovery,
+          parseOpenAIStreamLine
+        );
+        return;
+      }
       const requestBody = {
         ...this.buildRequestBody(model, messages, config, tools),
         stream: true,
@@ -431,6 +443,27 @@ export class OpenAIGateway implements LlmGateway {
     config?: CompletionConfig,
     signal?: AbortSignal
   ): AsyncGenerator<LlmStreamEvent> {
+    if (config?.recovery) {
+      yield* recoverStreamEvents(
+        'openai',
+        `${this.baseUrl}/chat/completions`,
+        { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
+        {
+          ...this.buildRequestBody(model, messages, config),
+          stream: true,
+          stream_options: { include_usage: true },
+        },
+        {
+          ...config.recovery,
+          signal:
+            signal && config.recovery.signal
+              ? AbortSignal.any([signal, config.recovery.signal])
+              : (signal ?? config.recovery.signal),
+        },
+        parseOpenAIStreamLine
+      );
+      return;
+    }
     yield* streamCompletionEvents(
       {
         url: `${this.baseUrl}/chat/completions`,
