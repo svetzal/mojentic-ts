@@ -16,7 +16,7 @@ export class FilesystemGateway {
     if (!fs.existsSync(basePath) || !fs.statSync(basePath).isDirectory()) {
       throw new Error(`Base path ${basePath} is not a directory`);
     }
-    this.basePath = path.resolve(basePath);
+    this.basePath = path.normalize(path.resolve(basePath));
   }
 
   /**
@@ -26,7 +26,10 @@ export class FilesystemGateway {
     const resolved = path.resolve(this.basePath, relativePath);
     const normalized = path.normalize(resolved);
 
-    if (!normalized.startsWith(this.basePath)) {
+    if (
+      normalized !== this.basePath &&
+      !normalized.startsWith(path.join(this.basePath, path.sep))
+    ) {
       throw new Error(`Path ${relativePath} attempts to escape the sandbox`);
     }
 

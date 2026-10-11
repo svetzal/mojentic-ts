@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { mkdtemp, rm } from 'fs/promises';
 import {
   FilesystemGateway,
   ListFilesTool,
@@ -16,6 +17,83 @@ import {
   FindLinesMatchingTool,
   CreateDirectoryTool,
 } from './file-manager';
+
+describe('FileManager sandbox containment', () => {
+  let tempDir: string;
+  let gateway: FilesystemGateway;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), 'file-manager-containment-'));
+    const fixtureGateway = new FilesystemGateway(tempDir);
+    const createDirectory = new CreateDirectoryTool(fixtureGateway);
+    expect((await createDirectory.run({ path: 'sb' })).ok).toBe(true);
+    expect((await createDirectory.run({ path: 'sb2' })).ok).toBe(true);
+    fixtureGateway.write('sb2', 'secret.txt', 'secret');
+    gateway = new FilesystemGateway(path.join(tempDir, 'sb', '..', 'sb') + path.sep);
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it('should allow listing the normalized sandbox root', async () => {
+    const tool = new ListFilesTool(gateway);
+
+    const result = await tool.run({ path: '.' });
+
+    expect(result).toEqual({ ok: true, value: '[]' });
+  });
+
+  it('should allow a descendant when the filesystem root is the sandbox', () => {
+    const rootGateway = new FilesystemGateway(path.parse(tempDir).root);
+
+    expect(rootGateway.resolvePath(tempDir)).toBe(tempDir);
+  });
+
+  it('should reject reading from a sibling whose name shares the sandbox prefix', async () => {
+    const tool = new ReadFileTool(gateway);
+
+    const result = await tool.run({ path: '../sb2/secret.txt' });
+
+    expect(result).toEqual({
+      ok: false,
+      error: new Error('Path ../sb2 attempts to escape the sandbox'),
+    });
+  });
+
+  it('should reject writing to a sibling whose name shares the sandbox prefix', async () => {
+    const tool = new WriteFileTool(gateway);
+
+    const result = await tool.run({ path: '../sb2/secret.txt', content: 'overwritten' });
+
+    expect(result).toEqual({
+      ok: false,
+      error: new Error('Path ../sb2 attempts to escape the sandbox'),
+    });
+  });
+
+  it('should reject listing a sibling whose name shares the sandbox prefix', async () => {
+    const tool = new ListFilesTool(gateway);
+
+    const result = await tool.run({ path: '../sb2' });
+
+    expect(result).toEqual({
+      ok: false,
+      error: new Error('Path ../sb2 attempts to escape the sandbox'),
+    });
+  });
+
+  it('should reject creating directories in a sibling whose name shares the sandbox prefix', async () => {
+    const tool = new CreateDirectoryTool(gateway);
+
+    const result = await tool.run({ path: '../sb2/newdir' });
+
+    expect(result).toEqual({
+      ok: false,
+      error: new Error('Path ../sb2/newdir attempts to escape the sandbox'),
+    });
+  });
+});
 
 describe('FilesystemGateway', () => {
   let tempDir: string;
