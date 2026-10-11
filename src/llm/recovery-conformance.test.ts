@@ -155,6 +155,21 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
     url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterEach(async () => {
+    if (process.env.MOJENTIC_RECOVERY_EVIDENCE === '1') {
+      console.log(
+        'COMPLETION_RECOVERY_TRACE ' +
+          JSON.stringify({
+            test: expect.getState().currentTestName,
+            sends: sends.map((send) => ({ ...send, bytes: send.bytes.toString('base64') })),
+            events,
+            captures: wires.map((wire) => ({
+              ...wire,
+              bytes: Buffer.from(wire.bytes).toString('base64'),
+              headers: Array.from(wire.headers.entries()),
+            })),
+          })
+      );
+    }
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
@@ -1135,6 +1150,52 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
         : ['attempt_started', 'attempt_failed', 'admission_required']
     );
   });
+  it.each(['broker', 'session'] as const)(
+    'preserves exact typed capture cause and undelivered progress through %s',
+    async (entrypoint) => {
+      const body = provider.success('é🙂');
+      replies = [jsonReply(200, body)];
+      const cause = new RangeError('payload-secret capture');
+      const recovery = policy({
+        onWire: (wire) => {
+          wires.push(wire);
+          if (wire.direction === 'response') throw cause;
+        },
+      });
+      const broker = new LlmBroker('gpt-4o', provider.gateway(url));
+      const session = new ChatSession(broker, {
+        tokenizerGateway: { encode: () => [], decode: () => '', free: () => {} },
+      });
+
+      const result =
+        entrypoint === 'broker'
+          ? await broker.generateResponse([Message.user('payload-secret')], undefined, { recovery })
+          : await session.send('payload-secret', recovery).then(
+              (value) => Ok(value),
+              (error: Error) => Err(error)
+            );
+      const error = failed<unknown>(result);
+
+      expect(inspectRecoveryFailure(error.failure)?.captureCause).toBe(cause);
+      expect(Buffer.from(inspectRecoveryFailure(error.failure)?.bytes ?? [])).toEqual(
+        Buffer.from(JSON.stringify(body))
+      );
+      expect(error.failure.progress).toMatchObject({
+        headersReceived: true,
+        observed: { contentBytes: 6 },
+        delivered: { contentBytes: 0, reasoningBytes: 0, toolFragments: 0, completedToolCalls: 0 },
+      });
+      expect(error.history).toEqual([error.failure]);
+      expect(JSON.stringify(error)).not.toMatch(/payload-secret|credential-secret/);
+      expect(events.map((event) => event.type)).toEqual([
+        'attempt_started',
+        'attempt_failed',
+        'interrupted',
+      ]);
+      assertSends(1);
+      session.dispose();
+    }
+  );
   it.each(['broker', 'session'] as const)(
     'preserves completed tools exactly once when the final %s completion exhausts',
     async (entrypoint) => {

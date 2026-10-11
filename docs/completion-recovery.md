@@ -6,9 +6,7 @@ and request-building behavior. An enabled policy defaults to **one wire attempt*
 Use `maxAttempts` to permit more; this includes the initial request.
 
 ```typescript
-import {
-  LlmBroker, OllamaGateway, Message, RecoveryError, RecoveryOptions,
-} from 'mojentic';
+import { LlmBroker, OllamaGateway, Message, RecoveryError, RecoveryOptions } from 'mojentic';
 
 const broker = new LlmBroker('your-model', new OllamaGateway());
 const controller = new AbortController();
@@ -103,7 +101,8 @@ that timeout and oMLX's response-format warning behavior. Clock, sleep, and jitt
 hooks allow deterministic tests. `AbortSignal` remains authoritative in requests,
 admission, and backoff; cancelling HTTP does not prove remote termination.
 
-Enabled requests use native fetch, with manual redirects and no SDK retry layer.
+Enabled requests use Node HTTP/HTTPS with one POST per attempt, no redirect
+following, and no SDK retry layer.
 Payload and credential headers are encoded/copied once. Sensitive hook mutation
 cannot change a later wire request. No invented identity/idempotency headers are
 sent. A client UUID correlates attempts; it does not make inference idempotent.
@@ -151,10 +150,10 @@ endpoints reviewed are [Ollama chat](https://docs.ollama.com/api/chat),
 No per-request remote cancellation/status/idempotency facility is used or claimed.
 
 | Adapter | Client HTTP abort | Remote cancellation/status | Idempotency | Ambiguous resend without admission |
-| --- | --- | --- | --- | --- |
-| Ollama | Supported | Unsupported by adapter | Unknown | Refused |
-| oMLX | Supported | Unsupported by adapter | Unknown | Refused |
-| OpenAI | Supported | Unsupported by adapter | Unknown | Policy eligible failures allowed |
+| ------- | ----------------- | -------------------------- | ----------- | ---------------------------------- |
+| Ollama  | Supported         | Unsupported by adapter     | Unknown     | Refused                            |
+| oMLX    | Supported         | Unsupported by adapter     | Unknown     | Refused                            |
+| OpenAI  | Supported         | Unsupported by adapter     | Unknown     | Policy eligible failures allowed   |
 
 No adapter confirms termination for an exact request. Model unload/list/activity
 is aggregate information, not termination evidence. Recovery preserves the
@@ -180,7 +179,11 @@ for await (const result of broker.generateStream(messages, { recovery }, tools))
   }
 }
 
-for await (const event of broker.generateStreamEvents(messages, { recovery }, { signal: controller.signal })) {
+for await (const event of broker.generateStreamEvents(
+  messages,
+  { recovery },
+  { signal: controller.signal }
+)) {
   if (event.type === 'content') process.stdout.write(event.text);
   else if (event.type === 'error' && event.error.recovery) {
     console.error(event.error.recovery.outcome, event.error.recovery.history);
@@ -197,7 +200,9 @@ returns `RecoveryError.outcome === 'interrupted'`; the event API also uses
 Exhaustion cannot become successful completion.
 
 Direct gateway chunks expose opt-in `reasoning` and `toolCallFragments` alongside
-content. Partial calls never execute. Accepted terminal chunks carry completed
+content. Event streams retain observed reasoning progress but do not expose a
+reasoning delivery event; delivered reasoning bytes stay zero in that API.
+Partial calls never execute. Accepted terminal chunks carry completed
 calls and provider `evidence`; rejected finishes retain evidence through
 `inspectRecoveryFailure`. The broker continues its existing recursive tool loop,
 retains completed assistant/tool history in the supplied message array when

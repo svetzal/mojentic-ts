@@ -1,143 +1,165 @@
-# TypeScript completion recovery conformance
+# TypeScript completion recovery replacement verification
 
-Scope: opt-in ordinary, structured and streaming HTTP completions through Ollama,
-oMLX and OpenAI, plus broker streaming tool recursion. This checkout contains
-uncommitted source changes for Foundry. No release, ref changes, dependency
-upgrades, sibling/harness writes, live inference or benchmark restart occurred.
+This correction reviews the existing delivered implementation at
+`6473f7c2e6b649cc99db8e1bc03ac06a6351d4ac`. Changes are public HTTP fixtures,
+retained replacement evidence, and documentation. Runtime behavior, dependencies,
+coverage floors and exclusions are unchanged. Foundry owns finalization; no worker
+commit, push, merge, rebase, tag, release, ref mutation, sibling/harness write,
+live inference or benchmark restart was performed.
 
-## Authority and reference
+## Binding inputs and synchronization
 
-The governing inputs are `TRANSIENT-RECOVERY-2026-10.md`,
-`RECOVERY-REQUEST-2026-10.txt`, and the supplied October 10 correction plan. A
-separate October 10 supplement file was not found; its location was requested.
-The plan supplies the supplemental constraints used here.
+Both `TRANSIENT-RECOVERY-2026-10.md` and `RECOVERY-REQUEST-2026-10.txt` remain
+normative. The October 10 supplement is now retained in
+`.foundry/october-10-supplement.txt`, extracted from the TypeScript campaign output
+in the verified controller receipt, with that complete output retained in
+`.foundry/controller-ts-decision.txt`. The previous claim that the supplement
+was unavailable is superseded.
 
-The exact Rust revision is `4ca1ed279c02eab37827a1ed07c30e961155ecf3`.
-Read-only inspection of `src/llm/recovery/{adapter,engine,frames,types}.rs` confirms
-single-send transport ownership, streaming operation identity, observed/delivered
-semantic progress, and Ollama validated Progress/Metrics before rejected finish
-failure, with no semantic deliveries from a rejected terminal frame. An additional
-public HTTP assertion first failed (exit 1) on a delivered terminal tool fragment
-and then passed after withholding rejected-frame semantic delivery; those complete
-logs and receipts are retained as auxiliary terminal proof. Source snapshots and SHA-256 hashes are retained with this run's evidence.
-This comparison does not constitute independent whole-mission review or alignment
-approval.
+The controller performed clean canonical-clone fetch and pull with rebase.
+The authoritative receipt is
+`/home/svetzal/.foundry/operations/mojentic-port-alignment-20261010/status-recovery/receipt.json`,
+observed `2026-10-10T23:39:13.438723+00:00`. Its TypeScript HEAD is exactly
+`6473f7c2e6b649cc99db8e1bc03ac06a6351d4ac`, matching this worker's read-only HEAD
+inspection. `.foundry/controller-synchronization.json` records the receipt hash,
+commands, actual zero exits, and individual log hashes. Every hash was verified;
+the receipt and logs were copied into the durable `controller/` directory.
+The controller's empty status/fetch logs are retained without inventing output.
+Worker fetch/rebase is not a pending prerequisite or a claimed worker action.
 
-Successful fetch and `pull --rebase origin main` receipts are still finalization
-prerequisites. This Foundry run explicitly prohibits commits, pushes, rebases,
-merges, tags and ref changes, and the worktree Git metadata is read-only. No Git
-synchronization was substituted with `ls-remote`, and no receipt is claimed.
-Foundry must perform permitted synchronization and stop on conflict before landing.
+The independent reviewer inspected Rust exactly at
+`4ca1ed279c02eab37827a1ed07c30e961155ecf3`: recovery modules, public HTTP tests,
+migration guide and conformance report. Exact reference files and SHA-256 hashes
+are retained in `.foundry/reference-hashes.json` and the durable `reference/`
+directory. `.foundry/independent-review.md` maps the normative requirements to
+implementation and substantive public assertions, including initial findings
+and subsequent fixture corrections. Whole-port alignment is **withheld** for
+the session streaming limitation described below.
 
-## Proof first
+## Fresh proof before expanded verification
 
-`.foundry/proof.json` records the real rejecting exit 1 and corrected exit 0,
-with complete existing logs. The public Ollama `generateStream` loopback probe
-in `src/llm/streaming-recovery-http.test.ts` first rejects HEAD's direct streaming
-path: the first 503 returns an error instead of recovering. The corrected source
-admits the retry, compares server-observed payload buffers with exact captures,
-correlates distinct attempt UUIDs under one logical identity, delivers content,
-and closes the local socket while the consumer is paused. Its failed second
-actual attempt precedes the sole cancellation event. This passing proof was
-recorded before broader fixtures, docs and the full suite.
+`.foundry/proof.json` has the required behavioral shape, with actual rejecting
+exit **1** and corrected exit **0**. `src/llm/replacement-proof-http.test.ts` is a
+new public Ollama `generateStream` loopback assertion, applied identically to
+exported snapshots of preserved pre-streaming revision
+`5578f4e672016f27113d0466752f010a40c22353` and delivered revision
+`6473f7c2e6b649cc99db8e1bc03ac06a6351d4ac`. Git refs were never changed.
 
-The delivered baseline lacked its referenced `.foundry/proof.json`. This run
-creates a validated current proof and retains it outside the worktree. The older
-ordinary/structured proof and complete evidence recovered from
-`/home/svetzal/.foundry/tool-logs/mojentic-ts-transient-recovery-v2-c1-80fe3b/evidence`
-are preserved separately as historical evidence, not this run's acceptance.
+The rejecting assertion receives an error instead of recovered content after
+HTTP 503. The corrected assertion verifies two identical server-received payload
+buffers against request captures, exact response bytes, unmasked UUID identities,
+ordered lifecycle, typed `RecoveryError` history for 503/200 attempts, and
+observed/delivered progress. Abort closes the owned local HTTP socket while the
+consumer is paused, before its next iteration. The failed actual attempt precedes
+one cancellation event; remote termination remains explicitly unconfirmed.
+This is a behavioral regression, not a marker toggle or count-only probe.
 
-## Contracts and assertion locations
+The first rejecting/passing pair completed before matrix expansion or the full
+suite. Later proof repetitions strengthen the same assertion with exact history
+checks and preserve identical source hashes across both revisions.
+`.foundry/probe-receipts.json` records final exact commands, timestamps, revisions,
+exits, source hash and complete capture hashes. Both proof logs exist and their
+contents and receipts are validated. An initial environment-only exit 127
+(missing local Jest installation) is retained separately and is not the
+behavioral rejecting result.
 
-The shared completion engine keeps bounded eligibility, Retry-After, cancellable
-admission/backoff, immutable one-time request encoding, UUID identity and private
-original evidence. Streaming execution uses the existing one-POST Node HTTP
-transport with no hidden retries or redirects. Ordinary/structured paths retain
-their policy and tests. Omitted streaming recovery uses the original parsers,
-transports and finish handling.
+These are **fresh replacement captures**, dated by actual command timestamps
+(October 11 UTC), not recovered historical chronology. Prior reports claiming
+complete recovered historical evidence were too broad. Existing c1/c3 artifacts
+are preserved byte-for-byte in durable `preserved-c1/` and `preserved-c3/`, with
+sizes and hashes in `.foundry/preserved-receipts.json`, including 26 zero-byte
+files. Empty original receipts remain empty. No historical execution sequence
+or missing original output has been reconstructed. The historical coverage
+correction remains 85.46% statements / 79.26% branches; it is not a current
+measurement.
 
-`src/llm/streaming-recovery-protocol.ts` contains semantic parsing and progress;
-`src/llm/streaming-recovery.ts` owns HTTP readers, cancellation and delivery
-backpressure. Observed bytes precede capture and delivery. Any observed semantic
-output blocks replay. Capture failure cannot become success or authorize another
-send. Returning or aborting closes locally owned resources, including when the
-consumer is paused. Terminal acceptance waits for consumer readiness; cancellation
-from terminal telemetry suppresses completion.
+## Public boundary coverage and substantive assertions
 
-The public test matrix is in `src/llm/streaming-recovery-conformance.test.ts`.
-Each provider/form describe block exercises both public APIs against a real
-loopback HTTP server. The test names below are assertion anchors.
+All verification uses scripted loopback HTTP and synthetic sentinel values.
+There are no live model calls or mocked internal transport methods. Ordinary
+and structured paths run through the public broker and real gateway adapters;
+streaming paths exercise both public gateway forms and applicable broker paths.
+All three maintained adapters are included: Ollama, oMLX and OpenAI.
 
-| Acceptance | Assertion anchor |
-| --- | --- |
-| Disabled compatibility | `characterizes disabled one-send HTTP failure`; `preserves disabled successful content and terminal behavior` |
-| 503/immutable semantics/capture/identity/lifecycle | `recovers 503 with exact immutable requests, captures, identities and complete lifecycle`; `checkRequests` and `capturedResponse` |
-| Retry-After variants and refusal | `honors Retry-After %s without shortening delay`; `refuses Retry-After beyond %s` |
-| Bounded 504 and history | `bounds persistent 504 and retains every actual attempt in history` |
-| Hidden resend/redirect prevention | `sends once without hidden resends or redirects on %s`, including 421 |
-| Recovery-only deadline/eligibility | `keeps recovery deadlines out of admitted active generation`; `refuses unselected categories and statuses without invoking admission` |
-| Ambiguous pending/allow/reject/required | `admits a pending ambiguous request only after explicit allow`; `rejects ambiguous admission without another send`; `requires explicit admission for ambiguous local sends` |
-| Reasoning/content/tool interruption | `blocks replay after observed %s evidence` |
-| Keepalive-only failure | `recovers keepalive-only transport failure after explicit admission` |
-| Capture evidence | `retains observed but undelivered semantic bytes when capture rejects` |
-| Permanent truncated bodies | `retains permanent %s despite truncated error bodies`, covering 400/401/403 |
-| Cancellation phases | `cancels before sending`; `cancels a pending request before headers`; `cancels pending request capture`; `cancels pending response capture`; `does not resend while admission remains pending`; `cancels backoff` |
-| Paused ownership/terminal cancellation | `closes a paused consumer before cancellation is delivered`; `closes owned resources when the consumer returns while paused`; `keeps terminal telemetry buffered behind content`; `cancellation from success telemetry suppresses buffered completion` |
-| Provider telemetry and malformed frames | `retains accepted provider identity and reported usage`; `keeps rejected terminal telemetry`; `rejects malformed frames without invented telemetry` |
-| Ollama ordering/frame reset | `emits length-terminated Progress/Metrics/Failed without completed tools`; `resets telemetry frame indices`; `cancellation from terminal metrics` |
-| Credential/payload echo privacy | `keeps echoed provider metadata private on terminal failure`; 503 and capture-failure assertions; explicit inspection preserves originals |
-| Escaped keys/legacy calls | `observes escaped semantic keys`; `observes whitespace-prefixed SSE`; `observes a legacy function call` |
-| Broker event/cancellation forwarding | `broker event streaming recovers one turn`; `explicit event signal cannot override an aborted recovery signal` |
-| Completed tools once | `broker executes completed tool once when the subsequent completion fails`: exact arguments/history, identical follow-up attempts, separate logical completion identity |
+| Requirement                                              | Implementation and executed public assertions                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stable types, private original evidence, safe formatting | `recovery.ts` types and `inspectRecoveryFailure`; ordinary/structured numeric-status/history/privacy tests retain bytes, headers and causes while excluding credential/payload echoes from errors/events.                                                                                                                                                                                                       |
+| Opt-in/default one attempt and legacy behavior           | Gateway recovery branches; ordinary/structured and streaming disabled failure/success cases assert actual sends and content. Existing gateway suites remain compatibility checks.                                                                                                                                                                                                                               |
+| Immutable semantic request                               | `recoverCompletion` encodes once; 503 tests compare every server payload to captures and mutate caller inputs during admission. Messages, supported controls, tool descriptors/history, images and structured schemas remain fixed.                                                                                                                                                                             |
+| No hidden resend or redirect                             | `CompletionTransportGateway` owns one Node HTTP/HTTPS POST; public selected 421 and redirect statuses assert actual send counts and complete lifecycle.                                                                                                                                                                                                                                                         |
+| Retry limits, eligibility, Retry-After                   | Public ordinary/structured and streaming cases cover bounded 504 history, seconds/date/past/invalid/overflow values, ceilings, budgets, selected statuses/categories, and healthy generation outside recovery deadlines.                                                                                                                                                                                        |
+| Cancellable ambiguous admission                          | Local-provider pending/allow/reject cases assert no resend before permission; active/admission/backoff cancellation and budget cases assert terminal outcomes and no later attempt.                                                                                                                                                                                                                             |
+| Permanent status despite truncated body                  | Ordinary/structured and both streaming forms exercise 400/401/403 across providers. Streaming now asserts retained native body-read Error with `ECONNRESET`, exact partial bytes and incomplete capture, as well as ineligibility even under requested status retry.                                                                                                                                            |
+| Observed evidence before failed capture                  | Streaming capture tests cover content, reasoning and tools separately across all providers/forms: exact multibyte counts, zero delivered counters, exact retained/captured bytes, identical typed `RangeError`, one send and ordered interruption. Ordinary/structured capture tests retain original exception and progress.                                                                                    |
+| Typed errors through broker/session                      | New ordinary broker/session and both broker streaming forms assert exact capture-cause object identity, UTF-8 observed/undelivered progress, private bytes, actual history, one send and no credential echoes.                                                                                                                                                                                                  |
+| Partial semantic output vs keepalive                     | Public content/reasoning/tool interruption cases prohibit replay; keepalive retains raw progress with zero semantic delivery and still requires ambiguous local admission.                                                                                                                                                                                                                                      |
+| Cancellation precedence and paused ownership             | Active requests, pending captures, admission/backoff, terminal progress/metrics/success hooks, paused consumers and consumer return are tested. Socket closure is observed before consumer advancement; failed attempts precede one cancellation.                                                                                                                                                               |
+| Successful/rejected terminal telemetry                   | Accepted cases assert full prompt/completion/total usage, provider identity, exact wire bytes and UTF-8 observed/delivered counters. Rejected Ollama length frame asserts all four durations, full usage, frame index, exact raw/semantic counts and identities, Progress → Metrics → Failed, zero delivered terminal tools and no completion. Malformed frames invent no telemetry; retry frame indices reset. |
+| Tools execute once, attempts separate from completions   | Ordinary broker/session and streaming broker tests record exact tool invocations/arguments, preserved assistant/tool messages and immutable follow-up attempts. Two logical completions produce actual attempt sequence `[1,1,2]`; recovery does not replay the first tool.                                                                                                                                     |
+| Capability/migration boundaries                          | Provider capability table, migration guide and example describe local abort, explicit sensitive hooks, unsupported remote cancellation/status and unknown idempotency. Client UUIDs prove correlation only.                                                                                                                                                                                                     |
 
-`src/llm/recovery-conformance.test.ts` retains ordinary/structured public tests,
-including transport resends, redirects, admission, capture, permanent statuses,
-privacy and broker/session tools. Existing gateway and broker suites remain
-disabled-behavior regression checks. No coverage exclusions or floors changed.
+The assertion implementation is in `src/llm/recovery-conformance.test.ts` and
+`src/llm/streaming-recovery-conformance.test.ts`; the independent review gives
+more specific anchors. Evidence-mode hooks now retain ordinary/structured traces
+as well as streaming traces. The final complete test capture includes base64
+server-received buffers, exact wire buffers/headers, unmasked logical/attempt IDs
+and lifecycle histories. `.foundry/public-http-traces.jsonl` extracts those
+records without masking. Capture-hook failures intentionally occur before
+semantic delivery; asserted typed causes are privately inspected, never placed
+in safe telemetry.
 
-## Capabilities and migration
+Early expanded fixture failures are retained separately: incompatible generic
+result types, Jest/native Error realm assumptions, an incorrect assumption that
+event APIs deliver reasoning, and an ESLint dynamic-index warning. These were
+corrected in tests without runtime changes, suppression or gate reductions.
+They are not presented as historical production defects or successful gates.
 
-All three adapters report streaming recovery and local HTTP abort as supported.
-Remote per-request cancellation/status remain unsupported, idempotency unknown,
-and remote termination evidence absent. Safe lifecycle contains no payload or
-credential echoes. Explicit wire capture and failure inspection are sensitive.
-Client UUIDs correlate attempts; they do not establish idempotency.
+## Capabilities and remaining binding limits
 
-`docs/completion-recovery.md` and `examples/completion_recovery.ts` provide ordinary
-and streaming migration examples. Single-turn stream events still forbid tools.
-The broker chunk API retains its recursive tool loop and preserves completed
-assistant/tool history on opt-in failure. `ChatSession.sendStream` retains its
-existing signature; streaming recovery is available through the broker APIs.
-No native reasoning-history field or unsupported generation control was added.
-Ordinary finish handling and disabled-reasoning parity remain deferred.
+Recovery-enabled requests use Node HTTP/HTTPS, one POST per attempt, with no
+redirect following or SDK retry layer. The stale migration statement about
+native fetch/manual redirects has been corrected.
 
-## Measured results and retained evidence
+Ollama, oMLX and OpenAI support ordinary, structured and both streaming recovery
+forms and local HTTP abort. Remote per-request cancellation/status are unsupported;
+idempotency is unknown and no remote termination evidence is claimed. Exact
+captures and explicit failure inspection are sensitive caller-owned facilities.
+Safe errors/events omit credential and payload echoes.
 
-Current measured gate results, actual command exits, complete capture paths,
-source hashes, reference hashes and the durable artifact directory are recorded
-in `.foundry/evidence-manifest.json`. Exact opt-in wire buffers, unmasked UUIDs,
-and lifecycle histories for all 297 public matrix cases are retained in
-`.foundry/streaming-http-traces.jsonl`; they contain only loopback sentinel data.
-The complete archive is `/home/svetzal/.foundry/tool-logs/mojentic-ts-streaming-recovery-20261010-c3`. All 50 suites and 1,490 tests pass, including 297 public streaming matrix cases
-and the proof-first streaming probe. Coverage is 86.54% statements, 81.1% branches,
-89.64% functions and 87.04% lines, above the unchanged global 70% floors. Format,
-zero-warning lint, format check, full tests, coverage, library build and docs build
-exit 0. Production moderate and unfiltered audits exit 0 with zero vulnerabilities.
-Outdated inspection exits 1 for Prettier 3.9.9 → 3.9.10; no dependency was changed.
-Existing VitePress/Rolldown bundle and deprecation diagnostics are retained in the
-complete successful docs-build log. Required checks include format, zero-warning lint,
-format check, full tests, coverage at unchanged global 70% floors, library build,
-docs build, production moderate audit, unfiltered audit and outdated inspection.
+`ChatSession.send` preserves typed failures and completed tool history.
+**`ChatSession.sendStream(query)` has no recovery parameter.** This existing
+public session streaming path cannot exercise opt-in recovery. The supplement's
+session-path requirement is therefore unmet for streaming, despite broker/gateway
+streaming coverage. Adding the API is outside this replacement-evidence scope.
 
-The historical coverage correction is **85.46% statements and 79.26% branches**.
-These supersede the prior report's historical statement/branch percentages; they
-are not presented as measurements of the new streaming implementation.
+`LlmMessage` has no supported native reasoning-history input field; no such
+field was added. Immutable supported messages/images/tool history are verified,
+but this does not prove Rust native reasoning-history parity. Gateway chunks
+can deliver reasoning; event streams retain observed reasoning evidence but
+have no reasoning delivery event, and correctly report zero delivered reasoning
+bytes. Single-turn event streams continue to forbid tools. Ordinary finish
+handling and disabled-reasoning parity remain deferred; realtime voice,
+embeddings and residency operations remain outside completion recovery.
 
-## Review and finalization prerequisites
+Independent whole-mission review was obtained, with exact Rust comparison and
+substantive assertion inspection. It does not authorize unconditional alignment,
+six-port parity, live-provider behavior, natural recovery efficacy, the original
+504's origin or any release. Foundry retains Git finalization ownership.
 
-- Foundry must complete successful fetch/rebase receipts using writable metadata,
-  resolve no conflicts by assumption, and land focused changes on main.
-- Independent whole-mission review and the separate October 10 supplement remain
-  unverified. This report is evidence for review, not alignment approval.
-- No remote termination/status/idempotency support, live provider behavior,
-  original 504 origin, efficacy or benchmark conclusions are claimed.
+## Final measured checks and retained artifact index
+
+Final commands, actual exits, timestamps and full stdout/stderr hashes are in
+`.foundry/gate-receipts.json`. `.foundry/evidence-manifest.json` indexes final
+source hashes, reference hashes, proof, traces, preserved receipts and durable
+capture locations. The archive is
+`/home/svetzal/.foundry/tool-logs/mojentic-ts-replacement-c4-20261010`.
+
+Final amended-tree results: **51 suites / 1,515 tests pass**. Coverage is
+**86.54% statements, 81.1% branches, 89.64% functions, 87.04% lines**, above each
+unchanged global 70% floor. Lint (zero warnings), format check, full tests,
+coverage tests, library build and docs build exit 0. Production moderate and
+unfiltered audits exit 0 with zero vulnerabilities. Outdated inspection exits 1,
+reporting only Prettier 3.9.9 → 3.9.10; dependencies were not changed. An earlier
+outdated run failed on read-only npm cache access; its receipt remains separate.
+The final inspection uses a writable temporary cache and actually completes.
+Existing docs-build bundle/deprecation diagnostics remain in its full capture.

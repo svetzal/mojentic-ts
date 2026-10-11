@@ -87,12 +87,12 @@ const forms: readonly Form[] = [
     },
   },
 ];
-async function collect(stream: AsyncIterable<Output>): Promise<Output[]> {
-  const output: Output[] = [];
+async function collect<T>(stream: AsyncIterable<T>): Promise<T[]> {
+  const output: T[] = [];
   for await (const item of stream) output.push(item);
   return output;
 }
-function recoveryError(output: readonly Output[]): RecoveryError {
+function recoveryError(output: readonly (Output | Result<string, Error>)[]): RecoveryError {
   const last = output.at(-1);
   assert(last);
   let error: unknown;
@@ -412,6 +412,15 @@ for (const provider of providers)
             classification: { eligible: false, reason: 'permanent' },
           });
           expect(error.history).toHaveLength(1);
+          expect(Object.prototype.toString.call(inspectRecoveryFailure(error.failure)?.cause)).toBe(
+            '[object Error]'
+          );
+          expect(inspectRecoveryFailure(error.failure)?.cause).toMatchObject({
+            code: 'ECONNRESET',
+          });
+          expect(
+            captures.filter((capture) => capture.direction === 'response').at(-1)?.complete
+          ).toBe(false);
           expect(requests).toHaveLength(1);
           expect(JSON.stringify(error)).not.toContain('payload-secret');
           expect(inspectRecoveryFailure(error.failure)?.bytes).toEqual(
@@ -459,27 +468,101 @@ for (const provider of providers)
         checkRequests();
       });
 
-      it('retains observed but undelivered semantic bytes when capture rejects', async () => {
-        replies.push(respond(success()));
+      it.each(['content', 'reasoning', 'tools'] as const)(
+        'retains observed but undelivered %s evidence when capture rejects',
+        async (kind) => {
+          const deltas = new Map<string, object>([
+            ['content', { content: 'é🙂' }],
+            [
+              'reasoning',
+              provider.name === 'ollama' ? { thinking: 'é🙂' } : { reasoning_content: 'é🙂' },
+            ],
+            ['tools', { tool_calls: [provider.tool] }],
+          ]);
+          const delta = deltas.get(kind);
+          assert(delta);
+          const body = provider.frame(delta);
+          const cause = new RangeError('payload-secret capture');
+          replies.push(respond(body));
 
-        const error = recoveryError(
-          await run({
-            ...options,
-            onWire: (event) => {
-              captures.push(event);
-              if (event.direction === 'response') throw new Error('payload-secret capture');
+          const error = recoveryError(
+            await run({
+              ...options,
+              onWire: (event) => {
+                captures.push(event);
+                if (event.direction === 'response') throw cause;
+              },
+            })
+          );
+
+          expect(error.failure.progress).toMatchObject({
+            headersReceived: true,
+            rawBytes: Buffer.byteLength(body),
+            observed: {
+              contentBytes: kind === 'content' ? 6 : 0,
+              reasoningBytes: kind === 'reasoning' ? 6 : 0,
+              toolFragments: kind === 'tools' ? 1 : 0,
+              completedToolCalls: 0,
             },
-          })
-        );
+            delivered: {
+              contentBytes: 0,
+              reasoningBytes: 0,
+              toolFragments: 0,
+              completedToolCalls: 0,
+            },
+          });
+          expect(error.failure.classification.reason).toBe('capture_failed');
+          expect(inspectRecoveryFailure(error.failure)?.captureCause).toBe(cause);
+          expect(Buffer.from(inspectRecoveryFailure(error.failure)?.bytes ?? [])).toEqual(
+            Buffer.from(body)
+          );
+          expect(capturedResponse(1)).toEqual(Buffer.from(body));
+          expect(JSON.stringify(error)).not.toContain('payload-secret');
+          expect(types(events)).toEqual(['attempt_started', 'attempt_failed', 'interrupted']);
+          expect(requests).toHaveLength(1);
+          checkRequests();
+        }
+      );
 
+      it('preserves typed capture cause and observed progress through public broker streaming', async () => {
+        const body = provider.frame({ content: 'é🙂' });
+        const cause = new RangeError('payload-secret capture');
+        replies.push(respond(body));
+        const broker = new LlmBroker('gpt-4o', provider.gateway(url));
+        const config = {
+          recovery: {
+            ...options,
+            onWire: (event: RecoveryWireEvent) => {
+              captures.push(event);
+              if (event.direction === 'response') throw cause;
+            },
+          },
+        };
+
+        const output = await collect<Output | Result<string, Error>>(
+          form.name === 'chunks'
+            ? broker.generateStream(messages(), config)
+            : broker.generateStreamEvents(messages(), config)
+        );
+        const error = recoveryError(output);
+
+        expect(inspectRecoveryFailure(error.failure)?.captureCause).toBe(cause);
         expect(error.failure.progress).toMatchObject({
           observed: { contentBytes: 6 },
-          delivered: { contentBytes: 0 },
+          delivered: {
+            contentBytes: 0,
+            reasoningBytes: 0,
+            toolFragments: 0,
+            completedToolCalls: 0,
+          },
         });
-        expect(error.failure.classification.reason).toBe('capture_failed');
-        expect(inspectRecoveryFailure(error.failure)?.captureCause).toBeInstanceOf(Error);
-        expect(JSON.stringify(error)).not.toContain('payload-secret');
+        expect(Buffer.from(inspectRecoveryFailure(error.failure)?.bytes ?? [])).toEqual(
+          Buffer.from(body)
+        );
+        expect(error.history).toEqual([error.failure]);
         expect(requests).toHaveLength(1);
+        expect(types(events)).toEqual(['attempt_started', 'attempt_failed', 'interrupted']);
+        checkRequests();
       });
 
       it('rejects malformed frames without invented telemetry or replay', async () => {
@@ -518,7 +601,14 @@ for (const provider of providers)
       });
 
       it('retains accepted provider identity and reported usage', async () => {
-        replies.push(respond(success()));
+        const body =
+          provider.frame(
+            provider.name === 'ollama'
+              ? { content: 'é🙂', thinking: 'é🙂' }
+              : { content: 'é🙂', reasoning_content: 'é🙂' },
+            true
+          ) + provider.end;
+        replies.push(respond(body));
 
         const result = await run();
         const last = result.at(-1);
@@ -527,14 +617,34 @@ for (const provider of providers)
           form.name === 'chunks'
             ? {
                 ok: true,
-                value: { evidence: { providerModel: 'reported', usage: { totalTokens: 5 } } },
+                value: {
+                  evidence: {
+                    providerModel: 'reported',
+                    usage: { promptTokens: 2, completionTokens: 3, totalTokens: 5 },
+                  },
+                },
               }
             : {
                 type: 'completed',
-                metadata: { providerModel: 'reported', usage: { totalTokens: 5 } },
+                metadata: {
+                  providerModel: 'reported',
+                  usage: { promptTokens: 2, completionTokens: 3, totalTokens: 5 },
+                },
               }
         );
+        expect(events.at(-1)?.progress).toMatchObject({
+          rawBytes: Buffer.byteLength(body),
+          observed: { contentBytes: 6, reasoningBytes: 6, toolFragments: 0, completedToolCalls: 0 },
+          delivered: {
+            contentBytes: 6,
+            reasoningBytes: form.name === 'chunks' ? 6 : 0,
+            toolFragments: 0,
+            completedToolCalls: 0,
+          },
+        });
+        expect(capturedResponse(1)).toEqual(Buffer.from(body));
         expect(types(events)).toEqual(['attempt_started', 'attempt_succeeded']);
+        checkRequests();
       });
 
       it('keeps echoed provider metadata private on terminal failure', async () => {
@@ -953,7 +1063,19 @@ for (const provider of providers) {
 for (const form of forms) {
   it(`Ollama ${form.name} emits length-terminated Progress/Metrics/Failed without completed tools`, async () => {
     const provider = providers[0];
-    const terminal = provider.frame({ tool_calls: [provider.tool] }, true, 'length');
+    const terminal =
+      JSON.stringify({
+        model: 'reported',
+        message: { content: 'é🙂', thinking: 'é🙂', tool_calls: [provider.tool] },
+        done: true,
+        done_reason: 'length',
+        prompt_eval_count: 2,
+        eval_count: 3,
+        total_duration: 10,
+        load_duration: 2,
+        prompt_eval_duration: 3,
+        eval_duration: 5,
+      }) + '\n';
     replies.push(respond(terminal));
 
     const output = await collect(
@@ -969,7 +1091,23 @@ for (const form of forms) {
       'interrupted',
     ]);
     expect(events[1].frameIndex).toBe(1);
-    expect(events[2].metrics).toMatchObject({ total_duration: 10, totalTokens: 5 });
+    expect(events[2].metrics).toEqual({
+      total_duration: 10,
+      load_duration: 2,
+      prompt_eval_duration: 3,
+      eval_duration: 5,
+      promptTokens: 2,
+      completionTokens: 3,
+      totalTokens: 5,
+    });
+    expect(events[1].progress).toMatchObject({
+      rawBytes: Buffer.byteLength(terminal),
+      observed: { contentBytes: 6, reasoningBytes: 6, toolFragments: 1, completedToolCalls: 0 },
+      delivered: { contentBytes: 0, reasoningBytes: 0, toolFragments: 0, completedToolCalls: 0 },
+    });
+    expect(events[2].attemptId).toBe(events[0].attemptId);
+    expect(events[2].logicalRequestId).toBe(events[0].logicalRequestId);
+    expect(capturedResponse(1)).toEqual(Buffer.from(terminal));
     expect(error.failure.progress.observed.completedToolCalls).toBe(0);
     expect(error.failure.progress.delivered.completedToolCalls).toBe(0);
     expect(error.failure.progress.delivered.toolFragments).toBe(0);
