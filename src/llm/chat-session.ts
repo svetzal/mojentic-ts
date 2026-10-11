@@ -127,6 +127,10 @@ export class ChatSession {
    * after the stream is consumed.
    *
    * @param query - The query to send to the LLM
+   * @param recovery - Opt-in streaming recovery for each completion in the tool loop.
+   * Completed tool history survives failure; incomplete assistant text is not recorded.
+   * History sizing retains its existing timing: only after successful stream consumption.
+   * @throws RecoveryError when an enabled completion fails, retaining typed attempt evidence.
    * @yields Content chunks from the LLM response as they arrive
    *
    * @example
@@ -136,7 +140,7 @@ export class ChatSession {
    * }
    * ```
    */
-  async *sendStream(query: string): AsyncGenerator<string> {
+  async *sendStream(query: string, recovery?: RecoveryOptions): AsyncGenerator<string> {
     this.insertMessage({
       role: MessageRole.User,
       content: query,
@@ -145,7 +149,7 @@ export class ChatSession {
     const accumulated: string[] = [];
     for await (const result of this.llm.generateStream(
       this.messages as LlmMessage[],
-      { temperature: this.temperature },
+      { temperature: this.temperature, recovery },
       this.tools
     )) {
       if (!isOk(result)) {

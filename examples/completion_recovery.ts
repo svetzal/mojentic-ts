@@ -1,5 +1,6 @@
 /** Supply harness-owned admission; this example never starts live inference on import. */
 import {
+  ChatSession,
   LlmBroker,
   LlmMessage,
   RecoveryAdmission,
@@ -39,4 +40,14 @@ export async function* streamWithRecovery(
   signal?: AbortSignal
 ): AsyncGenerator<Result<string, Error>> {
   yield* broker.generateStream(messages, { recovery: completionRecoveryPolicy(admit, signal) });
+}
+
+/** Stream session content with admission; typed failures retain completed tool history. */
+export async function* streamSessionWithRecovery(
+  session: ChatSession,
+  query: string,
+  admit: (context: RecoveryAdmission) => Promise<'allow' | 'reject'>,
+  signal?: AbortSignal
+): AsyncGenerator<string> {
+  yield* session.sendStream(query, completionRecoveryPolicy(admit, signal));
 }

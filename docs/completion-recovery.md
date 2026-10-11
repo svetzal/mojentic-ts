@@ -43,11 +43,16 @@ await broker.generateResponse(messages, tools, { recovery });
 await broker.generate(messages, tools, { recovery });
 await broker.generateObject(messages, schema, { recovery });
 await session.send('Next question', recovery);
+for await (const chunk of session.sendStream('Next question', recovery)) {
+  process.stdout.write(chunk);
+}
 ```
 
 For `generate` with recovery enabled, completed assistant/tool messages are
 appended to the supplied message array, including on a later failure. `ChatSession`
-preserves and sizes that history before throwing the original `RecoveryError`.
+preserves that history. `send` sizes it before throwing the original
+`RecoveryError`; `sendStream` retains its existing successful-consumption-only
+sizing timing, including after a failed follow-up completion.
 This lets the next caller retain evidence of completed tool actions. Recovery
 never retries a tool, restarts a broker loop, or repeats earlier successful model
 interactions. Each completion in a tool loop receives its own logical identity;
@@ -208,8 +213,8 @@ calls and provider `evidence`; rejected finishes retain evidence through
 retains completed assistant/tool history in the supplied message array when
 recovery is enabled, and stops on recovery failure. Each subsequent completion
 has a fresh logical request ID. Single-turn events continue to forbid tools.
-`ChatSession.sendStream` has no recovery argument; use the broker entrypoint when
-streaming recovery is needed.
+`ChatSession.sendStream(query, recovery?)` forwards the same policy through that
+recursive broker entrypoint while preserving content-string output.
 
 Cancellation closes the local HTTP request and reader while a consumer is paused,
 without waiting for its next iteration. Abort wins over queued content, terminal
@@ -233,3 +238,50 @@ Realtime voice, embeddings, and residency operations are outside recovery scope.
 See `RECOVERY-CONFORMANCE.md` for assertion locations, measured results and review
 prerequisites. Whole-mission independent approval and cross-port alignment remain
 unclaimed.
+
+### Session streaming migration
+
+`ChatSession.sendStream(query, recovery?)` accepts the same policy as `send`.
+It still yields content strings. Omit the second argument to retain existing
+transport, copied tool history, and context behavior. With recovery enabled,
+the existing recursive broker tool path preserves completed assistant/tool
+messages even when a later completion exhausts or is interrupted. Incomplete
+assistant text is never added to session history, including on cancellation or
+consumer return. Tools are never replayed.
+
+```typescript
+try {
+  for await (const chunk of session.sendStream('Next question', recovery)) {
+    process.stdout.write(chunk);
+  }
+} catch (error) {
+  if (error instanceof RecoveryError) {
+    console.error(error.outcome, error.failure.progress);
+    // Completed tool actions remain available for application-owned recovery.
+    const completedHistory = session.getMessages();
+  } else {
+    throw error;
+  }
+}
+```
+
+Token sizing and context eviction keep their existing timing: streaming sizes
+broker-added tool history only after successful consumption, then inserts the
+assembled assistant response. Failed or returned streams retain the user and
+completed tool history without immediately sizing those tool messages. A later
+successful stream sizes them. This differs from `send` and is preserved for
+compatibility; applications must not assume failed streaming has already
+recalculated context capacity.
+
+Progress counters describe delivery at the gateway boundary. Reasoning and tool
+fragments consumed by the broker can count as delivered even though session
+output contains only content strings. Native reasoning-history input remains
+unsupported. Ollama emits provider progress/metrics events; oMLX and OpenAI do
+not emit those telemetry events on this chunk path. All providers retain their
+available evidence without inventing missing fields.
+
+Enabled cancellation closes the local request even while the consumer is paused;
+advance the iterator to receive its typed cancellation. Consumer return closes
+owned enabled resources without appending incomplete assistant text. Legacy
+consumer return does not promise transport cancellation. Neither path proves
+remote inference terminated.

@@ -62,7 +62,7 @@ async function main() {
         return;
       }
 
-      const response = await session.sendMessage(query);
+      const response = await session.send(query);
       console.log(response);
       ask();
     });
@@ -98,7 +98,7 @@ const session = new ChatSession(broker);
 ### 3. Send Messages
 
 ```typescript
-const response = await session.sendMessage(query);
+const response = await session.send(query);
 ```
 
 When you send a message:
@@ -133,7 +133,7 @@ const session = new ChatSession(broker, {
 });
 
 // The LLM can now use the date tool in conversations
-const response = await session.sendMessage("What day of the week is July 4th, 2025?");
+const response = await session.send("What day of the week is July 4th, 2025?");
 console.log(response);
 ```
 
@@ -162,4 +162,38 @@ By leveraging chat sessions, you can create engaging conversational experiences 
 ## Opt-in non-streaming recovery
 
 See [completion recovery](/completion-recovery) for policy configuration, structured
-failures, admission, cancellation, and provider limits. `sendStream` has no recovery argument; use the broker streaming APIs for opt-in recovery.
+failures, admission, cancellation, and provider limits. Both `send` and
+`sendStream` accept an optional recovery policy.
+
+## Opt-in streaming recovery
+
+Pass a `RecoveryOptions` policy as the optional second argument. Existing
+`sendStream(query)` calls continue to yield content strings with their original
+behavior. The application supplies admission when a failed attempt may still be
+running remotely.
+
+```typescript
+import { RecoveryError, RecoveryOptions } from 'mojentic';
+
+const recovery: RecoveryOptions = {
+  maxAttempts: 3,
+  signal: controller.signal,
+  admit: async ({ failure, signal }) => harness.checkRecoveryAdmission(failure, signal),
+};
+try {
+  for await (const chunk of session.sendStream('Continue our conversation', recovery)) {
+    process.stdout.write(chunk);
+  }
+} catch (error) {
+  if (error instanceof RecoveryError) console.error(error.outcome);
+  else throw error;
+}
+```
+
+`controller` and `harness` above are application-owned cancellation and admission.
+Completed tool history survives a later completion failure; incomplete assistant
+text does not. Streaming sizes tool history only after successful consumption,
+so a failed stream has not yet recalculated those token counts. Supported history
+is preserved; native reasoning-history input is unavailable. See the
+[recovery migration guide](./completion-recovery.md#session-streaming-migration)
+for cancellation ownership, progress counters and context behavior.
