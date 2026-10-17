@@ -11,7 +11,12 @@ export * from './tools';
 export * from './gateways';
 export * from './agent';
 
-export { RecoveryError, inspectRecoveryFailure, completionRecoveryCapabilities } from './recovery';
+export {
+  RecoveryPolicyError,
+  RecoveryError,
+  inspectRecoveryFailure,
+  completionRecoveryCapabilities,
+} from './recovery';
 export type {
   RecoveryProvider,
   RecoveryCategory,

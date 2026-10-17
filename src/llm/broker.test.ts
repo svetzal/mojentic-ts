@@ -908,3 +908,45 @@ describe('native single response', () => {
     expect(result).toEqual(Ok('done'));
   });
 });
+
+describe('legacy thrown gateway errors', () => {
+  it.each(['response', 'text', 'object'] as const)(
+    'characterizes Error identity through %s',
+    async (route) => {
+      const gateway = new MockGateway();
+      const original = new Error('legacy failure');
+      jest.spyOn(gateway, 'generate').mockRejectedValue(original);
+      const broker = new LlmBroker('test', gateway);
+      const messages = [{ role: MessageRole.User, content: 'hello' }];
+      const calls = {
+        response: () => broker.generateResponse(messages),
+        text: () => broker.generate(messages),
+        object: () => broker.generateObject(messages, { type: 'object' }),
+      };
+
+      // Force the text catch before delegation, using a failing input iterator.
+      const unreadableMessages = Object.assign([...messages], {
+        [Symbol.iterator]: (): Iterator<(typeof messages)[number]> => {
+          throw original;
+        },
+      });
+      const result = await (route === 'text'
+        ? broker.generate(unreadableMessages)
+        : (new Map(Object.entries(calls)).get(route) ?? calls.response)());
+
+      expect(result.ok).toBe(false);
+      expect(result).toEqual(
+        Err(
+          route === 'response'
+            ? original
+            : new Error(
+                route === 'text'
+                  ? 'Failed to generate: legacy failure'
+                  : 'Failed to generate object: legacy failure'
+              )
+        )
+      );
+      expect(Reflect.get(result, 'error') === original).toBe(route === 'response');
+    }
+  );
+});

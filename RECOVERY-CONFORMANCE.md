@@ -248,3 +248,109 @@ maintained providers and broker/session paths, and fresh gate results.
 Prior measurements in this document remain historical. Local HTTP verification
 does not supply the missing paired provider/consumer repository verification or
 authorize publication. Package, lockfile and runtime versions remain unchanged.
+
+
+## October 12 item 8 correction: typed errors
+
+Tested base: `ba93b45340b34a5b73a44b40172a9643bb93b9e3`, plus the
+uncommitted source identified below. Scope is item 8 only; reasoning, model
+metadata, versions and binding contracts are unchanged. The verified initiative
+brief SHA-256 is `ea6a0efa56bfb3cd74b5ce728f80cc33c6fbd853114bec94b8aabe79f5d28e6e`.
+The parent files are absent at this isolated worktree's `../` paths. Read-only
+binding inputs were inspected in `/home/svetzal/Work/Projects/Personal/mojentic-unify`
+at commit `4b08dcd1d87f520a4c70928c33a2bc84c228093d`; the recovery contract SHA-256
+is `a53a3a4eb118fa4687dd703d6ce918dd40dd6cb4eda796abc6c429a6e932e7a3`.
+No sibling repository was changed or executed.
+
+The local executable regression set is `ts-recovery-typed-errors-v1`:
+`src/llm/recovery-typed-errors-v1.json`, the item 8 cases in
+`src/llm/recovery-conformance.test.ts`, and the broker catch characterization in
+`src/llm/broker.test.ts`. It reuses the existing scripted loopback HTTP harness
+and public gateway/broker/session APIs. No new binding contract is declared.
+
+| Named test (each maintained provider) | Observable assertion |
+| --- | --- |
+| `item 8 exposes public policy error for $field through $route without wire effects` | Public `RecoveryPolicyError`, stable code/field; zero requests, captures and events across 11 routes |
+| `item 8 rejects nonfinite policy before sending through %s` | Infinite deadline is typed and rejected before I/O |
+| `item 8 retains exact capture cause through %s` | Request-hook exception identity; wire attempt zero, empty actual-attempt history |
+| `item 8 retains original response capture exception through %s` | Exact response capture exception via explicit inspection; request body and safe serialization |
+| `item 8 retains length cause and finish evidence without replay through %s` | Actual `StreamEventError`, incomplete-completion reason, retained length evidence, one exact request shape, no admission/replay, including missing SSE end marker |
+| `item 8 rejects length tool responses through the session with typed finish evidence` | No tool execution, no fabricated assistant/tool history, typed cause, request body including tools |
+| `item 8 preserves verified %s Error identity in broker catch paths` | Errors derived from public executable cases keep identity through response/text/object catches |
+| `item 8 leaves recovery-disabled length handling unchanged` | Legacy successful response and finish evidence are preserved |
+| `legacy thrown gateway errors / characterizes Error identity through %s` | `generateResponse` preserves Error identity; text/object catches retain unrelated legacy replacement behavior |
+
+Before the source correction, the session length/tool regression failed for all
+three providers: the expected typed length cause was absent after accepting the
+tool response. The same probe passed after the correction (3 regressions and
+3 catch characterizations). Reproduce it with:
+
+```bash
+npm test -- --runInBand src/llm/recovery-conformance.test.ts src/llm/broker.test.ts -t 'item 8 rejects length|legacy thrown gateway'
+npm test -- --runInBand src/llm/recovery-conformance.test.ts src/llm/broker.test.ts -t 'item 8|legacy thrown gateway'
+```
+
+The first attempted probe could not start because Jest was absent (exit 127).
+`npm ci --cache /tmp/mojentic-ts-npm-cache` installed locked dependencies before
+the executable rejecting probe (exit 1) and corrected probe (exit 0). Neither
+package nor lockfile changed. Subsequent matrix tests additionally exposed the
+SSE length-without-end-marker replay path and now require terminal typed evidence.
+Static policy errors are Result errors rather than thrown generic RangeErrors;
+event streams retain them in `error.detail`, sessions throw them. Custom jitter
+samples are validated at delay calculation, after the failed request/admission.
+
+### Item 8 coordination gap
+
+This is local conformance evidence. The scripted HTTP responder is not an
+independently verified OpenAI, Ollama or oMLX implementation. No shared executable
+typed-error contract mechanism or counterpart verification was found in this
+checkout; the JSON/test hashes identify local cases only. No external consumer
+or live provider was run. Counterpart tested commits, verification commands and
+results are **missing**. Paired verification of the same identifiable contract
+set, supported old/new versions, optional fields and error semantics remains
+unfinished initiative work before consumer migrations or compatibility claims.
+Parent PARITY.md synchronization is also assigned to initiative coordination;
+this worktree is authorized for mojentic-ts changes only. Publication remains held.
+
+
+### Item 8 tested source hashes and verification results
+
+These SHA-256 values identify the tested uncommitted source on the base above;
+Foundry will supply the final commit identity. The fixture and two test modules
+together identify the executable local set, including supported recovery-disabled
+behavior. They do not identify any verified counterpart implementation.
+
+```text
+358b2ca23b2c69cb592644fb8337d59b6f96d252228731d7a3d9295fe503e6d6  src/llm/recovery-typed-errors-v1.json
+d57bf1c76b4281dcd4e7db58c0fc79433510d280908526bb58018fb032654850  src/llm/recovery-conformance.test.ts
+fcb0452180310f60efc8e51bf9968d57befa12bec62bde35057eaa7f85c55288  src/llm/broker.test.ts
+e273a0f59e961f7a2da0f28bb40939442e82abce896cc9713ef40468184b30b7  src/llm/recovery.ts
+7bdf2f1201777280befb05e0f4e11e574f1d179f95fb486639879fe3a6b83270  src/llm/streaming-recovery.ts
+4ce07613e2734ca823eee424f58ebc09d0477344f1eb0a64371c05838e4a4601  src/llm/broker.ts
+ecc69fe22f9a33116c599781ee75fc1bde77d46333bcd27a6c6b7bf76922911f  src/llm/chat-session.ts
+b15fa902bc7db9845db64c1a4f2be40a3c60c0d8799789e3d24f6ed540fa0add  src/llm/index.ts
+1ab36aeabbb86c19f96e55cf47e4cbdfde8b50c7aac4c768a6711ade2cd5b422  .hone-gates.json
+f8f0d5fad084bbc866735b3afe8a464f32532746bc222203ce90ab5c416108b3  package.json
+0c19a83dda7352b8aa97700e438104425658cce9f53d0567dd97d17eb6d94a1c  package-lock.json
+```
+
+All verbose commands were run through `foundry capture`, preserving exit codes.
+
+| Command | Result |
+| --- | --- |
+| `npm run format` | exit 0 |
+| `npm run lint` | exit 0; zero warnings |
+| `npm run format:check` | exit 0 |
+| `npm test` | exit 0; 52 suites / 2,670 tests pass (312 additional tests) |
+| `npm run build` | exit 0 |
+| `npm test -- --coverage` | exit 0; 2,670 tests pass; statements 87.03%, branches 82.16%, functions 89.75%, lines 87.50%; every configured 70% threshold exceeded |
+| `npm audit --omit=dev --audit-level=moderate --cache /tmp/mojentic-ts-npm-cache` | exit 0; zero vulnerabilities |
+| `npm audit --cache /tmp/mojentic-ts-npm-cache` | exit 0; zero vulnerabilities, including development dependencies |
+| `npm outdated --cache /tmp/mojentic-ts-npm-cache` | exit 1; ESLint 10.12.0 installed, 10.13.0 wanted/latest; versions preserved |
+| `npm run docs:build` | exit 0; VitePress/Rolldown bundle-assignment diagnostics and transform deprecation emitted |
+
+No security advisories were suppressed or allowlisted. The documentation tooling
+diagnostics and available ESLint update remain unresolved, outside this typed-error
+correction. No package, lockfile or runtime version changed. No commit, push,
+merge, rebase, ref change, tag or publication was performed.
+Suggested Foundry finalization message: `Preserve typed recovery errors across public completion APIs`.

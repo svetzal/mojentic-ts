@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 
+- Invalid completion recovery policies now expose the public `RecoveryPolicyError`
+  (`code: 'RECOVERY_POLICY_ERROR'`, safe `field`) across OpenAI, Ollama and oMLX.
+  Migration: handle it in `Result.error` for ordinary/structured/chunk APIs,
+  `StreamEventError.detail` for event streams, or catch it from sessions;
+  replace checks for generic `RangeError` or message text. Static invalid policies
+  fail before capture and HTTP. Invalid custom jitter samples fail when sampled.
+- Opt-in recovery treats `length` termination as a terminal failure before
+  structured parsing or tool dispatch. Migration: inspect `RecoveryError.failure`
+  with `inspectRecoveryFailure`; `cause` is a `StreamEventError` with
+  `reason: 'incomplete_completion'` and finish evidence `length`. No replay,
+  partial tool execution or fabricated assistant history occurs. Streaming length
+  evidence is retained even without a final SSE marker. Recovery-disabled calls
+  retain their legacy behavior. Capture exceptions remain available by exact
+  identity through explicit inspection. Broker catches preserve recovery error
+  identity while keeping unrelated legacy wrapping behavior.
+
 - Recovery gateway capabilities now use the exported `CompletionRecoveryCapabilities`
   interface instead of the literal type of `completionRecoveryCapabilities`.
   OpenAI, Ollama and oMLX expose all five amendment facilities with endpoint

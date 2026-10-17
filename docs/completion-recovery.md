@@ -354,3 +354,38 @@ advance the iterator to receive its typed cancellation. Consumer return closes
 owned enabled resources without appending incomplete assistant text. Legacy
 consumer return does not promise transport cancellation. Neither path proves
 remote inference terminated.
+
+## Typed recovery failures
+
+Import `RecoveryPolicyError`, `RecoveryError`, `StreamEventError` and
+`inspectRecoveryFailure` from `mojentic`. Invalid numeric policy fields produce
+`RecoveryPolicyError`, extending `MojenticError`, with code
+`RECOVERY_POLICY_ERROR` and a safe `field` name. No supplied values, prompts or
+credentials appear in that error. Validation precedes wire capture and HTTP;
+custom `jitter` is sampled and validated only after an admitted failure.
+
+Ordinary and structured gateway/broker APIs return the error in `Result.error`.
+Chunk streams yield an error Result. Event streams yield a `StreamEventError`
+whose `detail` is the policy error. `ChatSession.send` and `sendStream` throw the
+same typed error; a failed turn retains the user message and adds no assistant.
+Migrate previous `RangeError` or error-message checks to `instanceof RecoveryPolicyError`.
+
+Capture and output-limit failures return `RecoveryError`. Explicitly inspect
+`inspectRecoveryFailure(error.failure)`: `cause` preserves the original exception;
+`captureCause` preserves the exact capture exception when response capture fails,
+including when a separate transport cause also exists. Request capture failure
+has wire attempt zero and no actual-attempt history. Its exception is in `cause`.
+Raw exceptions, bytes and headers remain outside safe lifecycle/error serialization.
+
+For provider finish reason `length`, `cause` is a `StreamEventError` with
+`reason === 'incomplete_completion'`. Its evidence and the inspected
+`responseEvidence` retain `finishReason === 'length'`. Event streams expose the
+`RecoveryError` as `error.recovery`; inspect that failure for the typed cause.
+Length is terminal even if an SSE end marker is absent. The library never retries
+that completion, dispatches its tools or appends its partial assistant output to
+session history. Recovery-disabled behavior is unchanged.
+
+The executable local cases are identified as `ts-recovery-typed-errors-v1` in
+`RECOVERY-CONFORMANCE.md`. They reuse the scripted
+loopback HTTP harness; paired consumer/provider verification remains a separate,
+uncompleted initiative requirement.

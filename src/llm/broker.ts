@@ -15,6 +15,7 @@ import {
 import { LlmStreamEvent, StreamEventError, StreamEventsOptions } from './stream-events';
 import { Result, Ok, Err, isOk, ParseError, ToolError } from '../error';
 import { LlmResponseEvidence, TracerSystem } from '../tracer';
+import { RecoveryError, RecoveryPolicyError } from './recovery';
 import { randomUUID } from 'crypto';
 
 /** Carry the provider-reported evidence from a gateway response. */
@@ -293,6 +294,7 @@ export class LlmBroker {
 
       return Err(new ToolError(`Maximum tool iterations (${maxToolIterations}) exceeded`));
     } catch (error) {
+      if (error instanceof RecoveryError || error instanceof RecoveryPolicyError) return Err(error);
       return Err(
         new Error(`Failed to generate: ${error instanceof Error ? error.message : String(error)}`)
       );
@@ -396,6 +398,7 @@ export class LlmBroker {
         );
       }
     } catch (error) {
+      if (error instanceof RecoveryError || error instanceof RecoveryPolicyError) return Err(error);
       return Err(
         new Error(
           `Failed to generate object: ${error instanceof Error ? error.message : String(error)}`

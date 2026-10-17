@@ -19,6 +19,9 @@ import {
 } from './recovery';
 import { Err, Ok, Result } from '../error';
 import { LlmTool } from './tools';
+import { RecoveryPolicyError } from '../index';
+import typedErrorContracts from './recovery-typed-errors-v1.json';
+import { StreamEventError } from './stream-events';
 import retryAfterFixtures from './retry-after-fixtures.json';
 import temperatureFixtures from './session-temperature-fixtures.json';
 
@@ -188,6 +191,286 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
     },
     ...extra,
   });
+  const boundaryCalls = (
+    recovery: RecoveryOptions
+  ): Map<string, () => Promise<Result<unknown, Error>>> => {
+    const gateway = provider.gateway(url);
+    const broker = new LlmBroker('gpt-4o', gateway);
+    const messages = [Message.user('payload-secret')];
+    const config = { recovery, temperature: 0 };
+    const chunks = async (
+      stream: AsyncIterable<Result<unknown, Error>>
+    ): Promise<Result<unknown, Error>> => {
+      const results = [];
+      for await (const result of stream) results.push(result);
+      const last = results.at(-1);
+      assert(last);
+      return last;
+    };
+    const eventResult = async (
+      stream: AsyncIterable<import('./stream-events').LlmStreamEvent>
+    ): Promise<Result<unknown, Error>> => {
+      const results = [];
+      for await (const event of stream) results.push(event);
+      const last = results.at(-1);
+      assert(last?.type === 'error');
+      const error = last.error.recovery ?? last.error.detail;
+      assert(error instanceof Error);
+      return Err(error);
+    };
+    const sessionCall = async (streaming: boolean): Promise<Result<unknown, Error>> => {
+      const session = new ChatSession(broker, {
+        temperature: 0,
+        tokenizerGateway: { encode: () => [], decode: () => '', free: () => {} },
+      });
+      try {
+        if (streaming) {
+          for await (const content of session.sendStream('payload-secret', recovery)) void content;
+          return Ok(undefined);
+        }
+        return Ok(await session.send('payload-secret', recovery));
+      } catch (error) {
+        assert(error instanceof Error);
+        expect(session.getMessages().map((message) => message.role)).toEqual(['system', 'user']);
+        return Err(error);
+      } finally {
+        session.dispose();
+      }
+    };
+    return new Map(
+      Object.entries({
+        gateway: () => gateway.generate('gpt-4o', messages, config),
+        gatewayStructured: () =>
+          gateway.generate('gpt-4o', messages, {
+            ...config,
+            responseFormat: { type: 'json_object', schema: { type: 'object' } },
+          }),
+        gatewayChunks: () => chunks(gateway.generateStream('gpt-4o', messages, config)),
+        gatewayEvents: () => {
+          assert(gateway.generateStreamEvents);
+          return eventResult(gateway.generateStreamEvents('gpt-4o', messages, config));
+        },
+        response: () => broker.generateResponse(messages, undefined, config),
+        text: () => broker.generate(messages, undefined, config),
+        object: () => broker.generateObject(messages, { type: 'object' }, config),
+        chunks: () => chunks(broker.generateStream(messages, config)),
+        events: () => eventResult(broker.generateStreamEvents(messages, config)),
+        session: () => sessionCall(false),
+        sessionStream: () => sessionCall(true),
+      })
+    );
+  };
+
+  const invokeBoundary = async (
+    route: string,
+    recovery: RecoveryOptions
+  ): Promise<Result<unknown, Error>> => {
+    const invoke = boundaryCalls(recovery).get(route);
+    assert(invoke);
+    return invoke();
+  };
+
+  it.each(
+    typedErrorContracts.routes.flatMap((route) =>
+      typedErrorContracts.invalidPolicies.map((fixture) => ({ route, ...fixture }))
+    )
+  )(
+    'item 8 exposes public policy error for $field through $route without wire effects',
+    async ({ route, field, policy: invalid }) => {
+      const result = await invokeBoundary(route, policy(invalid));
+
+      assert(!result.ok);
+      expect(result.error).toBeInstanceOf(RecoveryPolicyError);
+      expect(result.error).toMatchObject({
+        name: 'RecoveryPolicyError',
+        code: 'RECOVERY_POLICY_ERROR',
+        field,
+      });
+      expect(sends).toEqual([]);
+      expect(events).toEqual([]);
+      expect(wires).toEqual([]);
+      expect(JSON.stringify(result.error)).not.toMatch(/credential-secret|payload-secret/);
+    }
+  );
+  it.each(typedErrorContracts.routes)(
+    'item 8 retains exact capture cause through %s',
+    async (route) => {
+      const original = new RangeError('payload-secret capture');
+      const result = await invokeBoundary(
+        route,
+        policy({
+          onWire: () => {
+            throw original;
+          },
+        })
+      );
+      const error = failed(result);
+
+      expect(inspectRecoveryFailure(error.failure)?.cause).toBe(original);
+      expect(error.failure.classification).toEqual({ eligible: false, reason: 'capture_failed' });
+      expect(error.history).toEqual([]);
+      expect(error.failure.wireAttempt).toBe(0);
+      expect(sends).toEqual([]);
+      expect(JSON.stringify(error)).not.toMatch(/credential-secret|payload-secret/);
+    }
+  );
+
+  it.each(typedErrorContracts.routes)(
+    'item 8 retains length cause and finish evidence without replay through %s',
+    async (route) => {
+      replies = [
+        (response) => {
+          const requestBody = JSON.parse(sends[0].bytes.toString()) as { stream: boolean };
+          const ordinary =
+            provider.name === 'ollama'
+              ? { ...provider.success(''), done_reason: 'length' }
+              : { model: 'test', choices: [{ message: { content: '' }, finish_reason: 'length' }] };
+          const frame =
+            provider.name === 'ollama'
+              ? JSON.stringify(ordinary) + '\n'
+              : 'data: ' +
+                JSON.stringify({
+                  model: 'test',
+                  choices: [{ delta: {}, finish_reason: 'length' }],
+                }) +
+                '\n\n';
+          response.writeHead(200, {
+            'Content-Type': requestBody.stream ? 'text/event-stream' : 'application/json',
+          });
+          response.end(requestBody.stream ? frame : JSON.stringify(ordinary));
+        },
+      ];
+      const result = await invokeBoundary(route, policy());
+      const error = failed(result);
+      const evidence = inspectRecoveryFailure(error.failure);
+
+      expect(evidence?.cause).toBeInstanceOf(StreamEventError);
+      expect(evidence?.cause).toMatchObject({
+        reason: 'incomplete_completion',
+        evidence: { finishReason: 'length' },
+      });
+      expect(evidence?.responseEvidence?.finishReason).toBe('length');
+      expect(error.failure.classification.eligible).toBe(false);
+      expect(error.history).toEqual([error.failure]);
+      expect(sends.map((send) => JSON.parse(send.bytes.toString()) as unknown)).toEqual([
+        expect.objectContaining({
+          model: 'gpt-4o',
+          messages: expect.arrayContaining([{ role: 'user', content: 'payload-secret' }]),
+        }),
+      ]);
+      expect(
+        events.filter(
+          (event) => event.type === 'retry_started' || event.type === 'admission_pending'
+        )
+      ).toEqual([]);
+    }
+  );
+
+  it.each(typedErrorContracts.routes)(
+    'item 8 retains original response capture exception through %s',
+    async (route) => {
+      replies = [
+        (response) => {
+          response.writeHead(200, { 'Content-Type': 'application/json' });
+          response.end(JSON.stringify(provider.success('payload-secret')) + '\n');
+        },
+      ];
+      const original = new TypeError('credential-secret capture');
+      const result = await invokeBoundary(
+        route,
+        policy({
+          onWire: (wire) => {
+            wires.push(wire);
+            if (wire.direction === 'response') throw original;
+          },
+        })
+      );
+      const error = failed(result);
+
+      expect(inspectRecoveryFailure(error.failure)?.captureCause).toBe(original);
+      expect(error.failure.classification).toEqual({ eligible: false, reason: 'capture_failed' });
+      expect(error.history).toEqual([error.failure]);
+      expect(sends.map((send) => JSON.parse(send.bytes.toString()) as unknown)).toEqual([
+        expect.objectContaining({
+          messages: expect.arrayContaining([{ role: 'user', content: 'payload-secret' }]),
+        }),
+      ]);
+      expect(JSON.stringify(error)).not.toMatch(/credential-secret|payload-secret/);
+    }
+  );
+  it.each(typedErrorContracts.routes)(
+    'item 8 rejects nonfinite policy before sending through %s',
+    async (route) => {
+      const result = await invokeBoundary(route, policy({ deadlineMs: Infinity }));
+
+      assert(!result.ok);
+      expect(result.error).toBeInstanceOf(RecoveryPolicyError);
+      expect(result.error).toMatchObject({ field: 'deadlineMs' });
+      expect(sends).toEqual([]);
+      expect(events).toEqual([]);
+      expect(wires).toEqual([]);
+    }
+  );
+
+  it('item 8 leaves recovery-disabled length handling unchanged', async () => {
+    const body =
+      provider.name === 'ollama'
+        ? { ...provider.success('legacy answer'), done_reason: 'length' }
+        : { choices: [{ message: { content: 'legacy answer' }, finish_reason: 'length' }] };
+    replies = [jsonReply(200, body)];
+    const result = await new LlmBroker('gpt-4o', provider.gateway(url)).generateResponse([
+      Message.user('payload-secret'),
+    ]);
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { content: 'legacy answer', finishReason: 'length' },
+    });
+    expect(sends.map((send) => JSON.parse(send.bytes.toString()) as unknown)).toEqual([
+      expect.objectContaining({ messages: [{ role: 'user', content: 'payload-secret' }] }),
+    ]);
+    expect(events).toEqual([]);
+  });
+
+  it.each(['policy', 'capture'] as const)(
+    'item 8 preserves verified %s Error identity in broker catch paths',
+    async (kind) => {
+      const options = {
+        policy: policy({ maxAttempts: 0 }),
+        capture: policy({
+          onWire: () => {
+            throw new TypeError('private capture');
+          },
+        }),
+      };
+      const verified = await invokeBoundary(
+        'gateway',
+        new Map(Object.entries(options)).get(kind) ?? {}
+      );
+      assert(!verified.ok);
+      const original = verified.error;
+      const gateway = provider.gateway(url);
+      jest.spyOn(gateway, 'generate').mockRejectedValue(original);
+      const broker = new LlmBroker('gpt-4o', gateway);
+      const messages = [Message.user('payload-secret')];
+      const unreadable = Object.assign([...messages], {
+        [Symbol.iterator]: (): Iterator<(typeof messages)[number]> => {
+          throw original;
+        },
+      });
+
+      const response = await broker.generateResponse(messages);
+      const text = await broker.generate(unreadable);
+      const object = await broker.generateObject(messages, { type: 'object' });
+
+      assert(!response.ok && !text.ok && !object.ok);
+      expect(response.error).toBe(original);
+      expect(text.error).toBe(original);
+      expect(object.error).toBe(original);
+      expect(sends).toEqual([]);
+    }
+  );
+
   const call = (
     operation: 'ordinary' | 'structured',
     recovery?: RecoveryOptions
@@ -1593,4 +1876,62 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
       session.dispose();
     }
   );
+  it('item 8 rejects length tool responses through the session with typed finish evidence', async () => {
+    const body = JSON.stringify(provider.tool)
+      .replace('"done":true', '"done":true,"done_reason":"length"')
+      .replace('"finish_reason":"tool_calls"', '"finish_reason":"length"');
+    replies = [
+      (response) => {
+        response.writeHead(200, { 'Content-Type': 'application/json' });
+        response.end(body);
+      },
+    ];
+    const run = jest.fn(async () => Ok({ counted: 1 }));
+    const tool: LlmTool = {
+      name: () => 'counter',
+      matches: (name) => name === 'counter',
+      descriptor: () => ({
+        type: 'function',
+        function: { name: 'counter', description: 'Count', parameters: { type: 'object' } },
+      }),
+      run,
+    };
+    const session = new ChatSession(new LlmBroker('gpt-4o', provider.gateway(url)), {
+      tools: [tool],
+      temperature: 0,
+      tokenizerGateway: { encode: () => [], decode: () => '', free: () => {} },
+    });
+    try {
+      const result = await session
+        .send('payload-secret', policy())
+        .then(Ok, (error: Error) => Err(error));
+      const error = failed(result);
+      const cause = inspectRecoveryFailure(error.failure)?.cause;
+
+      expect(cause).toBeInstanceOf(StreamEventError);
+      expect(cause).toMatchObject({
+        reason: 'incomplete_completion',
+        evidence: { finishReason: 'length' },
+      });
+      expect(inspectRecoveryFailure(error.failure)?.responseEvidence?.finishReason).toBe('length');
+      expect(error.history).toEqual([error.failure]);
+      expect(error.failure.classification.eligible).toBe(false);
+      expect(run).not.toHaveBeenCalled();
+      expect(sends.map((send) => JSON.parse(send.bytes.toString()) as unknown)).toEqual([
+        expect.objectContaining({
+          messages: [
+            { role: 'system', content: 'You are a helpful assistant.' },
+            { role: 'user', content: 'payload-secret' },
+          ],
+          tools: [tool.descriptor()],
+        }),
+      ]);
+      expect(session.getMessages().map(({ role, content }) => ({ role, content }))).toEqual([
+        { role: 'system', content: 'You are a helpful assistant.' },
+        { role: 'user', content: 'payload-secret' },
+      ]);
+    } finally {
+      session.dispose();
+    }
+  });
 });

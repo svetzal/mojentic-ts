@@ -83,6 +83,7 @@ export class ChatSession {
    * @param query - The query to send to the LLM
    * @param recovery - Opt-in non-streaming policy; completed tool history survives failure.
    * @returns The response from the LLM
+   * @throws RecoveryPolicyError when the opt-in policy is invalid; no completion is sent.
    * @throws RecoveryError when an enabled completion fails; retains structured attempt history.
    *
    * @example
@@ -131,7 +132,10 @@ export class ChatSession {
    * @param recovery - Opt-in streaming recovery for each completion in the tool loop.
    * Completed tool history survives failure; incomplete assistant text is not recorded.
    * History sizing retains its existing timing: only after successful stream consumption.
+   * @throws RecoveryPolicyError when the opt-in policy is invalid; no completion is sent.
    * @throws RecoveryError when an enabled completion fails, retaining typed attempt evidence.
+   * @throws RecoveryPolicyError for an invalid recovery policy.
+   * @throws RecoveryError with inspectable capture or typed length evidence on recovery failure.
    * @yields Content chunks from the LLM response as they arrive
    *
    * @example

@@ -181,6 +181,15 @@ async function* recoverStream<T>(
               });
             });
           }
+          if (frame.evidence.finishReason === 'length') {
+            throw new StreamEventError(
+              'incomplete_completion',
+              'Provider reached the output limit',
+              {
+                evidence: frame.evidence,
+              }
+            );
+          }
           if (frame.error) {
             state.category =
               frame.error.reason === 'provider_error' ? 'provider_response' : 'protocol';

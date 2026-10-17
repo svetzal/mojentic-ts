@@ -2,6 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { Err, Ok, Result, MojenticError } from '../error';
 import { GatewayResponse } from './models';
+import { StreamEventError } from './stream-events';
 import { observeCompletionPrefix } from './recovery-progress';
 import { CompletionTransportGateway, CompletionTransportResponse } from './recovery-transport';
 
@@ -102,6 +103,10 @@ export interface RecoveryWireEvent extends RecoveryIdentity {
   /** Response chunks are exact wire bytes; index resets for each attempt. */
   readonly frameIndex?: number;
 }
+/** Opt-in policy. Invalid numeric fields return RecoveryPolicyError before capture or HTTP.
+ * A custom jitter sample is validated when retry delay is calculated, after admission.
+ * Capture exceptions remain available by identity through inspectRecoveryFailure.
+ */
 export interface RecoveryOptions {
   readonly maxAttempts?: number;
   readonly baseDelayMs?: number;
@@ -147,6 +152,20 @@ export function inspectRecoveryFailure(failure: RecoveryFailure): RecoveryEviden
     }
   );
 }
+/** Invalid opt-in recovery configuration. Safe fields never include caller values.
+ * Returned in Result errors (or event error.detail); sessions throw the same instance.
+ */
+export class RecoveryPolicyError extends MojenticError {
+  readonly name = 'RecoveryPolicyError';
+  constructor(
+    readonly field:
+      'maxAttempts' | 'baseDelayMs' | 'delayCeilingMs' | 'budgetMs' | 'deadlineMs' | 'jitter'
+  ) {
+    super(`Invalid recovery policy: ${field}`, 'RECOVERY_POLICY_ERROR');
+    Object.setPrototypeOf(this, RecoveryPolicyError.prototype);
+  }
+}
+
 export class RecoveryError extends MojenticError {
   readonly name = 'RecoveryError';
   constructor(
@@ -453,6 +472,17 @@ async function execute(
       return undefined;
     }
     const result = decode(json, state.response.headers);
+    if (result.finishReason === 'length') {
+      state.responseEvidence = {
+        finishReason: 'length',
+        usage: result.usage ?? null,
+        providerModel: result.model ?? null,
+        metadata: result.metadata ?? null,
+      };
+      throw new StreamEventError('incomplete_completion', 'Provider reached the output limit', {
+        evidence: state.responseEvidence,
+      });
+    }
     if (structured && (result.toolCalls?.length ?? 0) === 0) JSON.parse(result.content);
     return result;
   } catch (cause) {
@@ -478,18 +508,26 @@ async function execute(
     return undefined;
   }
 }
-function validate(policy: RecoveryOptions): void {
+function validate(policy: RecoveryOptions): RecoveryPolicyError | undefined {
   if (!Number.isSafeInteger(policy.maxAttempts ?? 1) || (policy.maxAttempts ?? 1) < 1)
-    throw new RangeError('maxAttempts must be a positive safe integer');
-  for (const value of [policy.baseDelayMs, policy.delayCeilingMs, policy.budgetMs]) {
+    return new RecoveryPolicyError('maxAttempts');
+  for (const [field, value] of [
+    ['baseDelayMs', policy.baseDelayMs],
+    ['delayCeilingMs', policy.delayCeilingMs],
+    ['budgetMs', policy.budgetMs],
+  ] as const) {
     if (value !== undefined && (!Number.isFinite(value) || value < 0 || value > 2147483647))
-      throw new RangeError('Recovery durations must be bounded nonnegative milliseconds');
+      return new RecoveryPolicyError(field);
   }
   if (policy.deadlineMs !== undefined && !Number.isFinite(policy.deadlineMs))
-    throw new RangeError('Recovery deadline must be finite');
+    return new RecoveryPolicyError('deadlineMs');
+  return undefined;
 }
 
-/** Encodes once, sends no redirects, retries only this completion, and never executes tools. */
+/** Encodes once, sends no redirects, retries only this completion, and never executes tools.
+ * @returns RecoveryPolicyError for invalid configuration, or RecoveryError with inspectable
+ * capture/StreamEventError length causes. Length termination is never a usable tool response.
+ */
 export async function recoverCompletion(
   provider: RecoveryProvider,
   url: string,
@@ -515,7 +553,8 @@ export async function recoverCompletion(
       options.retryableCategories && Object.freeze([...options.retryableCategories]),
     retryableStatuses: options.retryableStatuses && Object.freeze([...options.retryableStatuses]),
   });
-  validate(policy);
+  const policyError = validate(policy);
+  if (policyError) return Err(policyError);
   const body = JSON.stringify(payload);
   const frozenHeaders = new Headers(headers);
   const requestStrings: string[] = [];
@@ -704,7 +743,7 @@ export async function recoverCompletion(
           : base * 2 ** (number - 1);
     const random = (policy.jitter ?? Math.random)();
     if (!Number.isFinite(random) || random < 0 || random > 1)
-      throw new RangeError('jitter must be between zero and one');
+      return Err(new RecoveryPolicyError('jitter'));
     const providerDelay = 'delayMs' in failure.retryAfter ? failure.retryAfter.delayMs : 0;
     const delay = Math.max(providerDelay, random * exponential);
     if (delay > ceiling) return finish('delay_ceiling', failure);

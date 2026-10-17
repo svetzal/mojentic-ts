@@ -1,0 +1,11 @@
+{
+  "version": "ts-recovery-typed-errors-v1",
+  "invalidPolicies": [
+    { "field": "maxAttempts", "policy": { "maxAttempts": 0 } },
+    { "field": "maxAttempts", "policy": { "maxAttempts": 1.5 } },
+    { "field": "baseDelayMs", "policy": { "baseDelayMs": -1 } },
+    { "field": "delayCeilingMs", "policy": { "delayCeilingMs": 2147483648 } },
+    { "field": "budgetMs", "policy": { "budgetMs": -1 } }
+  ],
+  "routes": ["gateway", "gatewayStructured", "gatewayChunks", "gatewayEvents", "response", "text", "object", "chunks", "events", "session", "sessionStream"]
+}

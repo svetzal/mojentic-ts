@@ -1,6 +1,6 @@
-# 3.0.0 conformance: admission, capabilities, Retry-After dates and session temperature
+# 3.0.0 conformance: recovery corrections and session temperature
 
-This is a partial conformance record for October 12 recovery amendment items 2, 3 and 5
+This is a partial conformance record for October 12 recovery amendment items 2, 3, 5 and 8
 and release part 5, audit bug #4 (session temperature).
 It is not 3.0.0 release readiness or cross-repository compatibility approval.
 Package, runtime and lockfile versions remain unchanged at 2.1.0.
@@ -526,3 +526,49 @@ build/test commands were executed through `foundry capture`; that wrapper preser
 No package, lockfile or runtime versions changed. Changes remain uncommitted;
 Foundry owns finalization. Suggested finalization message:
 `Correct documentation-backed client abort capability reporting`.
+
+
+## October 12 item 8: typed recovery errors
+
+Base: `ba93b45340b34a5b73a44b40172a9643bb93b9e3` plus the uncommitted
+implementation/test hashes in [the item 8 recovery record](RECOVERY-CONFORMANCE.md#october-12-item-8-correction-typed-errors).
+The local executable regression set `ts-recovery-typed-errors-v1` uses
+`src/llm/recovery-typed-errors-v1.json` and the existing scripted HTTP harness.
+Its fixture SHA-256 is `358b2ca23b2c69cb592644fb8337d59b6f96d252228731d7a3d9295fe503e6d6`.
+
+Named cases include `item 8 exposes public policy error for $field through $route without wire effects`,
+`item 8 retains exact capture cause through %s`,
+`item 8 retains original response capture exception through %s`,
+`item 8 retains length cause and finish evidence without replay through %s`, and
+`item 8 rejects length tool responses through the session with typed finish evidence`.
+They assert actual public error classes, private cause identity, finish evidence,
+request bodies, safe serialization, tool non-execution and session histories
+across all three providers and 11 public routes. Catch characterizations preserve
+unrelated legacy Error wrapping. The recovery record lists every named case and
+the observed rejecting/passing probe results.
+
+Reproduce local verification:
+
+```bash
+npm test -- --runInBand src/llm/recovery-conformance.test.ts src/llm/broker.test.ts -t 'item 8|legacy thrown gateway'
+npm run lint && npm run format:check && npm test && npm run build
+npm test -- --coverage
+npm audit --omit=dev --audit-level=moderate
+npm audit
+npm outdated
+npm run docs:build
+```
+
+All required gates pass; 52 suites / 2,670 tests pass. Coverage exceeds each
+configured 70% threshold (statements 87.03%, branches 82.16%, functions 89.75%,
+lines 87.50%). Both audits report zero vulnerabilities. Docs build exits zero
+with VitePress/Rolldown bundle-assignment diagnostics and a transform deprecation.
+`npm outdated` exits 1: ESLint 10.12.0 installed, 10.13.0 wanted/latest.
+Versions remain unchanged. Detailed source hashes and results are in the recovery record.
+
+**Counterpart verification remains missing:** no external provider or consumer
+verified this same executable set; counterpart commits, commands and results are
+unavailable. These local checks do not establish cross-repository compatibility.
+Supported old/new consumer contract verification and parent PARITY.md updates
+remain initiative coordination work. No sibling repository, binding contract,
+package version or Git ref changed; Foundry owns finalization and publication stays held.
