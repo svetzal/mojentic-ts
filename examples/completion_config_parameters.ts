@@ -107,7 +107,6 @@ async function demonstrateConfigParameters() {
   console.log('- topK: Limits token selection to top K choices');
   console.log('- topP: Nucleus sampling threshold (0.0-1.0)');
   console.log('- numCtx: Sets context window size');
-  console.log('- maxTokens: Ollama-specific max tokens (takes precedence over maxTokens)');
   console.log(
     '- maxTokens: Optional cross-provider output limit; omit to use provider/model limits'
   );
