@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve an explicitly configured `ChatSession` temperature of `0` in `send`
+  and `sendStream`, including recovery resends and tool follow-ups through
+  OpenAI, Ollama and oMLX. Omitted temperature still defaults to `1.0`; nonzero
+  values and existing recovery/history behavior are unchanged.
+
 - Reject malformed HTTP weekday tokens in Retry-After dates. IMF-fixdate and
   asctime require HTTP short weekday names; RFC 850 requires full names.
   Invalid headers now preserve policy backoff instead of causing a false

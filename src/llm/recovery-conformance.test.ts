@@ -20,6 +20,7 @@ import {
 import { Err, Ok, Result } from '../error';
 import { LlmTool } from './tools';
 import retryAfterFixtures from './retry-after-fixtures.json';
+import temperatureFixtures from './session-temperature-fixtures.json';
 
 type Reply = (response: ServerResponse, request: IncomingMessage) => void;
 interface Send {
@@ -1435,6 +1436,93 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
         'interrupted',
       ]);
       assertSends(1);
+      session.dispose();
+    }
+  );
+  it.each(
+    temperatureFixtures.cases.flatMap((fixture) => [
+      { ...fixture, recovery: true, mode: 'recovery' },
+      { ...fixture, recovery: false, mode: 'disabled' },
+    ])
+  )(
+    'preserves session temperature $name through send $mode and tool follow-ups',
+    async (fixture) => {
+      replies = [
+        ...(fixture.recovery ? [jsonReply(503, { error: 'retry initial completion' })] : []),
+        jsonReply(200, provider.tool),
+        ...(fixture.recovery ? [jsonReply(503, { error: 'retry tool follow-up' })] : []),
+        jsonReply(200, provider.success('counted successfully')),
+      ];
+      const calls: unknown[] = [];
+      const tool: LlmTool = {
+        name: () => 'counter',
+        matches: (name) => name === 'counter',
+        descriptor: () => ({
+          type: 'function',
+          function: {
+            name: 'counter',
+            description: 'Count once',
+            parameters: { type: 'object', properties: {} },
+          },
+        }),
+        run: async (args) => {
+          calls.push(args);
+          return Ok({ counted: 1 });
+        },
+      };
+      const session = new ChatSession(new LlmBroker('gpt-4o', provider.gateway(url)), {
+        ...fixture.config,
+        tools: [tool],
+      });
+
+      const content = await session.send('count once', fixture.recovery ? policy() : undefined);
+
+      expect(content).toBe('counted successfully');
+      expect(calls).toEqual([{}]);
+      expect(session.getMessages()).toMatchObject([
+        { role: 'system', content: 'You are a helpful assistant.' },
+        { role: 'user', content: 'count once' },
+        ...(fixture.recovery
+          ? [
+              {
+                role: 'assistant',
+                tool_calls: [{ id: 'call-one', function: { name: 'counter' } }],
+              },
+              { role: 'tool', tool_call_id: 'call-one', content: '{"counted":1}' },
+            ]
+          : []),
+        { role: 'assistant', content: 'counted successfully' },
+      ]);
+      expect(sends.map((send) => send.path)).toEqual(
+        Array(fixture.recovery ? 4 : 2).fill(provider.path)
+      );
+      for (const send of sends) {
+        const body: unknown = JSON.parse(send.bytes.toString());
+        expect(body).toMatchObject(
+          provider.name === 'ollama'
+            ? { options: { temperature: fixture.expected } }
+            : { temperature: fixture.expected }
+        );
+      }
+      const followUp = sends.at(-1);
+      assert(followUp);
+      expect(JSON.parse(followUp.bytes.toString()).messages).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            role: 'assistant',
+            tool_calls: [
+              expect.objectContaining({ function: expect.objectContaining({ name: 'counter' }) }),
+            ],
+          }),
+          expect.objectContaining({ role: 'tool', content: '{"counted":1}' }),
+        ])
+      );
+      expect(sends.slice(0, fixture.recovery ? 2 : 1).map((send) => send.bytes)).toEqual(
+        Array(fixture.recovery ? 2 : 1).fill(sends[0].bytes)
+      );
+      expect(sends.slice(fixture.recovery ? 2 : 1).map((send) => send.bytes)).toEqual(
+        Array(fixture.recovery ? 2 : 1).fill(followUp.bytes)
+      );
       session.dispose();
     }
   );

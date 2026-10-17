@@ -95,6 +95,11 @@ const session = new ChatSession(broker);
 
 `ChatSession` holds the state of the conversation. By default, it manages the message history and ensures it fits within the model's context window.
 
+Set `temperature` in the session configuration, for example
+`new ChatSession(broker, { temperature: 0 })`. Both `send` and `sendStream`
+preserve this value through tool follow-ups and recovery resends. Omitting it
+keeps the session default of `1.0`.
+
 ### 3. Send Messages
 
 ```typescript

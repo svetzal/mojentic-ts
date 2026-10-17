@@ -21,6 +21,7 @@ import {
 import { LlmStreamEvent } from './stream-events';
 import { LlmTool } from './tools';
 import retryAfterFixtures from './retry-after-fixtures.json';
+import temperatureFixtures from './session-temperature-fixtures.json';
 
 type Output = Result<StreamChunk, Error> | LlmStreamEvent;
 type Reply = (response: ServerResponse, request: IncomingMessage) => void;
@@ -1548,6 +1549,79 @@ for (const provider of providers) {
         true,
         provider.name === 'ollama' ? 'stop' : 'tool_calls'
       ) + provider.end;
+
+    it.each(
+      temperatureFixtures.cases.flatMap((fixture) => [
+        { ...fixture, recovery: true, mode: 'recovery' },
+        { ...fixture, recovery: false, mode: 'disabled' },
+      ])
+    )(
+      'preserves session temperature $name through sendStream $mode and tool follow-ups',
+      async (fixture) => {
+        session.dispose();
+        session = new ChatSession(new LlmBroker('gpt-4o', provider.gateway(url)), {
+          ...fixture.config,
+          tools: [counterTool(calls)],
+        });
+        replies.push(
+          ...(fixture.recovery ? [respond('{}', 503)] : []),
+          respond(toolReply()),
+          ...(fixture.recovery ? [respond('{}', 503)] : []),
+          respond(answer())
+        );
+
+        const output = await collect(
+          session.sendStream('count once', fixture.recovery ? options : undefined)
+        );
+
+        expect(output).toEqual(['answer']);
+        expect(calls).toEqual([{ value: 7 }]);
+        expect(session.getMessages()).toMatchObject([
+          { role: 'system', content: 'You are a helpful assistant.' },
+          { role: 'user', content: 'count once' },
+          ...(fixture.recovery
+            ? [
+                {
+                  role: 'assistant',
+                  tool_calls: [{ id: 'call-one', function: { name: 'counter' } }],
+                },
+                { role: 'tool', tool_call_id: 'call-one', content: '"counted"' },
+              ]
+            : []),
+          { role: 'assistant', content: 'answer' },
+        ]);
+        expect(destinations).toEqual(
+          Array(fixture.recovery ? 4 : 2).fill(`${url}${provider.path}`)
+        );
+        for (const request of requests) {
+          const body: unknown = JSON.parse(request.toString());
+          expect(body).toMatchObject(
+            provider.name === 'ollama'
+              ? { options: { temperature: fixture.expected } }
+              : { temperature: fixture.expected }
+          );
+        }
+        const followUp = requests.at(-1);
+        assert(followUp);
+        expect(JSON.parse(followUp.toString()).messages).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              role: 'assistant',
+              tool_calls: [
+                expect.objectContaining({ function: expect.objectContaining({ name: 'counter' }) }),
+              ],
+            }),
+            expect.objectContaining({ role: 'tool', content: '"counted"' }),
+          ])
+        );
+        expect(requests.slice(0, fixture.recovery ? 2 : 1)).toEqual(
+          Array(fixture.recovery ? 2 : 1).fill(requests[0])
+        );
+        expect(requests.slice(fixture.recovery ? 2 : 1)).toEqual(
+          Array(fixture.recovery ? 2 : 1).fill(followUp)
+        );
+      }
+    );
 
     it.each(retryAfterFixtures.cases)(
       'propagates Retry-After $name through broker and session streaming',

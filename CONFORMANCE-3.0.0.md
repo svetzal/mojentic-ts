@@ -1,6 +1,7 @@
-# 3.0.0 conformance: admission and Retry-After dates
+# 3.0.0 conformance: admission, Retry-After dates and session temperature
 
-This is a partial conformance record for October 12 recovery amendment items 2 and 5.
+This is a partial conformance record for October 12 recovery amendment items 2 and 5
+and release part 5, audit bug #4 (session temperature).
 It is not 3.0.0 release readiness or cross-repository compatibility approval.
 Package, runtime and lockfile versions remain unchanged at 2.1.0.
 
@@ -308,8 +309,8 @@ evidence, not a complete audit of those decisions. In particular capability
 citations, provider metadata rules, streaming capture,
 keepalive behavior and remaining robustness decisions need their own mappings.
 All remaining October 9 recovery contract decisions, native reasoning, model
-metadata/request fidelity and the separate session temperature issue remain
-unverified for 3.0.0. Existing regression tests do not establish their full
+metadata/request fidelity remain unverified for 3.0.0. The focused session
+temperature correction is verified locally below. Existing regression tests do not establish their full
 contract conformance. No versions or quality thresholds were changed.
 
 No shared executable contract was changed. The local provider scripts exercise
@@ -320,3 +321,95 @@ verification results are unavailable. Coordination must supply those before any
 cross-repository compatibility claim or consumer migration. Neither inspection
 of Elixir nor matching lifecycle names proves paired verification. Release and
 publication remain on hold pending the broader initiative conditions.
+
+## Part 5, audit bug #4: explicit session temperature zero
+
+Tested TypeScript base: `020fbf98f8693267130f8dbdd570f3be18bb316a`, plus
+this uncommitted correction. The binding release part 5 and initiative brief
+were inspected; the brief hash matches the authorization recorded above.
+Foundry owns finalization. No refs, package/runtime versions, dependencies,
+coverage thresholds, CI requirements or other repositories were changed.
+
+`ChatSession` now defaults temperature with `??` instead of `||`. Explicit
+zero reaches both public send methods; omission retains `1.0` and explicit
+nonzero values remain unchanged. Broader request-default fidelity belongs to
+release part 3 and is outside this correction.
+
+The local executable case set is `session-temperature-v1`, stored in
+`src/llm/session-temperature-fixtures.json` and consumed by the two existing
+HTTP conformance harnesses. The maintained OpenAI, Ollama and oMLX adapters
+and the real broker/session send actual HTTP requests to the existing scripted
+loopback providers. No fetch, broker or gateway mocks are used. The counter
+tool is a real executable tool. This is local adapter boundary conformance,
+not evidence of a live provider or another repository verifying these cases.
+
+Named tests (each expanded for `zero`, `omitted`, `nonzero`, and `recovery` /
+`disabled`, for each of the three adapters; 36 cases):
+
+- `preserves session temperature $name through send $mode and tool follow-ups`
+- `preserves session temperature $name through sendStream $mode and tool follow-ups`
+
+Each checks returned content, exactly-once tool execution, successful conversation
+history, assistant/tool history in the actual follow-up request, and every wire
+request's temperature (`options.temperature` for Ollama). Recovery cases inject
+HTTP 503 before both the initial tool response and the final answer, verifying
+byte-identical resends at both stages. Recovery retains completed tool history;
+disabled recovery preserves its existing session-history copying behavior.
+Omitted temperature sends `1`; explicit `0.4` sends `0.4` on every request.
+
+### Rejecting and passing evidence
+
+Before expanding the case matrix or documentation, six zero-temperature recovery
+cases were added against the unchanged base implementation. The command
+`npm test -- --runInBand src/llm/recovery-conformance.test.ts src/llm/streaming-recovery-conformance.test.ts -t 'preserves session temperature zero'`
+exited **1**: all six rejected actual provider temperature `1` where `0` was
+required, after successful content and history assertions. Changing only the
+constructor fallback made the identical command exit **0** (six passing cases).
+The later expanded command, with `-t 'preserves session temperature'`, exited
+**0** with all 36 cases passing. Full logs, actual probe exit codes and validated
+behavioral proof are retained in Foundry execution evidence, outside shipped
+project files.
+
+Final source and executable-set SHA-256 identities:
+
+```text
+9689cd6fc823a1245ffba4df9efa43060c0850c813a948051b56ccc263836a46  src/llm/chat-session.ts
+45925454779ac55586adb87ce531e989cfb62bcbca3637c162a0bb2032cd5bf2  src/llm/session-temperature-fixtures.json
+244d89e7ba312ede1509d33a62151014e686ca9f3c884f9d9be67136cef37107  src/llm/recovery-conformance.test.ts
+2c783bea25db9a97a0946df68d36b2fbca4e15b64ed99587e291135c41bfa9c9  src/llm/streaming-recovery-conformance.test.ts
+```
+
+### Verification results
+
+| Command | Exit | Result |
+| --- | --- | --- |
+| `npm ci` | 0 | Installed the unchanged lockfile |
+| `npm run format` | 0 | Formatted source and examples |
+| `npm run lint` | 0 | Zero warnings |
+| `npm run format:check` | 0 | Passed |
+| `npm test` | 0 | 51 suites, 2,342 tests passed |
+| `npm run build` | 0 | Passed |
+| `npm test -- --coverage` | 0 | 2,342 tests passed; statements 86.73%, branches 81.54%, functions 89.70%, lines 87.23%; all unchanged 70% floors passed |
+| `npm audit --omit=dev --audit-level=moderate` | 0 | Zero vulnerabilities |
+| `npm audit` | 0 | Zero vulnerabilities |
+| `npm_config_cache=/tmp/mojentic-ts-npm-cache npm outdated` | 1 | Registry query succeeded; only ESLint is outdated: current 10.12.0, wanted/latest 10.13.0 |
+| `npm run docs:build` | 0 | Passed; existing VitePress/Rolldown plugin diagnostics and transformWithEsbuild deprecation remain |
+
+All four `.hone-gates.json` commands passed in their declared order. The first
+`npm outdated` attempt could not write the default cache on the read-only
+filesystem; rerunning with the writable cache above completed the query.
+Exit 1 reports the available ESLint update, not a security advisory. No advisory
+was suppressed, no dependencies were changed, and no test thresholds were lowered.
+The documentation tutorial and public configuration JSDoc now explain that zero
+is retained and omission keeps `1.0`. README and examples need no API changes.
+
+### Cross-repository verification gap
+
+Only TypeScript base `020fbf98f8693267130f8dbdd570f3be18bb316a` plus these
+worktree changes was executed. No external provider or consumer commit was
+verified against `session-temperature-v1`; commands and results for those sides
+are missing. Paired verification requires separately authorized coordination
+using the same identifiable executable cases. No paired compatibility, consumer
+migration readiness or coordinated 3.0.0 release readiness is claimed. The parent
+PARITY.md update remains outside this repository's write scope; publication
+remains on hold.

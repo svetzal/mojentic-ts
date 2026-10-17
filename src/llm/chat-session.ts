@@ -25,6 +25,7 @@ export interface ChatSessionConfig {
   tools?: LlmTool[];
   maxContext?: number;
   tokenizerGateway?: Tokenizer;
+  /** Sampling temperature; explicit zero is preserved. Defaults to 1.0 when omitted. */
   temperature?: number;
 }
 
@@ -65,7 +66,7 @@ export class ChatSession {
     this.systemPrompt = config.systemPrompt || 'You are a helpful assistant.';
     this.tools = config.tools;
     this.maxContext = config.maxContext || 32768;
-    this.temperature = config.temperature || 1.0;
+    this.temperature = config.temperature ?? 1.0;
     this.tokenizerGateway = config.tokenizerGateway || new TokenizerGateway();
 
     // Initialize with system prompt

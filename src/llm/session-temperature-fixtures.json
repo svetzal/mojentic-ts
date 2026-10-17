@@ -1,0 +1,8 @@
+{
+  "version": "session-temperature-v1",
+  "cases": [
+    { "name": "zero", "config": { "temperature": 0 }, "expected": 0 },
+    { "name": "omitted", "config": {}, "expected": 1 },
+    { "name": "nonzero", "config": { "temperature": 0.4 }, "expected": 0.4 }
+  ]
+}
