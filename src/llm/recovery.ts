@@ -191,13 +191,29 @@ function parseRetryAfter(value: string | null, now: number): RetryAfter {
     const delayMs = Number(value) * 1000;
     return Number.isSafeInteger(delayMs) ? { kind: 'seconds', delayMs } : { kind: 'invalid' };
   }
-  // HTTP dates must have the RFC 1123 shape; Date.parse alone accepts non-HTTP strings.
-  if (!/^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(value))
-    return { kind: 'invalid' };
-  const unixMs = Date.parse(value);
+  // Gate Date.parse to the three HTTP-date forms; it also accepts non-HTTP strings.
+  const httpDateForms = [
+    /^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/,
+    /^[A-Z][a-z]+, \d{2}-[A-Z][a-z]{2}-\d{2} \d{2}:\d{2}:\d{2} GMT$/,
+    /^[A-Z][a-z]{2} [A-Z][a-z]{2} (?: \d|\d{2}) \d{2}:\d{2}:\d{2} \d{4}$/,
+  ];
+  if (!httpDateForms.some((form) => form.test(value))) return { kind: 'invalid' };
+  // asctime has no zone suffix, but HTTP dates are always UTC.
+  const unixMs = Date.parse(normalizeHttpDate(value, now));
   return Number.isFinite(unixMs)
     ? { kind: 'date', unixMs, delayMs: Math.max(0, unixMs - now) }
     : { kind: 'invalid' };
+}
+/** Normalize zone-less asctime and RFC 850's rolling two-digit year before parsing. */
+function normalizeHttpDate(value: string, now: number): string {
+  if (!value.endsWith('GMT')) return `${value} GMT`;
+  const cutoff = new Date(now);
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() + 50);
+  return value.replace(/-(\d{2}) /, (_match: string, shortYear: string): string => {
+    const year = Math.floor(cutoff.getUTCFullYear() / 100) * 100 + Number(shortYear);
+    const candidate = value.replace(`-${shortYear} `, `-${year} `);
+    return `-${Date.parse(candidate) > cutoff.getTime() ? year - 100 : year} `;
+  });
 }
 function safeRequestId(headers: Headers): string | undefined {
   const value = headers.get('x-request-id');

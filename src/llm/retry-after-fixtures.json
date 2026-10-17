@@ -1,0 +1,325 @@
+{
+  "version": "retry-after-http-dates-v1",
+  "wallClockMs": 1791590400000,
+  "cases": [
+    {
+      "name": "seconds",
+      "header": "2",
+      "retryAfter": {
+        "kind": "seconds",
+        "delayMs": 2000
+      },
+      "scheduledDelayMs": 2000,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "IMF-fixdate",
+      "header": "Sat, 10 Oct 2026 00:00:02 GMT",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 1791590402000,
+        "delayMs": 2000
+      },
+      "scheduledDelayMs": 2000,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "RFC850",
+      "header": "Saturday, 10-Oct-26 00:00:02 GMT",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 1791590402000,
+        "delayMs": 2000
+      },
+      "scheduledDelayMs": 2000,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "asctime",
+      "header": "Sat Oct 10 00:00:02 2026",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 1791590402000,
+        "delayMs": 2000
+      },
+      "scheduledDelayMs": 2000,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "IMF past",
+      "header": "Fri, 09 Oct 2026 00:00:00 GMT",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 1791504000000,
+        "delayMs": 0
+      },
+      "scheduledDelayMs": 100,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "RFC850 past",
+      "header": "Friday, 09-Oct-26 00:00:00 GMT",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 1791504000000,
+        "delayMs": 0
+      },
+      "scheduledDelayMs": 100,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "asctime past",
+      "header": "Fri Oct  9 00:00:00 2026",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 1791504000000,
+        "delayMs": 0
+      },
+      "scheduledDelayMs": 100,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "invalid",
+      "header": "payload-secret",
+      "retryAfter": {
+        "kind": "invalid"
+      },
+      "scheduledDelayMs": 100,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "fraction",
+      "header": "1.5",
+      "retryAfter": {
+        "kind": "invalid"
+      },
+      "scheduledDelayMs": 100,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "huge",
+      "header": "99999999999999999999999",
+      "retryAfter": {
+        "kind": "invalid"
+      },
+      "scheduledDelayMs": 100,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "ISO",
+      "header": "2026-10-10T00:00:02Z",
+      "retryAfter": {
+        "kind": "invalid"
+      },
+      "scheduledDelayMs": 100,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "numeric date",
+      "header": "10/10/2026",
+      "retryAfter": {
+        "kind": "invalid"
+      },
+      "scheduledDelayMs": 100,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "missing GMT",
+      "header": "Sat, 10 Oct 2026 00:00:02",
+      "retryAfter": {
+        "kind": "invalid"
+      },
+      "scheduledDelayMs": 100,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "invalid month",
+      "header": "Sat, 10 Xxx 2026 00:00:02 GMT",
+      "retryAfter": {
+        "kind": "invalid"
+      },
+      "scheduledDelayMs": 100,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "absent",
+      "header": null,
+      "retryAfter": {
+        "kind": "absent"
+      },
+      "scheduledDelayMs": 100,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "seconds ceiling",
+      "header": "4",
+      "retryAfter": {
+        "kind": "seconds",
+        "delayMs": 4000
+      },
+      "scheduledDelayMs": null,
+      "outcome": "delay_ceiling",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "IMF-fixdate ceiling",
+      "header": "Sat, 10 Oct 2026 00:00:04 GMT",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 1791590404000,
+        "delayMs": 4000
+      },
+      "scheduledDelayMs": null,
+      "outcome": "delay_ceiling",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "RFC850 ceiling",
+      "header": "Saturday, 10-Oct-26 00:00:04 GMT",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 1791590404000,
+        "delayMs": 4000
+      },
+      "scheduledDelayMs": null,
+      "outcome": "delay_ceiling",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "asctime ceiling",
+      "header": "Sat Oct 10 00:00:04 2026",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 1791590404000,
+        "delayMs": 4000
+      },
+      "scheduledDelayMs": null,
+      "outcome": "delay_ceiling",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "seconds budget",
+      "header": "2",
+      "retryAfter": {
+        "kind": "seconds",
+        "delayMs": 2000
+      },
+      "scheduledDelayMs": null,
+      "outcome": "deadline",
+      "delayCeilingMs": 3000,
+      "budgetMs": 1000
+    },
+    {
+      "name": "IMF-fixdate budget",
+      "header": "Sat, 10 Oct 2026 00:00:02 GMT",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 1791590402000,
+        "delayMs": 2000
+      },
+      "scheduledDelayMs": null,
+      "outcome": "deadline",
+      "delayCeilingMs": 3000,
+      "budgetMs": 1000
+    },
+    {
+      "name": "RFC850 budget",
+      "header": "Saturday, 10-Oct-26 00:00:02 GMT",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 1791590402000,
+        "delayMs": 2000
+      },
+      "scheduledDelayMs": null,
+      "outcome": "deadline",
+      "delayCeilingMs": 3000,
+      "budgetMs": 1000
+    },
+    {
+      "name": "asctime budget",
+      "header": "Sat Oct 10 00:00:02 2026",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 1791590402000,
+        "delayMs": 2000
+      },
+      "scheduledDelayMs": null,
+      "outcome": "deadline",
+      "delayCeilingMs": 3000,
+      "budgetMs": 1000
+    },
+    {
+      "name": "RFC850 future century",
+      "header": "Thursday, 10-Oct-75 00:00:02 GMT",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 3337891202000,
+        "delayMs": 1546300802000
+      },
+      "scheduledDelayMs": null,
+      "outcome": "delay_ceiling",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "RFC850 fifty years",
+      "header": "Saturday, 10-Oct-76 00:00:00 GMT",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 3369513600000,
+        "delayMs": 1577923200000
+      },
+      "scheduledDelayMs": null,
+      "outcome": "delay_ceiling",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    },
+    {
+      "name": "RFC850 over fifty years",
+      "header": "Sunday, 10-Oct-76 00:00:02 GMT",
+      "retryAfter": {
+        "kind": "date",
+        "unixMs": 213753602000,
+        "delayMs": 0
+      },
+      "scheduledDelayMs": 100,
+      "outcome": "success",
+      "delayCeilingMs": 3000,
+      "budgetMs": 10000
+    }
+  ]
+}

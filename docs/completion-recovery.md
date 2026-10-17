@@ -107,10 +107,19 @@ Zero base delay is supported. A supplied jitter value must be finite and in
 `[0, 1]`. Durations must be finite nonnegative milliseconds within Node's timer
 range, and `maxAttempts` must be a positive safe integer.
 
-`Retry-After` accepts integer seconds or an RFC 1123 HTTP date. Past dates have
-zero remaining delay. Invalid/absent values are explicit and do not replace the
+`Retry-After` accepts integer seconds and all three HTTP-date forms:
+IMF-fixdate (`Sat, 10 Oct 2026 00:00:02 GMT`), RFC 850
+(`Saturday, 10-Oct-26 00:00:02 GMT`) and asctime
+(`Sat Oct 10 00:00:02 2026`). All are UTC, including asctime without a zone
+suffix, and dates are compared with the observed wall clock. RFC 850 two-digit
+years use the [HTTP 50-year rule](https://www.rfc-editor.org/rfc/rfc9110.html#section-5.6.7):
+a timestamp more than 50 years ahead is interpreted in the most recent past
+century with the same final two year digits. Past dates have zero remaining delay. Invalid/absent values are explicit and do not replace the
 jittered delay. Valid provider delays are minima. A minimum over the ceiling or
-remaining recovery budget refuses the retry; it is never shortened.
+remaining recovery budget refuses the retry; it is never shortened. ISO timestamps,
+locale date strings and fractional seconds remain invalid. This behavior applies
+to OpenAI, Ollama and oMLX ordinary, structured and both streaming recovery APIs,
+including broker and session propagation. Recovery-disabled behavior is unchanged.
 
 `budgetMs` starts at the first completed failure using a monotonic clock.
 `deadlineMs` is an absolute wall-clock timestamp. Both bound admission/backoff

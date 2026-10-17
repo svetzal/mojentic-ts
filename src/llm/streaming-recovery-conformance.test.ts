@@ -20,6 +20,7 @@ import {
 } from './recovery';
 import { LlmStreamEvent } from './stream-events';
 import { LlmTool } from './tools';
+import retryAfterFixtures from './retry-after-fixtures.json';
 
 type Output = Result<StreamChunk, Error> | LlmStreamEvent;
 type Reply = (response: ServerResponse, request: IncomingMessage) => void;
@@ -294,48 +295,47 @@ for (const provider of providers)
         checkRequests();
       });
 
-      it.each([
-        ['seconds', '2', 'seconds', 2000],
-        ['date', 'Sat, 10 Oct 2026 00:00:02 GMT', 'date', 2000],
-        ['past', 'Fri, 09 Oct 2026 00:00:00 GMT', 'date', 0],
-        ['invalid', '1.5', 'invalid', 0],
-        ['huge', '99999999999999999999999', 'invalid', 0],
-        ['absent', '', 'absent', 0],
-      ])('honors Retry-After %s without shortening delay', async (_name, header, kind, delay) => {
-        const delays: number[] = [];
-        replies.push(
-          respond('{}', 429, header ? { 'Retry-After': header } : {}),
-          respond(success())
-        );
+      it.each(retryAfterFixtures.cases)(
+        'honors Retry-After $name without shortening delay',
+        async (fixture) => {
+          const sleeper = jest.fn(async () => {});
+          replies.push(
+            respond('{}', 429, fixture.header === null ? {} : { 'Retry-After': fixture.header }),
+            respond(success())
+          );
 
-        await run({
-          ...options,
-          wallClock: () => Date.UTC(2026, 9, 10),
-          sleep: async (ms) => {
-            delays.push(ms);
-          },
-        });
+          const output = await run({
+            ...options,
+            baseDelayMs: 100,
+            jitter: () => 1,
+            delayCeilingMs: fixture.delayCeilingMs,
+            budgetMs: fixture.budgetMs,
+            wallClock: () => retryAfterFixtures.wallClockMs,
+            monotonicClock: () => 0,
+            sleep: sleeper,
+          });
 
-        expect(delays).toEqual([delay]);
-        expect(
-          events.find((event) => event.type === 'attempt_failed')?.failure?.retryAfter.kind
-        ).toBe(kind);
-        expect(requests).toHaveLength(2);
-        checkRequests();
-      });
-
-      it.each([
-        ['ceiling', { delayCeilingMs: 999 }, 'delay_ceiling'],
-        ['budget', { budgetMs: 999 }, 'deadline'],
-      ] as const)('refuses Retry-After beyond %s', async (_name, limits, outcome) => {
-        replies.push(respond('{}', 429, { 'Retry-After': '2' }));
-
-        const error = recoveryError(await run({ ...options, ...limits }));
-
-        expect(error.outcome).toBe(outcome);
-        expect(requests).toHaveLength(1);
-        expect(types(events)).not.toContain('retry_started');
-      });
+          expect(
+            fixture.outcome === 'success' ? content(output) : recoveryError(output).outcome
+          ).toBe(fixture.outcome === 'success' ? 'answer' : fixture.outcome);
+          expect(sleeper.mock.calls).toEqual(
+            fixture.scheduledDelayMs === null
+              ? []
+              : [[fixture.scheduledDelayMs, expect.any(AbortSignal)]]
+          );
+          expect(
+            events.find((event) => event.type === 'attempt_failed')?.failure?.retryAfter
+          ).toEqual(fixture.retryAfter);
+          expect(
+            events.filter((event) => event.type === 'delay_scheduled').map((event) => event.delayMs)
+          ).toEqual(fixture.scheduledDelayMs === null ? [] : [fixture.scheduledDelayMs]);
+          expect(requests).toHaveLength(fixture.outcome === 'success' ? 2 : 1);
+          expect(requests).toEqual(Array(requests.length).fill(requests[0]));
+          checkDestinations(provider);
+          checkRequests();
+          expect(JSON.stringify(events)).not.toMatch(/credential-secret|payload-secret/);
+        }
+      );
 
       it.each([301, 302, 307, 308, 421])(
         'sends once without hidden resends or redirects on %s',
@@ -1549,6 +1549,51 @@ for (const provider of providers) {
         provider.name === 'ollama' ? 'stop' : 'tool_calls'
       ) + provider.end;
 
+    it.each(retryAfterFixtures.cases)(
+      'propagates Retry-After $name through broker and session streaming',
+      async (fixture) => {
+        replies.push(
+          respond('{}', 429, fixture.header === null ? {} : { 'Retry-After': fixture.header }),
+          respond(answer())
+        );
+        const sleeper = jest.fn(async () => {});
+
+        const result = await settleSession(
+          session.sendStream('query', {
+            ...options,
+            baseDelayMs: 100,
+            jitter: () => 1,
+            delayCeilingMs: fixture.delayCeilingMs,
+            budgetMs: fixture.budgetMs,
+            wallClock: () => retryAfterFixtures.wallClockMs,
+            monotonicClock: () => 0,
+            sleep: sleeper,
+          })
+        );
+
+        expect(result.error?.outcome ?? 'success').toBe(fixture.outcome);
+        expect(result.output).toEqual(fixture.outcome === 'success' ? ['answer'] : []);
+        expect(
+          events.find((event) => event.type === 'attempt_failed')?.failure?.retryAfter
+        ).toEqual(fixture.retryAfter);
+        expect(sleeper.mock.calls).toEqual(
+          fixture.scheduledDelayMs === null
+            ? []
+            : [[fixture.scheduledDelayMs, expect.any(AbortSignal)]]
+        );
+        expect(
+          events.filter((event) => event.type === 'delay_scheduled').map((event) => event.delayMs)
+        ).toEqual(fixture.scheduledDelayMs === null ? [] : [fixture.scheduledDelayMs]);
+        expect(requests).toHaveLength(fixture.outcome === 'success' ? 2 : 1);
+        expect(requests).toEqual(Array(requests.length).fill(requests[0]));
+        checkDestinations(provider);
+        checkRequests();
+        expect(session.getMessages().map((message) => message.role)).toEqual(
+          fixture.outcome === 'success' ? ['system', 'user', 'assistant'] : ['system', 'user']
+        );
+        expect(JSON.stringify(events)).not.toMatch(/credential-secret|payload-secret/);
+      }
+    );
     it('propagates no decision through broker and session streaming without assistant history', async () => {
       replies.push(respond('{}', 503), respond(answer()));
 

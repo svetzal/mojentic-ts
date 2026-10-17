@@ -21,6 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   characterized behavior across OpenAI, Ollama and oMLX ordinary, structured and
   streaming calls, including broker and session propagation.
 
+### Fixed
+
+- Recovery now accepts RFC 850 and asctime Retry-After dates alongside
+  IMF-fixdate and integer seconds across OpenAI, Ollama and oMLX ordinary,
+  structured and streaming entrypoints, including brokers and sessions. asctime
+  is interpreted as UTC and RFC 850 years follow HTTP's 50-year rule. Parsed
+  provider minima are preserved: dates beyond the delay ceiling or recovery
+  budget refuse resend rather than falling back to jitter. Past dates retain
+  zero remaining delay; absent/invalid values and recovery-disabled calls retain
+  their existing behavior. No caller migration or version change is required.
+
 ### Documentation
 
 - Replaced obsolete 2.1.0 release authorization with the binding coordinated

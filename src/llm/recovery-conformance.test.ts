@@ -19,6 +19,7 @@ import {
 } from './recovery';
 import { Err, Ok, Result } from '../error';
 import { LlmTool } from './tools';
+import retryAfterFixtures from './retry-after-fixtures.json';
 
 type Reply = (response: ServerResponse, request: IncomingMessage) => void;
 interface Send {
@@ -386,18 +387,15 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
         'exhausted',
       ]);
     });
-    it.each([
-      ['seconds', '2', 2000, 3000, undefined, 'success'],
-      ['date', 'Sat, 10 Oct 2026 00:00:02 GMT', 2000, 3000, undefined, 'success'],
-      ['past', 'Fri, 09 Oct 2026 00:00:00 GMT', 100, 3000, undefined, 'success'],
-      ['invalid', 'payload-secret', 100, 3000, undefined, 'success'],
-      ['ceiling', '4', undefined, 3000, undefined, 'delay_ceiling'],
-      ['budget', '2', undefined, 3000, 1000, 'deadline'],
-    ] as const)(
-      'handles Retry-After %s without shortening the minimum',
-      async (_name, retryAfter, delay, delayCeilingMs, budgetMs, outcome) => {
+    it.each(retryAfterFixtures.cases)(
+      'handles Retry-After $name without shortening the minimum',
+      async (fixture) => {
         replies = [
-          jsonReply(429, { error: 'rate limit' }, { 'Retry-After': retryAfter }),
+          jsonReply(
+            429,
+            { error: 'rate limit' },
+            fixture.header === null ? {} : { 'Retry-After': fixture.header }
+          ),
           jsonReply(200, provider.success(content)),
         ];
         const sleeper = jest.fn(async () => {});
@@ -406,25 +404,36 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
           policy({
             baseDelayMs: 100,
             jitter: () => 1,
-            delayCeilingMs,
-            budgetMs,
-            wallClock: () => Date.parse('2026-10-10T00:00:00Z'),
+            delayCeilingMs: fixture.delayCeilingMs,
+            budgetMs: fixture.budgetMs,
+            wallClock: () => retryAfterFixtures.wallClockMs,
+            monotonicClock: () => 0,
             sleep: sleeper,
           })
         );
 
         expect(result).toMatchObject(
-          outcome === 'success' ? { ok: true } : { ok: false, error: { outcome } }
+          fixture.outcome === 'success'
+            ? { ok: true }
+            : { ok: false, error: { outcome: fixture.outcome } }
         );
+        expect(
+          events.find((event) => event.type === 'attempt_failed')?.failure?.retryAfter
+        ).toEqual(fixture.retryAfter);
         expect(sleeper.mock.calls).toEqual(
-          delay === undefined ? [] : [[delay, expect.any(AbortSignal)]]
-        );
-        expect(sends.map((send) => send.bytes)).toEqual(
-          Array(outcome === 'success' ? 2 : 1).fill(sends[0].bytes)
+          fixture.scheduledDelayMs === null
+            ? []
+            : [[fixture.scheduledDelayMs, expect.any(AbortSignal)]]
         );
         expect(
           events.filter((event) => event.type === 'delay_scheduled').map((event) => event.delayMs)
-        ).toEqual(delay === undefined ? [] : [delay]);
+        ).toEqual(fixture.scheduledDelayMs === null ? [] : [fixture.scheduledDelayMs]);
+        const expectedSends = fixture.outcome === 'success' ? 2 : 1;
+        assertSends(expectedSends);
+        const started = events.filter((event) => event.type === 'attempt_started');
+        expect(new Set(started.map((event) => event.attemptId)).size).toBe(expectedSends);
+        expect(new Set(started.map((event) => event.logicalRequestId)).size).toBe(1);
+        expect(JSON.stringify(events)).not.toMatch(/credential-secret|payload-secret/);
       }
     );
     it.each(['allow', 'reject'] as const)(
@@ -1240,6 +1249,69 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
         : ['attempt_started', 'attempt_failed', 'admission_required']
     );
   });
+  it.each(retryAfterFixtures.cases)(
+    'propagates Retry-After $name through broker and session',
+    async (fixture) => {
+      replies = [
+        jsonReply(
+          429,
+          { error: 'rate limit' },
+          fixture.header === null ? {} : { 'Retry-After': fixture.header }
+        ),
+        jsonReply(200, provider.success('answer')),
+      ];
+      const session = new ChatSession(new LlmBroker('gpt-4o', provider.gateway(url)), {
+        tokenizerGateway: { encode: () => [], decode: () => '', free: () => {} },
+      });
+      const sleeper = jest.fn(async () => {});
+      try {
+        const result = await session
+          .send(
+            'payload-secret',
+            policy({
+              baseDelayMs: 100,
+              jitter: () => 1,
+              delayCeilingMs: fixture.delayCeilingMs,
+              budgetMs: fixture.budgetMs,
+              wallClock: () => retryAfterFixtures.wallClockMs,
+              monotonicClock: () => 0,
+              sleep: sleeper,
+            })
+          )
+          .then(
+            (value) => Ok(value),
+            (error: Error) => Err(error)
+          );
+
+        expect(result).toMatchObject(
+          fixture.outcome === 'success'
+            ? { ok: true, value: 'answer' }
+            : { ok: false, error: { outcome: fixture.outcome } }
+        );
+        expect(
+          events.find((event) => event.type === 'attempt_failed')?.failure?.retryAfter
+        ).toEqual(fixture.retryAfter);
+        expect(sleeper.mock.calls).toEqual(
+          fixture.scheduledDelayMs === null
+            ? []
+            : [[fixture.scheduledDelayMs, expect.any(AbortSignal)]]
+        );
+        expect(
+          events.filter((event) => event.type === 'delay_scheduled').map((event) => event.delayMs)
+        ).toEqual(fixture.scheduledDelayMs === null ? [] : [fixture.scheduledDelayMs]);
+        const expectedSends = fixture.outcome === 'success' ? 2 : 1;
+        assertSends(expectedSends);
+        const started = events.filter((event) => event.type === 'attempt_started');
+        expect(new Set(started.map((event) => event.attemptId)).size).toBe(expectedSends);
+        expect(session.getMessages().map((message) => message.role)).toEqual(
+          fixture.outcome === 'success' ? ['system', 'user', 'assistant'] : ['system', 'user']
+        );
+        expect(JSON.stringify(events)).not.toMatch(/credential-secret|payload-secret/);
+      } finally {
+        session.dispose();
+      }
+    }
+  );
   it('propagates an omitted admission return through the public session', async () => {
     replies = [
       jsonReply(503, { error: 'payload-secret' }),

@@ -1,6 +1,6 @@
-# 3.0.0 conformance: admission without a decision
+# 3.0.0 conformance: admission and Retry-After dates
 
-This is a partial conformance record for October 12 recovery amendment item 2.
+This is a partial conformance record for October 12 recovery amendment items 2 and 5.
 It is not 3.0.0 release readiness or cross-repository compatibility approval.
 Package, runtime and lockfile versions remain unchanged at 2.1.0.
 
@@ -16,7 +16,7 @@ Elixir's admission normalization was inspected at
 only explicit allow/reject are decisions; unexpected completion and exceptions
 produce `admission_no_decision`. Elixir was not executed in this task.
 
-## Tested source and executable cases
+## Item 2: historical tested source and executable cases
 
 TypeScript base HEAD: `7110811dcd9226e45187346f110b9e0691b2b834` plus the
 uncommitted correction identified below. Foundry owns finalization; no commit,
@@ -59,7 +59,7 @@ deadlines. A pending promise continues waiting under existing cancellation and
 budget rules. Migration guidance is in [completion recovery](docs/completion-recovery.md)
 and CHANGELOG Unreleased, including exhaustive public union switches.
 
-## Commands and results
+## Item 2: historical commands and results
 
 All verbose commands were run using
 `foundry capture --log-dir .foundry/logs -- <command>`; evidence is archived by
@@ -110,13 +110,110 @@ validated for shape, types, actual rejecting/corrected exit codes and existing
 nonempty logs, with six failed-before and six passed-after public HTTP probes.
 `git diff --check` passed.
 
+## Item 5: Retry-After HTTP dates
+
+Current tested TypeScript base revision:
+`ccc1fe2fed735bbfd1f6dd3a0e471a6a90ad0abc`, plus the uncommitted item-5
+correction. The item-2 hashes and results above are historical evidence from
+that earlier correction, not hashes of the current working tree.
+The parent contract and initiative brief were re-read and their hashes above
+verified unchanged. Only TypeScript was changed; parent PARITY.md and other
+ports remain outside this worktree's authorization.
+
+The local executable fixture version is `retry-after-http-dates-v1`, with
+26 deterministic cases shared by both existing public HTTP conformance suites.
+The JSON fixture SHA-256 is
+`29da81c5a18457ffa0c9f2f1fcc023db5f4cdedfc96ec40ce360ef2cb2da8ed5`.
+The executable fixture-set SHA-256 is
+`d3c7914bbb14803a031669b9c5d77f09c8042ce455fcc2a33386b0eb7d479372`.
+It hashes the UTF-8 output (including final newlines) of:
+
+```sh
+sha256sum src/llm/retry-after-fixtures.json src/llm/recovery-conformance.test.ts src/llm/streaming-recovery-conformance.test.ts
+```
+
+Current file hashes:
+
+```text
+876ea50d93f496ec5c57d50652fdcee500c909ae5414694a388a3335e631f0e3  src/llm/recovery.ts
+29da81c5a18457ffa0c9f2f1fcc023db5f4cdedfc96ec40ce360ef2cb2da8ed5  src/llm/retry-after-fixtures.json
+9deb03d4e9ead298ed33013bf2ff755286e4a9f5c7b8e56453707d56e5f80460  src/llm/recovery-conformance.test.ts
+742da209979ba7b9652dfb4a30d6eaaaf7ee07fef28d0310e388ab10e4ee82e8  src/llm/streaming-recovery-conformance.test.ts
+```
+
+### Item-5 named-test mapping
+
+Every row runs for OpenAI, Ollama and oMLX using real fetch against loopback
+HTTP fixtures. No live inference, fetch mocks or independently authored gateway
+mocks establish this evidence. Wall and monotonic clocks, jitter and sleep are
+injected deterministically; HTTP destinations and bytes are recorded.
+
+| Named test | Boundary and assertions |
+| --- | --- |
+| `handles Retry-After $name without shortening the minimum` | Public broker ordinary and structured paths: all three date forms, parsed UTC timestamps and remaining delay; seconds, absent/invalid/overflow and non-HTTP date strings; zero remaining delay for past dates while preserving policy jitter; exact sleep and lifecycle delay; provider ceiling/budget refusal, including obsolete dates; immutable payloads, destinations, distinct attempt IDs, one logical request, safe telemetry. |
+| `honors Retry-After $name without shortening delay` | Both maintained gateway streaming forms (chunks and events): the same fixture set and semantics, identical request bytes and destinations, distinct wire-attempt identities and captures, refusal with one send and no scheduled sleep. |
+| `propagates Retry-After $name through broker and session` | Ordinary session via broker: the same parsed failure and lifecycle delays, refusal outcomes, byte/destination fidelity, unique attempts; assistant history is added only on success. |
+| `propagates Retry-After $name through broker and session streaming` | Streaming session via broker: the same fixture set, parsed failures, exact delays, unchanged request destination/payload, identities, successful output or refusal without resend or assistant history. |
+
+The RFC 850 cases include future years that JavaScript's fixed two-digit-year
+pivot would incorrectly treat as past, the exact 50-year boundary, and a date
+just beyond it. asctime is explicitly UTC even under the execution environment's
+`America/Toronto` timezone. Non-HTTP ISO timestamps, locale dates and missing
+GMT remain invalid. Recovery admission, cancellation, privacy and disabled-path
+behavior retain their full-suite regression coverage; this is preservation
+evidence, not new conformance signoff for unrelated amendment decisions.
+
+### Item-5 commands and results
+
+Each verbose command used the Foundry capture wrapper described above.
+The first probe exited 127 because Jest was not installed; `npm ci` then passed
+without changing the lockfile. This setup failure is not behavioral proof.
+
+Before changing production code, the public refusal probe below exited 1:
+12 tests incorrectly succeeded instead of refusing ceiling/budget violations.
+After the shape correction, six asctime tests still failed because JavaScript
+used the machine's local timezone; explicit UTC normalization corrected that.
+The final expanded probe exited 0 with 18 tests passed, including sessions. Proof logs and validated behavioral
+JSON are archived as Foundry execution evidence, outside shipped project files.
+
+| Exact command | Exit | Result |
+| --- | --- | --- |
+| `npm ci` | 0 | Installed existing lockfile; package, lockfile and runtime unchanged |
+| `npm test -- --runInBand src/llm/recovery-conformance.test.ts -t 'Retry-After (RFC850 ceiling\|asctime budget)'` | 1 then 0 | 12 rejecting probes, then 18 passing probes through ordinary/structured broker and session HTTP boundaries |
+| `npm test -- --runInBand src/llm/recovery-conformance.test.ts src/llm/streaming-recovery-conformance.test.ts -t Retry-After` | 0 | 468 passed across both HTTP suites, including session propagation |
+| `npm run format` | 0 | Formatted source/examples |
+| `npm run lint` | 0 | Zero errors and warnings |
+| `npm run format:check` | 0 | Passed |
+| `npm test` | 0 | 51 suites, 2,084 tests passed |
+| `npm run build` | 0 | TypeScript build passed |
+| `npm test -- --coverage` | 0 | 51 suites, 2,084 tests passed; existing 70% thresholds passed |
+| `npm audit` | 0 | Full tree: 0 vulnerabilities |
+| `npm audit --omit=dev --audit-level=moderate` | 0 | Production tree: 0 vulnerabilities |
+| `npm_config_cache=/tmp/mojentic-ts-npm-cache npm outdated` | 1 | Successful registry query: ESLint 10.12.0 current, 10.13.0 wanted/latest |
+| `npm run docs:build` | 0 | VitePress production build passed |
+
+Outdated exit 1 reports a newer package, not a security finding. Dependencies
+remain unchanged as required; no advisory was suppressed or allowlisted.
+All four required `.hone-gates.json` gates passed. Coverage: statements **86.73%**, branches **81.54%**, functions **89.70%**,
+lines **87.23%**. `git diff --check` and behavioral proof validation passed.
+
+This is local TypeScript HTTP boundary evidence for item 5, not paired
+cross-repository verification. The fixtures script provider responses and record
+actual adapter requests; no provider repository/commit or consumer repository
+was verified against this executable set. Provider-side verification commands,
+consumer commits and consumer-side verification results are missing and remain
+coordination work before compatibility claims or consumer migrations. The broader
+publication hold remains in force. Suggested finalization message:
+`fix: honor all HTTP Retry-After date forms in recovery`.
+
 ## Remaining decisions: unverified
 
-Only amendment item 2 has been implemented and verified here. Items 1, 3, 4,
-5, 6, 7 and 8 do not receive complete conformance signoff from this task.
+Amendment item 2 retains its earlier evidence; item 5 now has the local boundary
+evidence above. Items 1, 3, 4, 6, 7 and 8 do not receive complete conformance
+signoff from these corrections.
 Regression checks for absent hooks and other existing behavior are preservation
 evidence, not a complete audit of those decisions. In particular capability
-citations, provider metadata rules, all HTTP-date forms, streaming capture,
+citations, provider metadata rules, streaming capture,
 keepalive behavior and remaining robustness decisions need their own mappings.
 All remaining October 9 recovery contract decisions, native reasoning, model
 metadata/request fidelity and the separate session temperature issue remain
