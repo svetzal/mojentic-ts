@@ -930,3 +930,117 @@ finalization). The test-file hash identifies **ts-stream-first-token-v2**:
 fb65ae6890c42ad9363ca9e8309dcf15cb0e5dde50129a3b04f5a41e6527a646  src/llm/stream-timing.ts
 36109c56126cd2beaa75d60535e9d153190f1574a0afe1bb25a6229452f45abd  src/llm/streaming-recovery.ts
 ```
+
+## Cycle 12: single optional output limit
+
+Authorized scope: `MODEL-METADATA-2026-10.md` sections 3.2(1–3), 3.4–3.6,
+restricted to the output limit. Sampling defaults, context configuration,
+reasoning adaptation, recovery decisions, first-token timing and error identity
+remain as characterized. This does not claim the other request-fidelity work.
+The binding metadata contract was read from the parent project with SHA-256
+`a085da1c0d110f9d587a24ace6ac2854b653e1ac28905b3829d94d665b2c906e`.
+The initiative brief's recorded SHA-256
+`ea6a0efa56bfb3cd74b5ce728f80cc33c6fbd853114bec94b8aabe79f5d28e6e`
+was verified. The release hold and separately authorized consumer migrations
+remain in force; the parent PARITY update is outside this writable repository.
+
+Tested source: base commit `1769ccb7a3f7ef7ea57e86795d89f9d4924ceb3a`
+plus this uncommitted correction. No sibling repository, package/lockfile/runtime
+version, Git ref or published artifact was changed. Foundry owns finalization.
+
+The local executable set is **ts-output-limit-v1**, identified by the SHA-256 of
+`src/llm/output-limit-http.test.ts` below. It reuses this repository's real
+loopback HTTP conformance approach and public broker/gateway/session APIs,
+including the existing recovery-conformance suite. There is no SDK mock or
+private request-builder test in this set. The HTTP server records serialized
+requests, scripts 503 failures and successful provider-shaped responses, and
+exercises the real adapters. Exact top-level versus `options` placement, values,
+absence of competing aliases and exactly one serialized field are asserted.
+Successful content, structured parsing, terminal events, tool results and session
+text are checked alongside request fidelity, rather than inferring success from
+request counts.
+
+| Contract decision or preserved behavior | Named executable tests | Coverage |
+| --- | --- | --- |
+| Remove the public alias | `removes numPredict from the exported TypeScript CompletionConfig contract` | Conditional-type assignment fails compilation if the exported interface regains the field; Jest runs TypeScript diagnostics |
+| Remove precedence at runtime | `ignores a stale JavaScript numPredict alias in favor of maxTokens` | All four model/provider cases; a structurally compatible JavaScript object cannot override `maxTokens` |
+| Unrelated request controls | `characterizes unrelated request controls before output-limit correction` | Exact request bodies for OpenAI chat, OpenAI reasoning, Ollama and oMLX; explicit zero temperature, sampling and context controls |
+| Unrelated defaults and reasoning controls | `preserves sampling defaults and reasoning controls without an output limit` | Existing OpenAI/oMLX temperature defaults, Ollama omission, reasoning adaptation, supported sampling/context/stop controls and ignored fields |
+| Omission and exact explicit mapping | `$name / $name / serializes $name exactly and returns a successful response` | Four model/provider cases × ordinary, structured, legacy stream and event stream × legacy, recovery enabled and recovery resend × omitted config, empty config, explicit undefined, 37 and zero |
+| Hard acceptance probe | `omits the output limit on recovered event requests and resends` | All four cases; 503 then success, identical resend, successful content and terminal event; no output-limit alias on either request |
+| Ordinary tool follow-ups | `tool follow-up $name / preserves $name through ordinary tool follow-ups` | All providers, limit cases and policies; failure/resend before tool call and again on follow-up; successful tool result appears in serialized conversation |
+| Streaming tool follow-ups | `tool follow-up $name / preserves $name through streaming tool follow-ups` | Same matrix through legacy broker streaming and recursive tool dispatch |
+| Session omission and zero temperature | `omits the limit through session send and sendStream while retaining zero temperature` | Existing session API, all providers and policies; reasoning model's existing fixed-temperature adaptation retained |
+| Recovery preservation | `recovers a 503 with exact bytes, supported controls, history, identities, and ordered lifecycle` in `recovery-conformance.test.ts` | Ordinary and structured provider matrix; Ollama now receives the sole explicit limit 37, with other controls unchanged |
+| Timing and error preservation | Existing `first-token-http.test.ts`, `recovery-conformance.test.ts` and `streaming-recovery-conformance.test.ts` | Full suites run in both normal and coverage gates; no timing/recovery implementation changes |
+
+### Rejecting and corrected boundary proof
+
+Before expanding the matrix or running full gates, the eight-test initial HTTP
+probe ran on the unchanged base: **3 failed, 5 passed**, exit 1. All four unrelated
+request-control characterizations passed; the rejecting cases observed invented
+16,384 limits on OpenAI chat, OpenAI reasoning and oMLX recovered event requests.
+After changing only the public config and three shared request builders, the
+identical command `npm test -- --runInBand src/llm/output-limit-http.test.ts`
+passed **8/8**, exit 0. Foundry retains the actual logs and validated behavioral
+proof. The test file was then expanded to the final **389** cases.
+
+### Counterpart verification gap
+
+**Local conformance is passed; paired compatibility verification is unfinished.**
+No shared, versioned executable output-limit mechanism, assigned external
+consumer/provider repositories, counterpart tested commits or counterpart
+verification results were available. Existing recovery tests are local adapter
+conformance, not a shared provider/consumer contract mechanism. These scripted
+response fixtures are not verified provider doubles. Supported old/new shared
+contract versions and their counterpart error semantics have not been verified.
+
+Required coordination: assign both boundary owners and tested commits; publish
+or adopt a shared executable set derived from these versioned cases, including
+optional fields, successful behavior, relevant errors and supported old/new
+versions; bind consumer tests and provider verification to that same set and
+hash, and derive any doubles from it. Run that set in both repositories' required
+gates and retain full user-journey integration checks. For this repository the
+local command is `npm test -- --runInBand src/llm/output-limit-http.test.ts`
+(and `npm test` in the required gates). **Counterpart commands: not yet defined,
+blocked on the assigned repositories and shared runner; counterpart commits:
+not supplied; results: NOT RUN.** Running our loopback command alone in another
+checkout would still not verify its provider implementation. Relay this gap for
+separate initiative work; no consumer migration, paired compatibility or release
+readiness is claimed by this correction.
+
+Final executable/source SHA-256 identities:
+
+```text
+417781df25a692bad82685aaec1fcdd050a3d170dacd4d64f7cd62661b5b81f5  src/llm/output-limit-http.test.ts
+28bcb2a4dab8d8df8e0b621fa8874285cb1290ab01ea403afc1f481a7c0a8f76  src/llm/models.ts
+d72df3fc533789d1d123d91ad81d1c760db33fa247a76979dc7872be93e4cf75  src/llm/gateways/openai.ts
+8f648cec8e86ca9dd655335c071b9dd6729291a37ef2836d86e85bd2a0e3f911  src/llm/gateways/ollama.ts
+245e1bfd585c65984ed586602a61ce7d021dd9b49201d476dfa4fcde155d2293  src/llm/gateways/omlx.ts
+f19a423f13fd0a59ac3a3e7030eb82b045a6b879cf369bd089c1b47bdbe4f9cd  src/llm/recovery-conformance.test.ts
+```
+
+### Cycle-12 verification results
+
+The root `.hone-gates.json` is the only discovered gate file. All verbose
+commands ran through Foundry capture. Package, lockfile and runtime versions
+remain unchanged.
+
+| Command | Result |
+| --- | --- |
+| `npm ci` | Exit 0, unchanged lockfile |
+| `npm test -- --runInBand src/llm/output-limit-http.test.ts` | Exit 0, final 389/389 cases |
+| Focused output-limit, recovery-conformance, Ollama and oMLX suites | Exit 0, 1,863 cases before the last four preservation cases were added |
+| `npm run format` | Exit 0 |
+| `npm run lint && npm run format:check && npm test && npm audit --omit=dev --audit-level=moderate` | Exit 0; lint has zero warnings, formatting passes, 56 suites / 3,714 tests pass, production audit has zero vulnerabilities |
+| `npm run build` | Exit 0 |
+| `npm test -- --coverage` | Exit 0; 56 suites / 3,714 tests; statements 87.67%, branches 83.28%, functions 90.39%, lines 88.04%; every configured global threshold is 70% |
+| `npm audit` | Exit 0; zero vulnerabilities including development dependencies |
+| `npm outdated --cache /tmp/mojentic-output-limit-npm-cache` | Exit 1; ESLint installed 10.12.0, wanted/latest 10.13.0. No dependency/version/lockfile mutation in this scoped correction |
+| `npm run docs:build` | Exit 0; pages rendered. VitePress/Rolldown emits bundle-assignment compatibility diagnostics, plugin timing notices and a `transformWithEsbuild` deprecation; these are not lint findings or audit advisories |
+| `git diff --check` | Exit 0 |
+
+The initial behavioral proof JSON was validated for required field types,
+nonzero rejecting and zero corrected process exits, and existing logs containing
+the observed failing and passing eight-test outcomes. The working tree retains
+all source, test and documentation changes for Foundry review.

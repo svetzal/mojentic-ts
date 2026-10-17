@@ -281,7 +281,7 @@ describe('OllamaGateway', () => {
       );
     });
 
-    test('should pass numPredict parameter', async () => {
+    test('should pass maxTokens as num_predict', async () => {
       const mockResponse = {
         model: 'llama2',
         created_at: '2023-01-01T00:00:00Z',
@@ -301,7 +301,7 @@ describe('OllamaGateway', () => {
       const messages = [{ role: MessageRole.User, content: 'Hello' }];
 
       const config = {
-        numPredict: 150,
+        maxTokens: 150,
       };
 
       const result = await gateway.generate('llama2', messages, config);
@@ -317,39 +317,7 @@ describe('OllamaGateway', () => {
       );
     });
 
-    test('should prioritize numPredict over maxTokens', async () => {
-      const mockResponse = {
-        model: 'llama2',
-        created_at: '2023-01-01T00:00:00Z',
-        message: {
-          role: 'assistant',
-          content: 'Response',
-        },
-        done: true,
-      };
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => mockResponse,
-      });
-
-      const messages = [{ role: MessageRole.User, content: 'Hello' }];
-
-      const config = {
-        maxTokens: 100,
-        numPredict: 200,
-      };
-
-      const result = await gateway.generate('llama2', messages, config);
-
-      expect(isOk(result)).toBe(true);
-      const callArgs = mockFetch.mock.calls[0];
-      const body = JSON.parse(callArgs[1].body);
-      expect(body.options.num_predict).toBe(200);
-    });
-
-    test('should fallback to maxTokens when numPredict not provided', async () => {
+    test('should send the explicit maxTokens limit', async () => {
       const mockResponse = {
         model: 'llama2',
         created_at: '2023-01-01T00:00:00Z',
@@ -466,7 +434,7 @@ describe('OllamaGateway', () => {
         topP: 0.95,
         topK: 50,
         numCtx: 8192,
-        numPredict: 256,
+        maxTokens: 256,
       };
 
       const result = await gateway.generate('llama2', messages, config);

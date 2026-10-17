@@ -533,7 +533,6 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
       topP: 0.7,
       topK: 8,
       numCtx: 1024,
-      numPredict: 17,
       stop: ['END'],
       recovery,
     };
@@ -650,7 +649,7 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
         ollama: {
           options: {
             temperature: 0.3,
-            num_predict: 17,
+            num_predict: 37,
             top_p: 0.7,
             top_k: 8,
             num_ctx: 1024,

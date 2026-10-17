@@ -270,8 +270,7 @@ await gateway.pullModel('qwen3:32b', (progress) => {
 | `CompletionConfig` | Request body |
 | ------------------ | ------------ |
 | `temperature` | `options.temperature`, when set |
-| `numPredict` | `options.num_predict`, when set |
-| `maxTokens` | `options.num_predict`, when set and `numPredict` is not set |
+| `maxTokens` | `options.num_predict`, only when set; omitted otherwise |
 | `topP`, `topK` | `options.top_p`, `options.top_k`, when set |
 | `numCtx` | `options.num_ctx`, when set |
 | `stop` | `options.stop`, when set |
@@ -355,10 +354,10 @@ When it changes a value, it logs a warning with `console.warn`.
 | `CompletionConfig` | Request body |
 | ------------------ | ------------ |
 | `temperature` | `temperature` (default `1.0`), changed by the model registry |
-| `maxTokens` | `max_tokens` or `max_completion_tokens` (default `16384`) |
+| `maxTokens` | `max_tokens` or `max_completion_tokens`, only when set; omitted otherwise |
 | `reasoningEffort` | `reasoning_effort`, for a reasoning model only |
 | `responseFormat` | `response_format`. With a schema, `{ type: 'json_schema', json_schema: { name: 'response', schema } }` |
-| `topP`, `topK`, `numCtx`, `numPredict`, `stop` | Not sent |
+| `topP`, `topK`, `numCtx`, `stop` | Not sent |
 | `frequencyPenalty`, `presencePenalty` | Not sent |
 
 Tools go in `tools`, in the OpenAI format.
@@ -467,11 +466,11 @@ const result = await broker.generate([Message.user('Hello')]);
 | `CompletionConfig` | Request body |
 | ------------------ | ------------ |
 | `temperature` | `temperature` (default `1.0`) |
-| `maxTokens` | `max_tokens` (default `16384`). Never `max_completion_tokens` |
+| `maxTokens` | `max_tokens`, only when set; omitted otherwise. Never `max_completion_tokens` |
 | `topP`, `topK` | `top_p`, `top_k`, when set |
 | `reasoningEffort` | `reasoning_effort`, unchanged, when set |
 | `responseFormat` | `response_format`, as the OpenAI gateway sends it |
-| `numCtx`, `numPredict` | Not sent. oMLX sets the context length for each model |
+| `numCtx` | Not sent. oMLX sets the context length for each model |
 
 Tools go in `tools`, in the OpenAI format.
 
@@ -667,3 +666,21 @@ if (isOk(result)) {
 
 See [completion recovery](/completion-recovery) for policy configuration, structured
 failures, admission, cancellation, and provider limits. Both streaming forms accept the same opt-in recovery policy.
+
+### Output limits in 3.0
+
+`CompletionConfig.maxTokens` is the sole caller-facing output limit. The separate
+`numPredict` field and its Ollama precedence rule have been removed. Migrate
+`{ numPredict: 100 }` to `{ maxTokens: 100 }`; when both were present, keep the
+intended value in `maxTokens`.
+
+Omitting `maxTokens` sends no output-limit field on any maintained gateway,
+including structured output, streaming, recovery resends and tool follow-ups.
+OpenAI and oMLX no longer invent a 16,384-token cap. Provider and model settings
+now determine the output ceiling, so long or looping generations can last longer
+and cost more. OpenAI reasoning limits include hidden reasoning tokens. Set
+`{ maxTokens: 16384 }` explicitly to retain the former OpenAI/oMLX ceiling.
+`ChatSession` has no output-limit setting in its existing API and leaves the
+limit to the provider; use broker configuration when an explicit cap is needed.
+Sampling defaults, reasoning adaptation and recovery decisions are unchanged by
+this output-limit correction.

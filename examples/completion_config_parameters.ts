@@ -19,7 +19,7 @@ async function demonstrateConfigParameters() {
   console.log('Low temperature (0.3) - More focused and deterministic:');
   const lowTempResult = await broker.generate(messages, undefined, {
     temperature: 0.3,
-    numPredict: 100,
+    maxTokens: 100,
   });
   if (isOk(lowTempResult)) {
     console.log(lowTempResult.value);
@@ -28,7 +28,7 @@ async function demonstrateConfigParameters() {
   console.log('\nHigh temperature (1.2) - More creative and varied:');
   const highTempResult = await broker.generate(messages, undefined, {
     temperature: 1.2,
-    numPredict: 100,
+    maxTokens: 100,
   });
   if (isOk(highTempResult)) {
     console.log(highTempResult.value);
@@ -42,7 +42,7 @@ async function demonstrateConfigParameters() {
   const topKResult = await broker.generate(messages, undefined, {
     temperature: 0.8,
     topK: 10,
-    numPredict: 100,
+    maxTokens: 100,
   });
   if (isOk(topKResult)) {
     console.log(topKResult.value);
@@ -56,7 +56,7 @@ async function demonstrateConfigParameters() {
   const topPResult = await broker.generate(messages, undefined, {
     temperature: 0.8,
     topP: 0.9,
-    numPredict: 100,
+    maxTokens: 100,
   });
   if (isOk(topPResult)) {
     console.log(topPResult.value);
@@ -69,7 +69,7 @@ async function demonstrateConfigParameters() {
   console.log('Using numCtx=4096 (sets context window to 4096 tokens):');
   const numCtxResult = await broker.generate(messages, undefined, {
     numCtx: 4096,
-    numPredict: 100,
+    maxTokens: 100,
   });
   if (isOk(numCtxResult)) {
     console.log(numCtxResult.value);
@@ -85,7 +85,7 @@ async function demonstrateConfigParameters() {
     topP: 0.9,
     topK: 40,
     numCtx: 8192,
-    numPredict: 150,
+    maxTokens: 150,
     stop: ['THE END', '---'],
   });
   if (isOk(combinedResult)) {
@@ -94,15 +94,11 @@ async function demonstrateConfigParameters() {
 
   console.log('\n---\n');
 
-  // Test 6: Demonstrating numPredict vs maxTokens
-  console.log('Test 6: numPredict vs maxTokens');
-  console.log('numPredict takes precedence over maxTokens for Ollama:');
-  const precedenceResult = await broker.generate(messages, undefined, {
-    maxTokens: 200,
-    numPredict: 50, // This will be used
-  });
-  if (isOk(precedenceResult)) {
-    console.log(`Response (should be short due to numPredict=50):\n${precedenceResult.value}`);
+  // Test 6: Omit the output limit to use the provider's configuration.
+  console.log('Test 6: Provider-controlled output limit');
+  const providerLimitedResult = await broker.generate(messages);
+  if (isOk(providerLimitedResult)) {
+    console.log(providerLimitedResult.value);
   }
 
   console.log('\n✅ CompletionConfig parameter demonstration completed');
@@ -111,8 +107,10 @@ async function demonstrateConfigParameters() {
   console.log('- topK: Limits token selection to top K choices');
   console.log('- topP: Nucleus sampling threshold (0.0-1.0)');
   console.log('- numCtx: Sets context window size');
-  console.log('- numPredict: Ollama-specific max tokens (takes precedence over maxTokens)');
-  console.log('- maxTokens: Cross-provider max tokens to generate');
+  console.log('- maxTokens: Ollama-specific max tokens (takes precedence over maxTokens)');
+  console.log(
+    '- maxTokens: Optional cross-provider output limit; omit to use provider/model limits'
+  );
   console.log('- stop: Array of sequences that will halt generation');
 }
 

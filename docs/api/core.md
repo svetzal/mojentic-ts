@@ -374,7 +374,6 @@ Abstract base class for tools.
 interface CompletionConfig {
   temperature?: number;
   maxTokens?: number;
-  numPredict?: number;
   topP?: number;
   topK?: number;
   numCtx?: number;
@@ -394,8 +393,7 @@ Configuration for LLM generation.
 
 **Properties:**
 - `temperature`: Randomness (0.0-2.0, default varies by model)
-- `maxTokens`: Maximum tokens to generate (cross-provider compatibility)
-- `numPredict`: Ollama-specific maximum tokens (takes precedence over maxTokens)
+- `maxTokens`: Optional output token limit. Omit to use provider/model limits; no library default is sent. Ollama receives `options.num_predict`, OpenAI chat and oMLX receive `max_tokens`, and OpenAI reasoning receives `max_completion_tokens`.
 - `topP`: Nucleus sampling threshold (0.0-1.0)
 - `topK`: Top-K sampling parameter (limits token selection to top K choices)
 - `numCtx`: Context window size (number of tokens for context)

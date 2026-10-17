@@ -440,3 +440,9 @@ for the events, completion rules, and error reasons.
 
 See [completion recovery](/completion-recovery) for policy configuration, structured
 failures, admission, cancellation, and provider limits. Both streaming forms accept the same opt-in recovery policy.
+
+`maxTokens` is the optional output limit across providers. Omit it to let the
+provider and model choose the ceiling. In 3.0, replace the removed `numPredict`
+option with `maxTokens`; OpenAI and oMLX no longer apply an implicit 16,384-token
+limit, which can increase generation time and cost. See the
+[gateway output-limit mapping](./api/gateways.md#output-limits-in-3-0).

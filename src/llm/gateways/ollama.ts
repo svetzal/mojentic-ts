@@ -172,10 +172,7 @@ export class OllamaGateway implements LlmGateway {
       (requestBody.options as Record<string, unknown>).temperature = config.temperature;
     }
 
-    // numPredict takes precedence over maxTokens for Ollama-specific control
-    if (config?.numPredict !== undefined) {
-      (requestBody.options as Record<string, unknown>).num_predict = config.numPredict;
-    } else if (config?.maxTokens !== undefined) {
+    if (config?.maxTokens !== undefined) {
       (requestBody.options as Record<string, unknown>).num_predict = config.maxTokens;
     }
 

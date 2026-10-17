@@ -32,6 +32,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 
+- Removed `CompletionConfig.numPredict` and its Ollama precedence rule.
+  Migration: replace `{ numPredict: 100 }` with `{ maxTokens: 100 }`; when both
+  were present, put the intended limit in `maxTokens`. This is the sole output
+  limit and is sent exactly once: Ollama `options.num_predict`, OpenAI chat and
+  oMLX `max_tokens`, or OpenAI reasoning `max_completion_tokens`.
+- Omitted `maxTokens` now sends no output-limit field on any maintained route,
+  including structured output, streaming, recovery resends and tool follow-ups.
+  OpenAI and oMLX no longer invent a 16,384-token ceiling. Provider/model limits
+  apply; generations may run longer, looping output may continue longer, and
+  OpenAI costs may rise. Reasoning models count hidden reasoning tokens against
+  an explicit limit. Set `{ maxTokens: 16384 }` to preserve the old OpenAI/oMLX
+  ceiling, or choose a suitable explicit cap. Sessions leave output limits to
+  providers through their existing API. Sampling defaults, reasoning controls,
+  recovery decisions, timing and error identities are unchanged by this correction.
+
 - Invalid completion recovery policies now expose the public `RecoveryPolicyError`
   (`code: 'RECOVERY_POLICY_ERROR'`, safe `field`) across OpenAI, Ollama and oMLX.
   Migration: handle it in `Result.error` for ordinary/structured/chunk APIs,

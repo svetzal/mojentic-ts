@@ -264,8 +264,7 @@ export class OpenAIGateway implements LlmGateway {
       tools,
       temperature: config?.temperature ?? 1.0,
       numCtx: config?.numCtx ?? 32768,
-      maxTokens: config?.maxTokens ?? 16384,
-      numPredict: config?.numPredict,
+      maxTokens: config?.maxTokens,
       reasoningEffort: config?.reasoningEffort,
     };
 

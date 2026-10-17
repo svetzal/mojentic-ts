@@ -348,6 +348,7 @@ class Message {
 ```typescript
 interface CompletionConfig {
   temperature?: number;
+  /** Optional output limit; omit to use provider/model limits. */
   maxTokens?: number;
   topP?: number;
   frequencyPenalty?: number;

@@ -273,7 +273,6 @@ describe('OMLXGateway', () => {
       const config: CompletionConfig = {
         temperature: 0.2,
         maxTokens: 512,
-        numPredict: 99,
         numCtx: 4096,
         topP: 0.9,
         topK: 40,
@@ -296,7 +295,7 @@ describe('OMLXGateway', () => {
       });
     });
 
-    it('should send the port default temperature and max_tokens and nothing else unset', async () => {
+    it('should retain default temperature and omit an unset output limit', async () => {
       respondWith(fixture('chat_thinking.json'));
 
       await gateway.generate(MODEL, [Message.user('hi')], {}, []);
@@ -305,7 +304,6 @@ describe('OMLXGateway', () => {
         model: MODEL,
         messages: [{ role: 'user', content: 'hi' }],
         temperature: 1.0,
-        max_tokens: 16384,
       });
     });
 
