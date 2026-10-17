@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 
+- Recovery gateway capabilities now use the exported `CompletionRecoveryCapabilities`
+  interface instead of the literal type of `completionRecoveryCapabilities`.
+  OpenAI, Ollama and oMLX expose all five amendment facilities with endpoint
+  citations and inspection dates, including `exactAttemptTermination: 'unknown'`.
+  Idempotency is `unsupported` for the inspected completion endpoints, which
+  document no facility. Local HTTP abort remains distinct from remote termination.
+- Capability migration: read `gateway.recoveryCapabilities` and its `evidence`
+  entries. Custom recovery gateways must add exact-attempt termination and all
+  five evidence entries; support `unsupported` in idempotency handling.
+  The generic exported constant retains its legacy shape and values, but is
+  deprecated. Recovery execution and request encoding are unchanged.
+
 - Recovery admission hooks that complete without an explicit decision, return an
   unexpected JavaScript value, or throw now stop with `admission_no_decision`
   and the matching lifecycle event, distinct from `admission_rejected`. Resend

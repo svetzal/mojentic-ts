@@ -176,20 +176,52 @@ const evidence = inspectRecoveryFailure(error.failure);
 
 ## Adapter capabilities and preserved semantics
 
-These describe this implementation, not every server deployment. The completion
-endpoints reviewed are [Ollama chat](https://docs.ollama.com/api/chat),
-[oMLX's OpenAI-compatible API](https://github.com/jundot/omlx), and
-[OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat/create).
-No per-request remote cancellation/status/idempotency facility is used or claimed.
+Each maintained gateway exposes five values through `recoveryCapabilities`:
+`supported`, `unsupported`, or `unknown`. Every value has a matching
+`evidence` entry containing the exact endpoint, provider documentation URL,
+inspection date and basis. These declarations cover the maintained endpoints;
+a custom host or proxy may differ. Documentation was inspected on **2026-10-17**.
 
-| Adapter | Client HTTP abort | Remote cancellation/status | Idempotency | Ambiguous resend without admission |
-| ------- | ----------------- | -------------------------- | ----------- | ---------------------------------- |
-| Ollama  | Supported         | Unsupported by adapter     | Unknown     | Refused                            |
-| oMLX    | Supported         | Unsupported by adapter     | Unknown     | Refused                            |
-| OpenAI  | Supported         | Unsupported by adapter     | Unknown     | Policy eligible failures allowed   |
+| Gateway / inspected endpoint | Local HTTP abort (`clientAbort`) | Remote cancellation (`requestCancellation`) | In-flight status (`requestStatus`) | Idempotency | Exact-attempt termination |
+| --- | --- | --- | --- | --- | --- |
+| [OpenAI `/v1/chat/completions`](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create) | supported | unsupported | unsupported | unsupported | unknown |
+| [Ollama `/api/chat`](https://docs.ollama.com/api/chat) | supported | unsupported | unsupported | unsupported | unknown |
+| [oMLX `/v1/chat/completions`](https://github.com/jundot/omlx/blob/main/README.md#api-compatibility) | supported | unsupported | unsupported | unsupported | unknown |
 
-No adapter confirms termination for an exact request. Model unload/list/activity
-is aggregate information, not termination evidence. Recovery preserves the
+The endpoint documentation describes no remote cancellation, in-flight status or
+idempotency facility for these calls; `unsupported` follows the amendment's
+rule for an inspected endpoint with no documented facility. OpenAI stored chat
+completion retrieval is a completed artifact, not in-flight status. Responses,
+Batch and other APIs do not establish Chat Completions support.
+
+Local abort is a client transport facility, documented separately by
+[Node HTTP request destruction](https://nodejs.org/api/http.html#requestdestroyerror).
+The recovery transport uses an AbortSignal. Closing local HTTP does not establish
+remote termination. Provider documentation supplies endpoint scope, not a promise
+of remote cancellation. Exact-attempt termination remains `unknown` for all three;
+model unload, loaded-model lists and aggregate activity are not attempt evidence.
+These declarations do not change retry eligibility or admission: ambiguous local
+resends still require admission, and OpenAI retains its existing policy.
+
+### Capability migration
+
+Read `gateway.recoveryCapabilities`, not the deprecated publicly exported
+`completionRecoveryCapabilities` constant. The constant retains its legacy shape
+and unknown idempotency for source compatibility; it is not endpoint evidence.
+The gateway property now has the explicit `CompletionRecoveryCapabilities` type,
+rather than the literal type of that constant. Custom recovery gateways must
+supply `exactAttemptTermination` and all five evidence entries. Non-recovery
+gateways may continue omitting the optional property. Update exhaustive handling
+of idempotency to accept `unsupported`. Legacy `remoteTerminationEvidence: 'none'`
+and `streamingRecovery: 'supported'` remain informational fields on maintained gateways.
+
+```typescript
+const capabilities = new OllamaGateway().recoveryCapabilities;
+console.log(capabilities.exactAttemptTermination); // 'unknown'
+console.log(capabilities.evidence.requestCancellation.inspectedOn); // '2026-10-17'
+```
+
+Recovery preserves the
 existing supported request encoders: Ollama sampling/context/predict/stop,
 images, tools and `format`; oMLX temperature/token/top-p/top-k controls, tools,
 `response_format` and existing reasoning-effort option; OpenAI model-specific

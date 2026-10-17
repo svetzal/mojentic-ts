@@ -4,7 +4,8 @@ import { z } from 'zod';
  * Ollama gateway implementation
  */
 
-import { recoverCompletion, completionRecoveryCapabilities } from '../recovery';
+import { recoverCompletion } from '../recovery';
+import { providerRecoveryCapabilities } from '../recovery-capabilities';
 import { LlmGateway } from '../gateway';
 import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk, ToolCall } from '../models';
 import { ToolDescriptor } from '../tools';
@@ -139,7 +140,7 @@ function toGatewayResponse(
 
 /** Gateway for the Ollama local provider; recovery is opt-in through CompletionConfig. */
 export class OllamaGateway implements LlmGateway {
-  readonly recoveryCapabilities = completionRecoveryCapabilities;
+  readonly recoveryCapabilities = providerRecoveryCapabilities.ollama;
   private readonly baseUrl: string;
 
   constructor(baseUrl?: string) {

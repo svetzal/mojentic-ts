@@ -4,7 +4,8 @@ import { z } from 'zod';
  * OpenAI gateway implementation for chat completions, embeddings, and streaming.
  */
 
-import { recoverCompletion, completionRecoveryCapabilities } from '../recovery';
+import { recoverCompletion } from '../recovery';
+import { providerRecoveryCapabilities } from '../recovery-capabilities';
 import { LlmGateway } from '../gateway';
 import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk } from '../models';
 import { ToolDescriptor } from '../tools';
@@ -118,7 +119,7 @@ function decodeRecoveredOpenAI(json: unknown): GatewayResponse {
 
 /** OpenAI chat, streaming, and embedding gateway. Completion recovery is opt-in. */
 export class OpenAIGateway implements LlmGateway {
-  readonly recoveryCapabilities = completionRecoveryCapabilities;
+  readonly recoveryCapabilities = providerRecoveryCapabilities.openai;
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly modelRegistry = getModelRegistry();

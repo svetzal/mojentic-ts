@@ -9,7 +9,8 @@ import { recoverStreamChunks, recoverStreamEvents } from '../streaming-recovery'
  */
 
 import { z } from 'zod';
-import { recoverCompletion, completionRecoveryCapabilities } from '../recovery';
+import { recoverCompletion } from '../recovery';
+import { providerRecoveryCapabilities } from '../recovery-capabilities';
 import { LlmGateway } from '../gateway';
 import { CompletionConfig, GatewayResponse, LlmMessage, StreamChunk } from '../models';
 import { ToolDescriptor } from '../tools';
@@ -190,7 +191,7 @@ function toGatewayResponse(
  * and `response_format_warning` when oMLX did not enforce a requested JSON format.
  */
 export class OMLXGateway implements LlmGateway {
-  readonly recoveryCapabilities = completionRecoveryCapabilities;
+  readonly recoveryCapabilities = providerRecoveryCapabilities.omlx;
   private readonly baseUrl: string;
   private readonly apiKey: string | undefined;
   private readonly timeout: number;

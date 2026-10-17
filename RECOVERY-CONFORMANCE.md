@@ -126,7 +126,8 @@ native fetch/manual redirects has been corrected.
 
 Ollama, oMLX and OpenAI support ordinary, structured and both streaming recovery
 forms and local HTTP abort. Remote per-request cancellation/status are unsupported;
-idempotency is unknown and no remote termination evidence is claimed. Exact
+idempotency is unsupported for the inspected endpoints and exact-attempt termination
+is unknown. See the dated evidence and named tests in [CONFORMANCE-3.0.0.md](CONFORMANCE-3.0.0.md). Exact
 captures and explicit failure inspection are sensitive caller-owned facilities.
 Safe errors/events omit credential and payload echoes.
 

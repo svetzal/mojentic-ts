@@ -166,7 +166,10 @@ export class RecoveryError extends MojenticError {
     return { name: this.name, outcome: this.outcome, failure: this.failure, history: this.history };
   }
 }
-/** Client HTTP abort is available; remote per-request termination/status remain unsupported. */
+/**
+ * Legacy generic snapshot, retained for existing imports.
+ * @deprecated Read the gateway's recoveryCapabilities for endpoint-specific evidence.
+ */
 export const completionRecoveryCapabilities = Object.freeze({
   clientAbort: 'supported',
   requestCancellation: 'unsupported',

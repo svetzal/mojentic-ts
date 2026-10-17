@@ -29,3 +29,10 @@ export type {
   RecoveryOptions,
   RecoveryEvidence,
 } from './recovery';
+
+export type {
+  RecoveryCapabilityStatus,
+  RecoveryCapability,
+  RecoveryCapabilityEvidence,
+  CompletionRecoveryCapabilities,
+} from './recovery-capabilities';

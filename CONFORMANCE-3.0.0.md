@@ -1,6 +1,6 @@
-# 3.0.0 conformance: admission, Retry-After dates and session temperature
+# 3.0.0 conformance: admission, capabilities, Retry-After dates and session temperature
 
-This is a partial conformance record for October 12 recovery amendment items 2 and 5
+This is a partial conformance record for October 12 recovery amendment items 2, 3 and 5
 and release part 5, audit bug #4 (session temperature).
 It is not 3.0.0 release readiness or cross-repository compatibility approval.
 Package, runtime and lockfile versions remain unchanged at 2.1.0.
@@ -413,3 +413,103 @@ using the same identifiable executable cases. No paired compatibility, consumer
 migration readiness or coordinated 3.0.0 release readiness is claimed. The parent
 PARITY.md update remains outside this repository's write scope; publication
 remains on hold.
+
+
+## Item 3: endpoint capability declarations
+
+Tested TypeScript base: `91ea4dccf0d859211ccd6084dd51f5638250c99c` plus the
+uncommitted capability correction. The binding parent contract remains the
+October 12 amendment, SHA-256
+`a53a3a4eb118fa4687dd703d6ce918dd40dd6cb4eda796abc6c429a6e932e7a3`,
+at parent commit `4b08dcd1d87f520a4c70928c33a2bc84c228093d`.
+Only item 3 is implemented by this correction; other release requirements remain
+outside its scope.
+
+`src/llm/recovery-capabilities.test.ts` exercises the actual public gateway
+properties, imported through the public LLM barrel, for OpenAI, Ollama and oMLX.
+The suite `recovery capability endpoint evidence` expands these named tests for
+**each** provider:
+
+- `should expose clientAbort as supported with endpoint evidence`
+- `should expose requestCancellation as unsupported with endpoint evidence`
+- `should expose requestStatus as unsupported with endpoint evidence`
+- `should expose idempotency as unsupported with endpoint evidence`
+- `should expose exactAttemptTermination as unknown with endpoint evidence`
+
+Each asserts the individual value, exact endpoint, provider documentation URL,
+inspection date (`2026-10-17`) and explanatory basis. These are property
+conformance tests with no provider doubles or network calls. The first regression
+run failed all 15 cases against the old gateway declarations; the corrected run
+passed all 15. The additional test `legacy recovery capability export / should
+retain the generic snapshot for existing imports` guards the retained public
+constant. The interface now uses `CompletionRecoveryCapabilities`, independently
+of the deprecated constant's literal type. See the
+[capability table and migration](docs/completion-recovery.md#adapter-capabilities-and-preserved-semantics)
+for endpoint citations and all five values.
+
+Local cancellation is interpreted as the adapter's HTTP abort facility, with
+Node transport documentation as additional evidence. The provider docs identify
+endpoint scope; they do not promise that local abort terminates remote inference.
+This distinction should be retained in coordinated contract review. OpenAI stored
+completion retrieval and other API families are not evidence of in-flight status
+for the Chat Completions POST. No exact-attempt termination is claimed.
+
+### Coordination limits
+
+No shared versioned executable consumer/provider capability contract set exists
+in this checkout. The test file hash below identifies the local executable cases;
+it is not paired verification. No consumer repository or live provider was
+verified, and no counterpart commit, command or result is available. Coordination
+must supply and execute the same versioned capability contracts in affected
+consumers before declaring this public interface compatible. Existing consumers
+of the literal constant type need migration; retaining its export does not prove
+their compatibility. Parent PARITY.md updates are left to the initiative owner
+because sibling writes are outside this task's authorization. No package,
+lockfile or runtime version, Git ref, provider execution, request encoding,
+admission, cancellation, Retry-After, streaming or temperature behavior changed.
+
+### Item 3 tested source identity
+
+SHA-256 of the uncommitted implementation and gate inputs:
+
+```text
+e32db84d5a6ac6f762d14871e663a7798e92a7b5e7e654d50ddae682c58c3b1b  src/llm/recovery-capabilities.ts
+3dda0edc6d7b8fc513d26f6828191ef54a1dba040d419f57ea9e556081466ded  src/llm/recovery-capabilities.test.ts
+6c2dd1a7e08cef5e9ec8e9be84dea129c4f153f1679c498db35f6dd16a74f20b  src/llm/gateway.ts
+50c910a9a3b504df7b33b46a15fb4bb56af1b2f1b612d597be44c49ebf18c10c  src/llm/gateways/openai.ts
+0be41516268e2256afb3e8182f8e10dbc0d0251daa436b8be28626effe4d0051  src/llm/gateways/ollama.ts
+b487384f88eb47c48bdeb40d43b33ebb0ce53b52664e498ac44abdfd221c20ab  src/llm/gateways/omlx.ts
+8d9a2ae5ed92597127eec4f6ffc12098b8c377c1a8e6925290addd922403eb08  src/llm/recovery.ts
+493c060f85283a95ccc16094512117e4a38238c813af223f4de41d3679759389  src/llm/index.ts
+1ab36aeabbb86c19f96e55cf47e4cbdfde8b50c7aac4c768a6711ade2cd5b422  .hone-gates.json
+f8f0d5fad084bbc866735b3afe8a464f32532746bc222203ce90ab5c416108b3  package.json
+0c19a83dda7352b8aa97700e438104425658cce9f53d0567dd97d17eb6d94a1c  package-lock.json
+```
+
+### Item 3 verification results
+
+All commands below ran against the source hashes above; required thresholds and
+audit scope were preserved.
+
+| Command | Result |
+| --- | --- |
+| `npm run format` | exit 0 |
+| `npm run lint` | exit 0, zero warnings |
+| `npm run format:check` | exit 0 |
+| `npm test` | exit 0, 52 suites and 2,358 tests passed |
+| `npm run build` | exit 0 |
+| `npm test -- --coverage` | exit 0, 2,358 tests passed; statements 86.76%, branches 81.54%, functions 89.73%, lines 87.25%; all exceed the configured 70% thresholds |
+| `npm audit` | exit 0, zero vulnerabilities including development dependencies |
+| `npm audit --omit=dev --audit-level=moderate` | exit 0, zero vulnerabilities |
+| `npm run docs:build` | exit 0; upstream VitePress transform deprecation notices remain |
+| `npm outdated --cache /tmp/mojentic-ts-npm-cache` | exit 1, reports ESLint 10.12.0 installed, 10.13.0 wanted/latest; informational, no version changes |
+
+The initial acceptance test could not run before dependency installation
+(`jest` absent, exit 127). `npm ci` then succeeded without changing the lockfile.
+The behavioral rejection recorded above occurred after installation (exit 1,
+15 failing assertions), followed by a corrected run (exit 0, 15 passing tests).
+The initial `npm outdated` attempt could not write the read-only default cache;
+the writable temporary cache rerun produced the version report above.
+
+Suggested finalization message: `Document endpoint-specific recovery capabilities`.
+Foundry owns Git finalization; all changes remain uncommitted.

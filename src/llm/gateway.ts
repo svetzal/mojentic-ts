@@ -6,13 +6,14 @@ import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk } from './mo
 import { ToolDescriptor } from './tools';
 import { Result } from '../error';
 import { LlmStreamEvent } from './stream-events';
+import { CompletionRecoveryCapabilities } from './recovery-capabilities';
 
 /**
  * Interface for LLM gateway implementations
  */
 export interface LlmGateway {
   /** Capabilities for opt-in completion recovery, when implemented. */
-  readonly recoveryCapabilities?: typeof import('./recovery').completionRecoveryCapabilities;
+  readonly recoveryCapabilities?: CompletionRecoveryCapabilities;
   /**
    * Generate a completion from the LLM
    */
