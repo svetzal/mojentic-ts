@@ -415,66 +415,84 @@ PARITY.md update remains outside this repository's write scope; publication
 remains on hold.
 
 
-## Item 3: endpoint capability declarations
+## Item 3: endpoint capability declarations (clientAbort correction)
 
-Tested TypeScript base: `91ea4dccf0d859211ccd6084dd51f5638250c99c` plus the
-uncommitted capability correction. The binding parent contract remains the
+Tested TypeScript base: `ba8f95a6b7ae4fc94516e54361130f7c2d79de46` plus the
+uncommitted correction identified below. The binding parent contract is the
 October 12 amendment, SHA-256
 `a53a3a4eb118fa4687dd703d6ce918dd40dd6cb4eda796abc6c429a6e932e7a3`,
 at parent commit `4b08dcd1d87f520a4c70928c33a2bc84c228093d`.
-Only item 3 is implemented by this correction; other release requirements remain
-outside its scope.
+This correction addresses only documentation-backed `clientAbort` reporting.
 
-`src/llm/recovery-capabilities.test.ts` exercises the actual public gateway
-properties, imported through the public LLM barrel, for OpenAI, Ollama and oMLX.
-The suite `recovery capability endpoint evidence` expands these named tests for
-**each** provider:
+### Inspection and classification
 
-- `should expose clientAbort as supported with endpoint evidence`
+Actual inspection date: **2026-10-17 UTC**, read from the execution clock.
+Each provider's maintained endpoint documentation was opened before classification:
+
+| Endpoint and inspected provider documentation | Evidence and classification |
+| --- | --- |
+| [OpenAI `/v1/chat/completions`](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create) | Request/streaming options do not describe how a client aborts. The interrupted-stream usage warning is ambiguous about the facility. `clientAbort: unknown`. |
+| [Ollama `/api/chat`](https://docs.ollama.com/api/chat) | Chat parameters, streaming, keep-alive and response fields do not describe a client abort facility. `clientAbort: unknown`. |
+| [oMLX `/v1/chat/completions`](https://github.com/jundot/omlx/blob/main/README.md#api-compatibility) | API Compatibility lists streaming Chat Completions without describing client abort. `clientAbort: unknown`. |
+
+Node HTTP documentation alone cannot establish endpoint support. These
+classifications do not assert that local abort is impossible or that remote
+inference stops. Other capability values, their evidence and the deprecated
+`completionRecoveryCapabilities` snapshot are preserved. See the
+[capability table and migration](docs/completion-recovery.md#adapter-capabilities-and-preserved-semantics).
+
+### Named executable cases
+
+`src/llm/recovery-capabilities.test.ts` exercises actual gateway instances through
+the public LLM barrel exports. Under `recovery capability endpoint evidence`,
+each of OpenAI, Ollama and oMLX runs:
+
+- `should expose clientAbort as unknown with endpoint evidence`
 - `should expose requestCancellation as unsupported with endpoint evidence`
 - `should expose requestStatus as unsupported with endpoint evidence`
 - `should expose idempotency as unsupported with endpoint evidence`
 - `should expose exactAttemptTermination as unknown with endpoint evidence`
 
-Each asserts the individual value, exact endpoint, provider documentation URL,
-inspection date (`2026-10-17`) and explanatory basis. These are property
-conformance tests with no provider doubles or network calls. The first regression
-run failed all 15 cases against the old gateway declarations; the corrected run
-passed all 15. The additional test `legacy recovery capability export / should
-retain the generic snapshot for existing imports` guards the retained public
-constant. The interface now uses `CompletionRecoveryCapabilities`, independently
-of the deprecated constant's literal type. See the
-[capability table and migration](docs/completion-recovery.md#adapter-capabilities-and-preserved-semantics)
-for endpoint citations and all five values.
+Every case asserts the status and exact endpoint, provider URL, inspection date
+and basis. `legacy recovery capability export / should retain the generic
+snapshot for existing imports` preserves the previous constant, including its
+`supported` client-abort value; it is deprecated and is not endpoint evidence.
 
-Local cancellation is interpreted as the adapter's HTTP abort facility, with
-Node transport documentation as additional evidence. The provider docs identify
-endpoint scope; they do not promise that local abort terminates remote inference.
-This distinction should be retained in coordinated contract review. OpenAI stored
-completion retrieval and other API families are not evidence of in-flight status
-for the Chat Completions POST. No exact-attempt termination is claimed.
+Before documentation changes or full gates, the regression command
+`npm test -- --runInBand src/llm/recovery-capabilities.test.ts` rejected the old
+implementation (exit 1: three client-abort failures, 13 preservation cases passed).
+After correcting the declarations and their evidence, the same command passed
+(exit 0: all 16 cases). No provider doubles or live requests are involved.
+The first attempt could not execute because Jest was absent (exit 127);
+`npm ci --cache /tmp/mojentic-ts-npm-cache` installed the locked dependencies
+without version changes before the behavioral rejection.
 
-### Coordination limits
+### Initiative coordination: missing counterpart verification
 
-No shared versioned executable consumer/provider capability contract set exists
-in this checkout. The test file hash below identifies the local executable cases;
-it is not paired verification. No consumer repository or live provider was
-verified, and no counterpart commit, command or result is available. Coordination
-must supply and execute the same versioned capability contracts in affected
-consumers before declaring this public interface compatible. Existing consumers
-of the literal constant type need migration; retaining its export does not prove
-their compatibility. Parent PARITY.md updates are left to the initiative owner
-because sibling writes are outside this task's authorization. No package,
-lockfile or runtime version, Git ref, provider execution, request encoding,
-admission, cancellation, Retry-After, streaming or temperature behavior changed.
+These tests establish local property conformance only. No shared versioned
+executable consumer/provider capability contract set exists in this checkout.
+The test content hash below identifies the local executable cases, not paired
+compatibility evidence. TypeScript verification is against the base commit plus
+the listed source hashes. Counterpart commits, commands and results are **missing**;
+no consumer or live provider was verified.
+
+Initiative coordination must arrange the same identifiable executable contracts
+on both sides of any consumer migration, including supported old/new versions,
+optional fields and error behavior, then record both commits, commands and
+results in each repository's required gates. That verification remains unfinished
+initiative work. Parent PARITY.md synchronization also belongs to the initiative
+owner. This task is authorized to write only mojentic-ts; no counterpart changes,
+consumer migration or release were performed.
 
 ### Item 3 tested source identity
 
-SHA-256 of the uncommitted implementation and gate inputs:
+The SHA-256 of `src/llm/recovery-capabilities.test.ts` identifies the executable
+local contract cases. Implementation and gate input hashes identify the tested
+uncommitted source on the base commit above:
 
 ```text
-e32db84d5a6ac6f762d14871e663a7798e92a7b5e7e654d50ddae682c58c3b1b  src/llm/recovery-capabilities.ts
-3dda0edc6d7b8fc513d26f6828191ef54a1dba040d419f57ea9e556081466ded  src/llm/recovery-capabilities.test.ts
+3daf665b04bb7ab9d184c70546f803bd4571aa3977c7152f463ff81cc28ddda0  src/llm/recovery-capabilities.ts
+cc9daa14063fbdbbe45307362c825729d420ae6c2577fda4badfd5104a423910  src/llm/recovery-capabilities.test.ts
 6c2dd1a7e08cef5e9ec8e9be84dea129c4f153f1679c498db35f6dd16a74f20b  src/llm/gateway.ts
 50c910a9a3b504df7b33b46a15fb4bb56af1b2f1b612d597be44c49ebf18c10c  src/llm/gateways/openai.ts
 0be41516268e2256afb3e8182f8e10dbc0d0251daa436b8be28626effe4d0051  src/llm/gateways/ollama.ts
@@ -486,10 +504,11 @@ f8f0d5fad084bbc866735b3afe8a464f32532746bc222203ce90ab5c416108b3  package.json
 0c19a83dda7352b8aa97700e438104425658cce9f53d0567dd97d17eb6d94a1c  package-lock.json
 ```
 
+
 ### Item 3 verification results
 
-All commands below ran against the source hashes above; required thresholds and
-audit scope were preserved.
+All checks ran in the task worktree against the source hashes above. Verbose
+build/test commands were executed through `foundry capture`; that wrapper preserves the command's exit code.
 
 | Command | Result |
 | --- | --- |
@@ -498,18 +517,12 @@ audit scope were preserved.
 | `npm run format:check` | exit 0 |
 | `npm test` | exit 0, 52 suites and 2,358 tests passed |
 | `npm run build` | exit 0 |
-| `npm test -- --coverage` | exit 0, 2,358 tests passed; statements 86.76%, branches 81.54%, functions 89.73%, lines 87.25%; all exceed the configured 70% thresholds |
-| `npm audit` | exit 0, zero vulnerabilities including development dependencies |
-| `npm audit --omit=dev --audit-level=moderate` | exit 0, zero vulnerabilities |
-| `npm run docs:build` | exit 0; upstream VitePress transform deprecation notices remain |
-| `npm outdated --cache /tmp/mojentic-ts-npm-cache` | exit 1, reports ESLint 10.12.0 installed, 10.13.0 wanted/latest; informational, no version changes |
+| `npm test -- --coverage` | exit 0, 2,358 tests passed; statements 86.76%, branches 81.54%, functions 89.73%, lines 87.25%; every configured 70% threshold exceeded |
+| `npm audit --cache /tmp/mojentic-ts-npm-cache` | exit 0, zero vulnerabilities, including development dependencies |
+| `npm audit --omit=dev --audit-level=moderate --cache /tmp/mojentic-ts-npm-cache` | exit 0, zero vulnerabilities |
+| `npm run docs:build` | exit 0; VitePress/Rolldown bundle-assignment warnings and a transform deprecation notice were emitted |
+| `npm outdated --cache /tmp/mojentic-ts-npm-cache` | exit 1, informational: ESLint 10.12.0 installed, 10.13.0 wanted/latest; versions preserved as required |
 
-The initial acceptance test could not run before dependency installation
-(`jest` absent, exit 127). `npm ci` then succeeded without changing the lockfile.
-The behavioral rejection recorded above occurred after installation (exit 1,
-15 failing assertions), followed by a corrected run (exit 0, 15 passing tests).
-The initial `npm outdated` attempt could not write the read-only default cache;
-the writable temporary cache rerun produced the version report above.
-
-Suggested finalization message: `Document endpoint-specific recovery capabilities`.
-Foundry owns Git finalization; all changes remain uncommitted.
+No package, lockfile or runtime versions changed. Changes remain uncommitted;
+Foundry owns finalization. Suggested finalization message:
+`Correct documentation-backed client abort capability reporting`.

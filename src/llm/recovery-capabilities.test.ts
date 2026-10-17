@@ -21,8 +21,8 @@ describe('recovery capability endpoint evidence', () => {
     it.each([
       [
         'clientAbort',
-        'supported',
-        'Local HTTP abort only: https://nodejs.org/api/http.html#requestdestroyerror; no remote termination guarantee.',
+        'unknown',
+        'Endpoint documentation does not describe a client abort facility; local HTTP abort alone is not provider evidence.',
       ],
       [
         'requestCancellation',

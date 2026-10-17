@@ -34,7 +34,7 @@ function capabilities(endpoint: string, documentation: string): CompletionRecove
   const evidence = (basis: string): RecoveryCapabilityEvidence =>
     Object.freeze({ endpoint, documentation, inspectedOn: '2026-10-17', basis });
   return Object.freeze({
-    clientAbort: 'supported',
+    clientAbort: 'unknown',
     requestCancellation: 'unsupported',
     requestStatus: 'unsupported',
     idempotency: 'unsupported',
@@ -43,7 +43,7 @@ function capabilities(endpoint: string, documentation: string): CompletionRecove
     streamingRecovery: 'supported',
     evidence: Object.freeze({
       clientAbort: evidence(
-        'Local HTTP abort only: https://nodejs.org/api/http.html#requestdestroyerror; no remote termination guarantee.'
+        'Endpoint documentation does not describe a client abort facility; local HTTP abort alone is not provider evidence.'
       ),
       requestCancellation: evidence(
         'No remote cancellation facility documented for this endpoint.'

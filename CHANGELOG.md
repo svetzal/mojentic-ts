@@ -14,7 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   OpenAI, Ollama and oMLX expose all five amendment facilities with endpoint
   citations and inspection dates, including `exactAttemptTermination: 'unknown'`.
   Idempotency is `unsupported` for the inspected completion endpoints, which
-  document no facility. Local HTTP abort remains distinct from remote termination.
+  document no facility. `clientAbort` is now `unknown` for all three maintained
+  endpoints: provider documentation inspected on 2026-10-17 does not clearly
+  describe that facility. Node HTTP documentation alone does not justify
+  `supported`. Handle unknown client-abort support when reading gateway
+  capabilities; other capability values and the deprecated snapshot are unchanged.
+  Local HTTP abort remains distinct from remote termination.
 - Capability migration: read `gateway.recoveryCapabilities` and its `evidence`
   entries. Custom recovery gateways must add exact-attempt termination and all
   five evidence entries; support `unsupported` in idempotency handling.
