@@ -280,6 +280,12 @@ export class OpenAIGateway implements LlmGateway {
       requestBody.temperature = adaptedArgs.temperature;
     }
 
+    if (config?.topP !== undefined) requestBody.top_p = config.topP;
+    if (config?.frequencyPenalty !== undefined)
+      requestBody.frequency_penalty = config.frequencyPenalty;
+    if (config?.presencePenalty !== undefined)
+      requestBody.presence_penalty = config.presencePenalty;
+
     const responseFormat = toOpenAIResponseFormat(config?.responseFormat);
     if (responseFormat) {
       requestBody.response_format = responseFormat;

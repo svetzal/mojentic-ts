@@ -32,6 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 
+- OpenAI now forwards explicitly configured `topP`, `frequencyPenalty` and
+  `presencePenalty` as `top_p`, `frequency_penalty` and `presence_penalty` on
+  ordinary, structured and streaming requests, recovery resends and tool
+  continuations. Zero is preserved; unset values are omitted. Previously these
+  controls were silently dropped, so existing configurations can now change
+  sampling or receive provider validation errors. Migration: remove these
+  fields to retain provider-selected behavior, or keep them to apply the
+  requested values. Temperature adaptation, output limits and reasoning
+  behavior are unchanged by this correction.
+
 - OpenAI and oMLX now omit unset `CompletionConfig.temperature` on ordinary,
   structured and streaming completions, including admitted recovery resends.
   Provider/model settings apply instead of the gateway's former `1.0` default.

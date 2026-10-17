@@ -357,10 +357,20 @@ When it changes a value, it logs a warning with `console.warn`.
 | `maxTokens` | `max_tokens` or `max_completion_tokens`, only when set; omitted otherwise |
 | `reasoningEffort` | `reasoning_effort`, for a reasoning model only |
 | `responseFormat` | `response_format`. With a schema, `{ type: 'json_schema', json_schema: { name: 'response', schema } }` |
-| `topP`, `topK`, `numCtx`, `stop` | Not sent |
-| `frequencyPenalty`, `presencePenalty` | Not sent |
+| `topP` | `top_p`, only when set; explicit zero preserved |
+| `frequencyPenalty` | `frequency_penalty`, only when set; explicit zero preserved |
+| `presencePenalty` | `presence_penalty`, only when set; explicit zero preserved |
+| `topK`, `numCtx`, `stop` | Not sent |
 
 Tools go in `tools`, in the OpenAI format.
+
+The three sampling controls above pass through on ordinary, structured, legacy
+streaming and event streaming requests, including recovery resends and tool
+continuations. Unset values are omitted, leaving provider settings in effect.
+Previously these configured controls were silently dropped. Migration: remove
+them from your configuration to retain the former provider-selected behavior,
+or keep them to apply the requested values. Provider/model validation still
+applies to explicitly selected values.
 
 ### Messages
 
@@ -703,6 +713,7 @@ configuration may otherwise change sampling, reduce context or allow longer
 output. `ChatSession` keeps its separately configured default of 1. Explicit
 zero is preserved where supported, with existing OpenAI registry adaptation for
 caller-set temperatures. Broker tracer/reporting defaults do not supply outbound
-parameters. OpenAI currently drops configured `topP`, `frequencyPenalty`
-and `presencePenalty`. The output-limit correction above does not establish
-complete request fidelity.
+parameters. OpenAI forwards configured `topP`, `frequencyPenalty` and
+`presencePenalty` under their provider field names, preserving zero and omitting
+unset values. Other request-shape and native reasoning gaps remain tracked in
+the conformance document.

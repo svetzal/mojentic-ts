@@ -3,8 +3,9 @@
 **Not ready for coordinated release.** Recovery, context-window metadata,
 first-token timing, output-limit corrections and explicit session temperature
 zero have executable coverage. Native reasoning and request fidelity still have
-substantive gaps below. The correction below removes only gateway-invented
-temperature/context defaults; it does not close other request-shape or reasoning gaps. Package, lockfile and runtime versions stay at
+substantive gaps below. The bounded corrections below remove gateway-invented temperature/context
+defaults and close OpenAI configured topP/frequencyPenalty/presencePenalty
+forwarding. Other request-shape and reasoning gaps remain open. Package, lockfile and runtime versions stay at
 2.1.0. No publication, consumer migration, ref mutation or sibling edits occurred.
 
 ## Authority and source identity
@@ -99,7 +100,7 @@ implementation or evidence was not established.
 | One output limit; remove numPredict; serialize configured maxTokens exactly once per provider, including streams/retries/tools | `output-limit-http.test.ts`: `removes numPredict from the exported TypeScript CompletionConfig contract`; `ignores a stale JavaScript numPredict alias in favor of maxTokens`; configured limit matrix; `omits the output limit on recovered event requests and resends`; installed exact wire bodies | Covered; legacy behavior outside this correction preserved |
 | Required Anthropic max_tokens fallback | No maintained Anthropic adapter/public export in TypeScript | Not applicable to current adapter set; implementing Anthropic would require its documented registry/4096 fallback |
 | OpenAI fixed temperature rewrites caller-set value to only supported value; non-reasoning effort warns and drops | `gateways/openai.test.ts`: `should adapt parameters for reasoning models`; `should warn and ignore reasoning_effort for non-reasoning models` | **Partial**: warning/drop covered; fallback hardcodes 1 rather than deriving sole registry value. Omission and existing o3 caller-set adaptation now have complete real-HTTP body assertions; the broader registry rule remains open |
-| Other configured sampling/shape fields, client-only settings never serialized | `output-limit-http.test.ts`: `characterizes unrelated request controls before output-limit correction`; installed full-body assertions | **Gap**: OpenAI drops topP, frequencyPenalty and presencePenalty; six-value Ollama think mapping missing. Current tests characterize defaults, not full fidelity |
+| Other configured sampling/shape fields, client-only settings never serialized | `ts-openai-sampling-v1`: shared JSON cases in `output-limit-http.test.ts` and installed full-body assertions; `openai-sampling-http.test.ts`: tool continuation with retries | OpenAI topP/frequencyPenalty/presencePenalty covered; unrelated six-value Ollama think mapping remains missing |
 | Default bodies omit temperature and limits; each configured control sent once; docs/CHANGELOG/PARITY aligned | `output-limit-http.test.ts` complete sampling bodies, retained output-limit matrix, installed `ts-temperature-context-v1`; CHANGELOG and gateway/core guides include migration | Covered for this bounded omission correction; parent PARITY remains outside write scope. Other configured fields and reasoning gaps above remain open |
 
 ## Parts 4–5, records, gates and CI
@@ -299,7 +300,7 @@ boundary changed and no unreleased dependent or other port was asked to verify.
 The library and fresh consumer checks below are the required two validation
 contexts under the binding library policy.
 
-| File | Current SHA-256 |
+| File | SHA-256 at the temperature/context correction (historical) |
 | --- | --- |
 | `src/llm/gateways/openai.ts` | `221d2e6a033aeb281121ca6ed9345405c1c7bbc2503e6f4eb4cc51f3e2bceab4` |
 | `src/llm/gateways/omlx.ts` | `e34484ce4cf86573bbaa98868d905cef4c86586a09083ce947e0f082e633b248` |
@@ -340,7 +341,7 @@ rejection and safe attempt identities. Current artifact SHA-256:
 fresh install: `/tmp/mojentic-package-UVebdW/mojentic-2.1.0.tgz`.
 This is an unpublished local artifact, not registry adoption.
 
-### Current verification results
+### Temperature/context correction verification results (historical)
 
 All commands used Foundry capture. The first full suite found one stale metadata
 expectation of temperature 1; it was updated to the corrected complete body,
@@ -365,3 +366,87 @@ five configured gates passed. The docs diagnostics were recorded, not
 suppressed. No dependencies or advisory suppressions changed. CI for this
 uncommitted correction remains pending Foundry finalization; no refs were
 modified, no commit/push/tag/publication occurred, and no sibling was edited.
+
+
+## OpenAI configured sampling correction — 2026-10-17
+
+This correction closes only the configured OpenAI sampling-field gap under
+`MODEL-METADATA-2026-10.md` sections 3.1 (Field coverage) and 3.6. Source base:
+`0cce56602415c925afbf0718b56cdf12859289b1`, tested with the uncommitted changes
+identified below. The initiative brief was read and its supplied SHA-256
+`ea6a0efa56bfb3cd74b5ce728f80cc33c6fbd853114bec94b8aabe79f5d28e6e` verified.
+The binding metadata document SHA-256 is
+`d9945dca45ce09e2163843263a75b5e93028b00ee1baf191fc3ff13396830e9c`.
+
+`buildRequestBody` forwards `topP`, `frequencyPenalty` and `presencePenalty` as
+`top_p`, `frequency_penalty` and `presence_penalty`. Each is independent, zero
+is retained, and unset/undefined values are omitted. The existing model
+adaptation and serialization paths otherwise remain unchanged. The two prior
+OpenAI characterization expectations change only for these three fields;
+Ollama/oMLX expectations retain their prior behavior. Changelog migration notes
+and the OpenAI gateway request table describe the new configured behavior.
+
+### Executable contract and named mappings
+
+`ts-openai-sampling-v1` uses the versioned declarative cases in
+`src/llm/gateways/__fixtures__/openai-sampling-v1.json` in both source tests and
+the fresh installed-artifact consumer. These are local protocol fixtures, not
+claims of live OpenAI provider verification. The public library API and fresh
+consumer self-validate distribution readiness under the binding library policy;
+no changed boundary between running services or counterpart verification is
+involved. This remains a bounded correction, not whole-release readiness.
+
+| Binding behavior | Named executable evidence |
+| --- | --- |
+| Preserve configured controls through tool continuation and admitted retries | `openai-sampling-http.test.ts`: `preserves configured sampling through tool continuation and byte-identical admitted retries` asserts all four complete request bodies, exact tool history/result, successful final response and identical bytes on each pair |
+| Preserve zero and nonzero values, send each field independently exactly once | `output-limit-http.test.ts`: `sends the complete $name body and preserves resend bytes`, with the eight shared `ts-openai-sampling-v1` cases for chat and reasoning models; complete bodies and encoded field occurrence assertions |
+| Omit unset and explicit undefined controls on every route | Same matrix retains omitted config, empty config and explicit undefined cases, now including all three controls |
+| Ordinary, structured, legacy chunk, event stream and recovery paths | Four public broker routes, each with recovery disabled, enabled without failure, and admitted HTTP 503 resend; full response semantics, body and retry-byte assertions |
+| Preserve unrelated characterized behavior | `characterizes unrelated request controls before output-limit correction`; `omits unset sampling controls and preserves reasoning controls without an output limit`; complete bodies retain temperature adaptation, reasoning, output limits and other provider expectations |
+| Packaged library consumers see the same configured and omitted behavior | `npm run verify:package`: `ts-packaged-library-v1` loads the same sampling fixture, compiles installed public declarations and executes the same 528 matrix cases through installed public brokers and real HTTP |
+
+The source and installed matrices each retain 336 omission/temperature/context
+cases and add 192 sampling cases (eight configurations × two OpenAI model
+families × four routes × three recovery policies). The focused tool probe first
+failed at the real HTTP boundary because the three configured fields were
+absent, then passed after the six-line source correction, before matrix or
+documentation expansion. The actual red exit was 1 and green exit was 0;
+behavioral proof and both complete logs are retained as Foundry execution
+evidence.
+
+| File | Tested SHA-256 |
+| --- | --- |
+| `src/llm/gateways/openai.ts` | `6e8ecd5602fe561bd1afa6a434ea1fbc7a95d0eacc3a8ff232e09830b629f62f` |
+| `src/llm/gateways/__fixtures__/openai-sampling-v1.json` | `808208d7683d9e67b75470a84b11420c1e7f95db8eb1f4e79cda780edf442836` |
+| `src/llm/output-limit-http.test.ts` | `4efaeb35d7c09d14be41fbc131d9fb33cbcbed10170c4e28f77a92cbdeda0b90` |
+| `src/llm/openai-sampling-http.test.ts` | `491dcdf11b743ddd71ac59b1dc3b4ce1abea452a1eef630ca83bdffff9deb949` |
+| `scripts/verify-package.cjs` | `365059ba0168d8f7c6ae47d48a5957246c22982719d231039307bd5fad73ce0b` |
+
+### Correction verification results
+
+All five `.hone-gates.json` gates passed on the source identity above. Commands
+used Foundry capture; no test or lint warnings were suppressed.
+
+| Command | Actual result |
+| --- | --- |
+| `npm run lint` | Exit 0; zero warnings |
+| `npm run format` | Exit 0; formatted source, tests and examples |
+| `npm run format:check` | Exit 0 |
+| `npm test` | Exit 0; 58 suites, 4,244 tests |
+| `npm test -- --coverage` | Exit 0; 4,244 tests; statements 87.68%, branches 83.33%, functions 90.39%, lines 88.06%; all global 70% thresholds exceeded |
+| `npm run build` | Exit 0 |
+| `npm run verify:package` | Exit 0; packed artifact, fresh install, public declaration compilation and 528 complete-body consumer matrix cases |
+| `npm audit` | Exit 0; zero vulnerabilities, including development dependencies |
+| `npm audit --omit=dev --audit-level=moderate` | Exit 0; zero vulnerabilities |
+| `env npm_config_cache=/tmp/mojentic-outdated-cache npm outdated` | Exit 0; no outdated dependencies; initial default-cache attempt could not write to the sandbox's read-only home cache |
+| `npm run docs:build` | Exit 0; existing VitePress/Rolldown bundle-assignment diagnostics and transform deprecation remain |
+
+The tested unpublished artifact is
+`/tmp/mojentic-package-JCbZTo/mojentic-2.1.0.tgz`, SHA-256
+`8b68bf2d14e3750f8c5e43152d867efc7f36b5023526f4e7f213e7f5c81e4125`.
+The fresh consumer lives at `/tmp/mojentic-package-JCbZTo`; the harness reported
+`PASS ts-packaged-library-v1` and the shared sampling contract hash above.
+No dependency, advisory suppression, package/lockfile/runtime version or other
+provider implementation changed. Git finalization and subsequent CI remain with
+Foundry; no commit, push, ref mutation, publication or sibling edits occurred.
+Suggested commit message: `Fix OpenAI configured sampling field forwarding`.

@@ -1,5 +1,6 @@
-/** Installed-artifact contract ts-packaged-library-v1. No source/internal imports. */
+/** Installed-artifact contract ts-packaged-library-v1. Public API only; shared JSON cases. */
 const assert = require('node:assert/strict');
+const samplingContract = require('../src/llm/gateways/__fixtures__/openai-sampling-v1.json');
 const { createHash } = require('node:crypto');
 const { mkdtempSync, readFileSync, writeFileSync } = require('node:fs');
 const { createServer } = require('node:http');
@@ -246,7 +247,13 @@ async function verify(consumer) {
     const configurations = [
       undefined,
       {},
-      { temperature: undefined, numCtx: undefined },
+      {
+        temperature: undefined,
+        numCtx: undefined,
+        topP: undefined,
+        frequencyPenalty: undefined,
+        presencePenalty: undefined,
+      },
       { temperature: 0, numCtx: 0 },
       { temperature: 0.4, numCtx: 4096 },
       { temperature: 0 },
@@ -299,8 +306,12 @@ async function verify(consumer) {
               : 'application/json',
           },
         };
-        for (const sampling of configurations)
+        for (const samplingCase of [
+          ...configurations.map((config) => ({ config, wire: {} })),
+          ...(provider.name.startsWith('openai') ? samplingContract.cases : []),
+        ])
           for (const policy of policies) {
+            const sampling = samplingCase.config;
             const config = policy === undefined ? sampling : { ...sampling, recovery: policy };
             const retry = policy?.maxAttempts === 2;
             replies = retry ? [unavailable, success] : [success];
@@ -334,7 +345,7 @@ async function verify(consumer) {
             const controls = {};
             if (sampling?.temperature !== undefined)
               controls.temperature = provider.name === 'openai-fixed' ? 1 : sampling.temperature;
-            const expected = { model: provider.model, messages };
+            const expected = { model: provider.model, messages, ...samplingCase.wire };
             if (ollama) {
               if (sampling?.numCtx !== undefined) controls.num_ctx = sampling.numCtx;
               expected.options = controls;
@@ -360,6 +371,11 @@ async function verify(consumer) {
             for (const record of sent) {
               assert.equal(record.url, ollama ? '/api/chat' : '/v1/chat/completions');
               assert.equal(record.body, sent[0].body);
+              const samplingFields = Array.from(
+                record.body.matchAll(/"(top_p|frequency_penalty|presence_penalty)"\s*:/g),
+                (match) => match[1]
+              );
+              assert.deepEqual(samplingFields.sort(), Object.keys(samplingCase.wire).sort());
             }
             assert.equal(replies.length, 0);
           }
@@ -398,6 +414,10 @@ async function main() {
       integrity: packed.integrity,
       source: run('git', ['rev-parse', 'HEAD'], root).trim(),
       contract: 'ts-packaged-library-v1',
+      samplingContract: samplingContract.contract,
+      samplingContractSha256: createHash('sha256')
+        .update(readFileSync(join(root, 'src/llm/gateways/__fixtures__/openai-sampling-v1.json')))
+        .digest('hex'),
       contractSha256: createHash('sha256').update(readFileSync(__filename)).digest('hex'),
     })
   );
@@ -410,7 +430,7 @@ import { OpenAIGateway, OMLXGateway, OllamaGateway, getModelContextWindow,
   effectiveContextWindow, type CompletionConfig, type RecoveryOptions,
   type CompletionEvidence, type CompletionRecoveryCapabilities } from 'mojentic';
 const recovery: RecoveryOptions = { maxAttempts: 2, admit: async () => 'allow' };
-const config: CompletionConfig = { temperature: 0, maxTokens: 19, recovery };
+const config: CompletionConfig = { temperature: 0, maxTokens: 19, topP: 0, frequencyPenalty: 0, presencePenalty: 0, recovery };
 const gateway = new OMLXGateway('http://127.0.0.1:1');
 const capabilities: CompletionRecoveryCapabilities = gateway.recoveryCapabilities;
 async function check(): Promise<number | null> {

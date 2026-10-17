@@ -1,3 +1,4 @@
+import samplingContract from './gateways/__fixtures__/openai-sampling-v1.json';
 import { createServer, Server } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { z } from 'zod';
@@ -28,16 +29,21 @@ interface Provider {
 const providers: readonly Provider[] = [
   {
     name: 'OpenAI chat',
-    configuredControls: { temperature: 0, max_tokens: 37 },
-    defaultReasoningControls: {},
+    configuredControls: { temperature: 0, max_tokens: 37, top_p: 0.7 },
+    defaultReasoningControls: { top_p: 0.7, frequency_penalty: 0.4, presence_penalty: 0.5 },
     model: 'gpt-4o',
     field: 'max_tokens',
     gateway: (host) => new OpenAIGateway('test-key', host),
   },
   {
     name: 'OpenAI reasoning',
-    configuredControls: { temperature: 1, max_completion_tokens: 37 },
-    defaultReasoningControls: { reasoning_effort: 'high' },
+    configuredControls: { temperature: 1, max_completion_tokens: 37, top_p: 0.7 },
+    defaultReasoningControls: {
+      reasoning_effort: 'high',
+      top_p: 0.7,
+      frequency_penalty: 0.4,
+      presence_penalty: 0.5,
+    },
     model: 'o3',
     field: 'max_completion_tokens',
     gateway: (host) => new OpenAIGateway('test-key', host),
@@ -160,10 +166,24 @@ const limits: readonly { name: string; config?: CompletionConfig }[] = [
 ];
 // ts-temperature-context-v1 extends the existing real HTTP harness, including
 // complete bodies rather than field-only assertions. Scripted replies are local fixtures.
-const samplingConfigurations: readonly { name: string; config?: CompletionConfig }[] = [
+interface SamplingCase {
+  readonly name: string;
+  readonly config?: CompletionConfig;
+  readonly wire?: Record<string, unknown>;
+}
+const samplingConfigurations: readonly SamplingCase[] = [
   { name: 'omitted config' },
   { name: 'empty config', config: {} },
-  { name: 'explicit undefined', config: { temperature: undefined, numCtx: undefined } },
+  {
+    name: 'explicit undefined',
+    config: {
+      temperature: undefined,
+      numCtx: undefined,
+      topP: undefined,
+      frequencyPenalty: undefined,
+      presencePenalty: undefined,
+    },
+  },
   { name: 'explicit zero', config: { temperature: 0, numCtx: 0 } },
   { name: 'explicit controls', config: { temperature: 0.4, numCtx: 4096 } },
   { name: 'temperature only', config: { temperature: 0 } },
@@ -425,28 +445,38 @@ describe.each(providers)('$name output-limit HTTP contract', (provider) => {
 
   describe.each(routes)('$name temperature/context', (route) => {
     describe.each(policies)('$name', (policy) => {
-      it.each(samplingConfigurations)(
-        'sends the complete $name body and preserves resend bytes',
-        async (sampling) => {
-          failures = policy.failures;
-          const config =
-            policy.recovery === undefined
-              ? sampling.config
-              : { ...sampling.config, recovery: policy.recovery };
-          const broker = new LlmBroker(provider.model, provider.gateway(host));
+      it.each<SamplingCase>([
+        ...samplingConfigurations,
+        ...(provider.name.startsWith('OpenAI') ? samplingContract.cases : []),
+      ])('sends the complete $name body and preserves resend bytes', async (sampling) => {
+        failures = policy.failures;
+        const config =
+          policy.recovery === undefined
+            ? sampling.config
+            : { ...sampling.config, recovery: policy.recovery };
+        const broker = new LlmBroker(provider.model, provider.gateway(host));
 
-          await route.run(broker, config);
+        await route.run(broker, config);
 
-          expect(requests).toEqual(
-            Array.from({ length: 1 + policy.failures }, () =>
-              samplingBody(provider, route.name, config)
-            )
+        expect(requests).toEqual(
+          Array.from({ length: 1 + policy.failures }, () => ({
+            ...samplingBody(provider, route.name, config),
+            ...sampling.wire,
+          }))
+        );
+        expect(requests.map((request) => serializedBodies.get(request))).toEqual(
+          Array.from({ length: 1 + policy.failures }, () => serializedBodies.get(requests[0]))
+        );
+        for (const request of requests) {
+          const samplingFields = Array.from(
+            (serializedBodies.get(request) ?? '').matchAll(
+              /"(top_p|frequency_penalty|presence_penalty)"\s*:/g
+            ),
+            (match) => match[1]
           );
-          expect(requests.map((request) => serializedBodies.get(request))).toEqual(
-            Array.from({ length: 1 + policy.failures }, () => serializedBodies.get(requests[0]))
-          );
+          expect(samplingFields.sort()).toEqual(Object.keys(sampling.wire ?? {}).sort());
         }
-      );
+      });
     });
   });
 
