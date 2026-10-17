@@ -30,10 +30,25 @@ if (!result.ok && result.error instanceof RecoveryError) {
 ```
 
 `harness` above is application-owned policy and persistence, not a Mojentic API.
-The admission promise must resolve to `'allow'` or `'reject'`. A pending promise
-never permits a resend. Its signal aborts when the wait ends or is cancelled.
-An admission exception rejects recovery and remains available through explicit
-inspection. Eligibility does not prove remote inference ended.
+Only an explicit `'allow'` authorizes a resend. An explicit `'reject'` stops with
+`admission_rejected`. A hook that completes without returning a decision, returns
+an unexpected value from JavaScript, or throws stops with `admission_no_decision`
+and emits the matching lifecycle event. The original failure and attempt history
+remain available; hook exceptions are private evidence accessible only through
+`inspectRecoveryFailure(error.failure)?.admissionCause`.
+
+A pending promise never permits a resend. Its signal aborts when the wait ends or
+is cancelled. Cancellation and recovery deadlines retain their existing outcomes.
+With no hook, eligible OpenAI failures may retry; ambiguous Ollama and oMLX
+failures still require admission. Eligibility does not prove remote inference ended.
+
+Migration: callers that previously treated every non-allow completion as
+`admission_rejected` must handle `admission_no_decision` separately, including in
+exhaustive `RecoveryOutcome` and `RecoveryTransition` switches. Return `'reject'`
+for intentional refusal, return `'allow'` to permit resend, and keep the promise
+pending while awaiting an external decision. Never interpret a missing return or
+a hook exception as caller refusal. This applies to ordinary, structured, chunk
+streaming and event streaming calls, including broker and session entrypoints.
 
 The same policy works at these entrypoints:
 

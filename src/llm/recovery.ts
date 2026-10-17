@@ -24,6 +24,7 @@ export type RecoveryOutcome =
   | 'cancelled'
   | 'admission_required'
   | 'admission_rejected'
+  | 'admission_no_decision'
   | 'deadline'
   | 'delay_ceiling';
 export interface RecoveryIdentity {
@@ -70,6 +71,7 @@ export type RecoveryTransition =
   | 'admission_pending'
   | 'admission_allowed'
   | 'admission_rejected'
+  | 'admission_no_decision'
   | 'admission_required'
   | 'delay_scheduled'
   | 'retry_started'
@@ -111,7 +113,8 @@ export interface RecoveryOptions {
   /** Absolute wall-clock deadline; applies only to recovery admission and resend. */
   readonly deadlineMs?: number;
   readonly signal?: AbortSignal;
-  readonly admit?: (context: RecoveryAdmission) => Promise<'allow' | 'reject'>;
+  /** Only explicit allow authorizes resend; completion without a decision stops recovery. */
+  readonly admit?: (context: RecoveryAdmission) => Promise<'allow' | 'reject' | void>;
   readonly onEvent?: (event: RecoveryEvent) => void;
   readonly onWire?: (event: RecoveryWireEvent) => void | Promise<void>;
   readonly jitter?: () => number;
@@ -641,13 +644,11 @@ export async function recoverCompletion(
       const admissionAbort = new AbortController();
       const abortAdmission = (): void => admissionAbort.abort(signal.reason);
       signal.addEventListener('abort', abortAdmission, { once: true });
-      let decision: 'allow' | 'reject';
+      let decision: unknown;
       try {
         decision = await wait(
-          Promise.resolve().then(
-            () =>
-              policy.admit?.({ failure, nextAttempt: number + 1, signal: admissionAbort.signal }) ??
-              'reject'
+          Promise.resolve().then(() =>
+            policy.admit?.({ failure, nextAttempt: number + 1, signal: admissionAbort.signal })
           ),
           signal,
           remaining()
@@ -657,16 +658,17 @@ export async function recoverCompletion(
         if (cause instanceof RecoveryDeadline) return finish('deadline', failure);
         const original = evidence.get(failure);
         if (original) evidence.set(failure, { ...original, admissionCause: cause });
-        emit('admission_rejected', failure);
-        return Err(new RecoveryError('admission_rejected', failure, [...history]));
+        emit('admission_no_decision', failure);
+        return Err(new RecoveryError('admission_no_decision', failure, [...history]));
       } finally {
         signal.removeEventListener('abort', abortAdmission);
         admissionAbort.abort();
       }
       if (signal.aborted) return cancelled();
       if (decision !== 'allow') {
-        emit('admission_rejected', failure);
-        return Err(new RecoveryError('admission_rejected', failure, [...history]));
+        const outcome = decision === 'reject' ? 'admission_rejected' : 'admission_no_decision';
+        emit(outcome, failure);
+        return Err(new RecoveryError(outcome, failure, [...history]));
       }
       emit('admission_allowed', failure);
     } else if (provider !== 'openai' && failure.acceptance !== 'no') {

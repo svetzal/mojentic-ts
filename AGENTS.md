@@ -1,33 +1,21 @@
 # Usage Rules for Mojentic TypeScript
 
-## Coordinated 2.1.0 release authorization
+## Coordinated 3.0.0 release authorization
 
-Stacey authorized this release on September 30, 2026. If `v2.1.0` does not
-exist yet, the next release is exactly **2.1.0**, even when a normal major or
-minor bump would choose a different version. All six ports are ready at their
-audited main commits. Use September 30, 2026 as the changelog date.
+Stacey authorized the coordinated 3.0.0 initiative on October 15, 2026.
+The binding scope and release conditions are in [../RELEASE-3.0.0.md](../RELEASE-3.0.0.md),
+including the October 12 recovery amendment. This supersedes the obsolete
+2.1.0 release authorization and the planned 2.2.0 deferrals.
 
-Keep scope to release preparation. Disabled reasoning parity is deferred to
-2.2.0. Ordinary generate finish handling is deferred to a later major release.
-Swift and Kotlin keep whole-text embeddings as the accepted 2.1.0 exception.
-Do not add features, update dependencies, or change runtime behavior.
+All six ports must meet the binding contracts, conformance evidence, changelog,
+quality gates and CI requirements before coordinated release. Keep package,
+lockfile and runtime versions unchanged during this correction task. Do not tag
+or publish until the coordinated release conditions and owner authorization
+permit it. Consumer migrations require separately authorized, paired executable
+contract verification; local conformance alone does not establish compatibility.
 
-This AGENTS.md section is the release coordinator's known, authorized edit.
-The clone was synced before it was added. Preserve it and include it in the
-release commit after all required gates pass. Do not stash or revert it.
-Fetch again before work; rebase only if the tree permits it and stop on conflicts.
-
-For TypeScript also set the public VERSION export in src/index.ts to 2.1.0.
-It still reports 0.1.0; the published runtime must report the package version.
-
-Update all actual package versions and lockfile root versions, finalize the
-Unreleased changelog as 2.1.0, then commit on main and tag that commit v2.1.0.
-Create and publish a GitHub release using those changelog notes so workflows
-that require the release-published event run. No branch or PR.
-For Kotlin use gradle.properties version=2.1.0 and the configured
-com.vetzal.mojentic group. Tag push runs the Maven Central workflow. For Swift,
-the git tag is the package version; do not change swift-tools-version.
-Verify the tag points at the version/changelog HEAD commit before pushing.
+Foundry owns Git finalization for this task. Leave changes in the task worktree;
+do not commit, push, merge, rebase, tag or modify refs.
 
 Why this project exists and what problem does it solve: @CHARTER.md
 

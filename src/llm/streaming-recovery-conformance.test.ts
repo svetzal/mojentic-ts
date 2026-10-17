@@ -1,5 +1,6 @@
 /** Public deterministic HTTP evidence for both streaming forms and all completion adapters. */
 import { strict as assert } from 'node:assert';
+import { inspect } from 'node:util';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { Ok, Result } from '../error';
@@ -25,6 +26,7 @@ type Reply = (response: ServerResponse, request: IncomingMessage) => void;
 interface Provider {
   readonly name: 'ollama' | 'omlx' | 'openai';
   readonly gateway: (url: string) => LlmGateway;
+  readonly path: string;
   readonly frame: (delta: object, done?: boolean, finish?: string) => string;
   readonly end: string;
   readonly keepalive: string;
@@ -33,6 +35,7 @@ interface Provider {
 const providers: readonly Provider[] = [
   {
     name: 'ollama',
+    path: '/api/chat',
     gateway: (url) => new OllamaGateway(url),
     frame: (message, done = false, done_reason = 'stop') =>
       JSON.stringify({
@@ -50,6 +53,7 @@ const providers: readonly Provider[] = [
   },
   {
     name: 'omlx',
+    path: '/v1/chat/completions',
     gateway: (url) => new OMLXGateway(url, 'credential-secret', 10000),
     frame: (delta, done = false, finish = 'stop') =>
       `data: ${JSON.stringify({ id: 'provider-response', model: 'reported', choices: [{ delta, finish_reason: done ? finish : null }], usage: done ? { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5, time_to_first_token: 0.2 } : undefined })}\n\n`,
@@ -59,6 +63,7 @@ const providers: readonly Provider[] = [
   },
   {
     name: 'openai',
+    path: '/chat/completions',
     gateway: (url) => new OpenAIGateway('credential-secret', url),
     frame: (delta, done = false, finish = 'stop') =>
       `data: ${JSON.stringify({ id: 'provider-response', model: 'reported', choices: [{ delta, finish_reason: done ? finish : null }], usage: done ? { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 } : undefined })}\n\n`,
@@ -137,12 +142,14 @@ let server: Server;
 let url: string;
 let replies: Reply[];
 let requests: Buffer[];
+let destinations: string[];
 let events: RecoveryEvent[];
 let captures: RecoveryWireEvent[];
 let options: RecoveryOptions;
 beforeEach(async () => {
   replies = [];
   requests = [];
+  destinations = [];
   events = [];
   captures = [];
   options = {
@@ -160,6 +167,7 @@ beforeEach(async () => {
     const parts: Buffer[] = [];
     for await (const part of request) parts.push(Buffer.from(part));
     requests.push(Buffer.concat(parts));
+    destinations.push(`http://${request.headers.host}${request.url}`);
     const reply = replies.at(requests.length - 1);
     assert(reply, 'unexpected actual send');
     reply(response, request);
@@ -198,6 +206,9 @@ function capturedResponse(attempt: number): Buffer {
       .filter((event) => event.direction === 'response' && event.wireAttempt === attempt)
       .map((event) => Buffer.from(event.bytes))
   );
+}
+function checkDestinations(provider: Provider): void {
+  expect(destinations).toEqual(Array(requests.length).fill(url + provider.path));
 }
 function checkRequests(): void {
   expect(
@@ -901,6 +912,137 @@ for (const provider of providers)
         expect(requests).toHaveLength(1);
       });
 
+      it.each([
+        undefined,
+        null,
+        false,
+        'pending',
+        'cancelled',
+        'deadline',
+        { private: 'payload-secret' },
+      ])(
+        'stops an undecided JavaScript streaming admission return %p',
+        async (decision: unknown) => {
+          replies.push(respond('{"error":"payload-secret"}', 503), respond(success()));
+          // Exercise untyped caller values without weakening the public TypeScript API.
+          const recovery = Object.defineProperty({ ...options }, 'admit', {
+            value: async () => decision,
+          });
+
+          const output = await run(recovery);
+          const error = recoveryError(output);
+
+          expect(error.outcome).toBe('admission_no_decision');
+          expect(content(output)).toBe('');
+          expect(requests).toHaveLength(1);
+          checkRequests();
+          checkDestinations(provider);
+          expect(error.history).toEqual([error.failure]);
+          expect(types(events)).toEqual([
+            'attempt_started',
+            'attempt_failed',
+            'admission_pending',
+            'admission_no_decision',
+          ]);
+          expect(events.at(-1)).toMatchObject({
+            logicalRequestId: error.failure.logicalRequestId,
+            attemptId: error.failure.attemptId,
+            wireAttempt: 1,
+            failure: error.failure,
+            progress: error.failure.progress,
+          });
+          expect(error.failure).toMatchObject({
+            provider: provider.name,
+            operation: 'streaming',
+            httpStatus: 503,
+          });
+          expect(inspectRecoveryFailure(error.failure)?.admissionCause).toBeUndefined();
+          expect(
+            JSON.stringify({ error, events, output }) + inspect(error) + String(error)
+          ).not.toMatch(/credential-secret|payload-secret/);
+        }
+      );
+      it('keeps streaming history when later admission completes without returning', async () => {
+        replies.push(respond('{}', 503), respond('{}', 502), respond(success()));
+        const decisions: ('allow' | undefined)[] = ['allow', undefined];
+
+        const error = recoveryError(
+          await run({ ...options, admit: async () => decisions.shift() })
+        );
+
+        expect(error.outcome).toBe('admission_no_decision');
+        expect(requests).toHaveLength(2);
+        expect(requests[1]).toEqual(requests[0]);
+        checkRequests();
+        checkDestinations(provider);
+        expect(error.history.map((failure) => failure.httpStatus)).toEqual([503, 502]);
+        expect(error.history.map((failure) => failure.attemptId)).toEqual(
+          events.filter((event) => event.type === 'attempt_started').map((event) => event.attemptId)
+        );
+        expect(error.history.map((failure) => failure.logicalRequestId)).toEqual([
+          error.failure.logicalRequestId,
+          error.failure.logicalRequestId,
+        ]);
+        expect(error.failure).toBe(error.history[1]);
+        expect(types(events)).toEqual([
+          'attempt_started',
+          'attempt_failed',
+          'admission_pending',
+          'admission_allowed',
+          'delay_scheduled',
+          'retry_started',
+          'attempt_started',
+          'attempt_failed',
+          'admission_pending',
+          'admission_no_decision',
+        ]);
+      });
+
+      it('reports a thrown admission hook as no decision with private evidence', async () => {
+        replies.push(respond('{"error":"payload-secret"}', 503), respond(success()));
+        const cause = new Error('credential-secret admission');
+
+        const output = await run({
+          ...options,
+          admit: async () => {
+            throw cause;
+          },
+        });
+        const error = recoveryError(output);
+
+        expect(error.outcome).toBe('admission_no_decision');
+        expect(content(output)).toBe('');
+        expect(requests).toHaveLength(1);
+        expect(error.history).toEqual([error.failure]);
+        expect(error.failure).toMatchObject({
+          provider: provider.name,
+          operation: 'streaming',
+          wireAttempt: 1,
+          httpStatus: 503,
+          classification: { eligible: true, reason: 'transient' },
+        });
+        checkRequests();
+        checkDestinations(provider);
+        expect(inspect(error) + String(error)).not.toMatch(/credential-secret|payload-secret/);
+        expect(inspectRecoveryFailure(error.failure)?.admissionCause).toBe(cause);
+        expect(types(events)).toEqual([
+          'attempt_started',
+          'attempt_failed',
+          'admission_pending',
+          'admission_no_decision',
+        ]);
+        expect(events.at(-1)).toMatchObject({
+          logicalRequestId: error.failure.logicalRequestId,
+          attemptId: error.failure.attemptId,
+          wireAttempt: 1,
+          failure: error.failure,
+          progress: error.failure.progress,
+        });
+        expect(JSON.stringify({ error, events, output })).not.toMatch(
+          /credential-secret|payload-secret/
+        );
+      });
+
       it('rejects ambiguous admission without another send', async () => {
         replies.push(respond('{}', 503));
 
@@ -1406,6 +1548,31 @@ for (const provider of providers) {
         true,
         provider.name === 'ollama' ? 'stop' : 'tool_calls'
       ) + provider.end;
+
+    it('propagates no decision through broker and session streaming without assistant history', async () => {
+      replies.push(respond('{}', 503), respond(answer()));
+
+      const error = await sessionFailure(
+        session.sendStream('query', {
+          ...options,
+          admit: async () => {},
+        })
+      );
+
+      expect(error.outcome).toBe('admission_no_decision');
+      expect(error.history).toEqual([error.failure]);
+      expect(requests).toHaveLength(1);
+      checkRequests();
+      checkDestinations(provider);
+      expect(types(events)).toEqual([
+        'attempt_started',
+        'attempt_failed',
+        'admission_pending',
+        'admission_no_decision',
+      ]);
+      expect(session.getMessages().map((message) => message.role)).toEqual(['system', 'user']);
+      expect(calls).toEqual([]);
+    });
 
     it('characterizes disabled tool success copying history and sizing only final content', async () => {
       replies.push(respond(toolReply()), respond(answer()));

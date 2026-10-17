@@ -1,5 +1,6 @@
 /** Public loopback conformance. No fetch mocks, no live inference, no private engine tests. */
 import { strict as assert } from 'node:assert';
+import { inspect } from 'node:util';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { LlmBroker } from './broker';
@@ -23,6 +24,7 @@ type Reply = (response: ServerResponse, request: IncomingMessage) => void;
 interface Send {
   readonly bytes: Buffer;
   readonly path: string | undefined;
+  readonly destination: string;
   readonly authorization: string | undefined;
 }
 interface Provider {
@@ -146,6 +148,7 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
       sends.push({
         bytes: Buffer.concat(chunks),
         path: request.url,
+        destination: `http://${request.headers.host}${request.url}`,
         authorization: request.headers.authorization,
       });
       const reply = replies.shift() ?? jsonReply(599, { error: 'unexpected send' });
@@ -209,6 +212,9 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
   };
   const assertSends = (expected: number): void => {
     expect(sends.map((send) => send.path)).toEqual(Array(expected).fill(provider.path));
+    expect(sends.map((send) => send.destination)).toEqual(
+      Array(expected).fill(url + provider.path)
+    );
     expect(sends.map((send) => send.bytes)).toEqual(Array(expected).fill(sends[0].bytes));
     expect(sends.map((send) => send.authorization)).toEqual(
       Array(expected).fill(provider.name === 'ollama' ? undefined : 'Bearer credential-secret')
@@ -934,6 +940,88 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
       ]);
       assertSends(2);
     });
+    it.each([
+      undefined,
+      null,
+      false,
+      'pending',
+      'cancelled',
+      'deadline',
+      { private: 'payload-secret' },
+    ])(
+      'stops an undecided JavaScript admission return %p without caller rejection',
+      async (decision: unknown) => {
+        replies = [
+          jsonReply(503, { error: 'payload-secret' }),
+          jsonReply(200, provider.success(content)),
+        ];
+        // JavaScript callers can return values outside the declared TypeScript decision union.
+        const recovery = Object.defineProperty(policy(), 'admit', {
+          value: async () => decision,
+        });
+
+        const error = failed(await call(operation, recovery));
+
+        expect(error.outcome).toBe('admission_no_decision');
+        assertSends(1);
+        assertHistory(error, [503]);
+        expect(events.map((event) => event.type)).toEqual([
+          'attempt_started',
+          'attempt_failed',
+          'admission_pending',
+          'admission_no_decision',
+        ]);
+        expect(events.at(-1)).toMatchObject({
+          logicalRequestId: error.failure.logicalRequestId,
+          attemptId: error.failure.attemptId,
+          wireAttempt: 1,
+          failure: error.failure,
+          progress: error.failure.progress,
+        });
+        expect(error.failure).toMatchObject({
+          provider: provider.name,
+          operation,
+          httpStatus: 503,
+        });
+        expect(inspectRecoveryFailure(error.failure)?.admissionCause).toBeUndefined();
+        expect(inspect(error) + String(error)).not.toMatch(/payload-secret|credential-secret/);
+      }
+    );
+    it('keeps complete history when a later admission completes without returning', async () => {
+      replies = [jsonReply(503, {}), jsonReply(502, {}), jsonReply(200, provider.success(content))];
+      const decisions: ('allow' | undefined)[] = ['allow', undefined];
+      const contexts: number[] = [];
+
+      const error = failed(
+        await call(
+          operation,
+          policy({
+            admit: async ({ nextAttempt }) => {
+              contexts.push(nextAttempt);
+              return decisions.shift();
+            },
+          })
+        )
+      );
+
+      expect(error.outcome).toBe('admission_no_decision');
+      expect(contexts).toEqual([2, 3]);
+      assertSends(2);
+      assertHistory(error, [503, 502]);
+      expect(error.failure).toBe(error.history[1]);
+      expect(events.map((event) => event.type)).toEqual([
+        'attempt_started',
+        'attempt_failed',
+        'admission_pending',
+        'admission_allowed',
+        'delay_scheduled',
+        'retry_started',
+        'attempt_started',
+        'attempt_failed',
+        'admission_pending',
+        'admission_no_decision',
+      ]);
+    });
     it('retains an admission exception without calling it deadline exhaustion', async () => {
       replies = [jsonReply(503, { error: 'ambiguous' })];
       const cause = new Error('credential-secret admission');
@@ -948,15 +1036,17 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
         )
       );
 
-      expect(error.outcome).toBe('admission_rejected');
+      expect(error.outcome).toBe('admission_no_decision');
       expect(inspectRecoveryFailure(error.failure)?.admissionCause).toBe(cause);
       expect(events.map((event) => event.type)).toEqual([
         'attempt_started',
         'attempt_failed',
         'admission_pending',
-        'admission_rejected',
+        'admission_no_decision',
       ]);
-      expect(sends.map((send) => send.path)).toEqual([provider.path]);
+      assertSends(1);
+      assertHistory(error, [503]);
+      expect(inspect(error) + String(error)).not.toMatch(/credential-secret|payload-secret/);
       expect(JSON.stringify(error)).not.toContain('credential-secret');
     });
     it('keeps the opt-in default to one wire attempt', async () => {
@@ -1149,6 +1239,30 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
           ]
         : ['attempt_started', 'attempt_failed', 'admission_required']
     );
+  });
+  it('propagates an omitted admission return through the public session', async () => {
+    replies = [
+      jsonReply(503, { error: 'payload-secret' }),
+      jsonReply(200, provider.success('answer')),
+    ];
+    const session = new ChatSession(new LlmBroker('gpt-4o', provider.gateway(url)), {
+      tokenizerGateway: { encode: () => [], decode: () => '', free: () => {} },
+    });
+    try {
+      const result = await session.send('payload-secret', policy({ admit: async () => {} })).then(
+        (value) => Ok(value),
+        (error: Error) => Err(error)
+      );
+      const error = failed(result);
+
+      expect(error.outcome).toBe('admission_no_decision');
+      assertSends(1);
+      assertHistory(error, [503]);
+      expect(events.at(-1)?.type).toBe('admission_no_decision');
+      expect(session.getMessages().map((message) => message.role)).toEqual(['system', 'user']);
+    } finally {
+      session.dispose();
+    }
   });
   it.each(['broker', 'session'] as const)(
     'preserves exact typed capture cause and undelivered progress through %s',

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- Recovery admission hooks that complete without an explicit decision, return an
+  unexpected JavaScript value, or throw now stop with `admission_no_decision`
+  and the matching lifecycle event, distinct from `admission_rejected`. Resend
+  remains forbidden. Original HTTP failure identity and history are preserved;
+  exceptions remain private through `inspectRecoveryFailure().admissionCause`.
+- Migration: handle the new `RecoveryOutcome` and `RecoveryTransition` union
+  member in exhaustive switches. Return `'reject'` for deliberate refusal and
+  `'allow'` for permission; keep the promise pending while awaiting a decision.
+  Cancellation, deadlines, absent hooks and explicit decisions retain their
+  characterized behavior across OpenAI, Ollama and oMLX ordinary, structured and
+  streaming calls, including broker and session propagation.
+
+### Documentation
+
+- Replaced obsolete 2.1.0 release authorization with the binding coordinated
+  3.0.0 authorization in `../RELEASE-3.0.0.md`. This correction changes no package
+  versions and does not authorize publication.
+- Started `CONFORMANCE-3.0.0.md` with named local HTTP tests for recovery amendment
+  item 2 and explicit gaps for remaining decisions and paired verification.
+
 ### Security
 
 - Fixed FileManager sandbox containment to reject sibling directories whose names share the base path prefix when reading, writing, listing, or creating directories.
