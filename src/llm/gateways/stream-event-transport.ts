@@ -1,3 +1,4 @@
+import { StreamTiming } from '../stream-timing';
 /**
  * HTTP transport for single-turn streams of {@link LlmStreamEvent}.
  *
@@ -98,10 +99,11 @@ function describe(cause: unknown): string {
  * Stopping iteration (`break`, `return()`) or aborting `callerSignal` aborts the request and
  * cancels the body. An abort while iteration continues ends the stream with a `cancelled` error.
  */
-export async function* streamCompletionEvents(
+async function* requestCompletionEvents(
   request: StreamRequest,
   parseLine: LineParser,
-  callerSignal?: AbortSignal
+  callerSignal: AbortSignal | undefined,
+  timing: StreamTiming
 ): AsyncGenerator<LlmStreamEvent> {
   if (callerSignal?.aborted) {
     yield failure('cancelled', 'The request was cancelled before it was sent', NO_EVIDENCE);
@@ -123,6 +125,7 @@ export async function* streamCompletionEvents(
   try {
     let response: Response;
     try {
+      timing.start();
       response = await fetch(request.url, {
         method: 'POST',
         headers: request.headers,
@@ -171,6 +174,7 @@ export async function* streamCompletionEvents(
           yield failure('cancelled', 'The request was cancelled', evidence);
           return;
         }
+        timing.observe(line);
         const outcome = parseLine(line, evidence);
         evidence = outcome.evidence;
         for (const event of outcome.events) {
@@ -188,5 +192,17 @@ export async function* streamCompletionEvents(
   } finally {
     callerSignal?.removeEventListener('abort', abortRequest);
     controller.abort();
+  }
+}
+
+/** Stream with client timing in every dispatched request's terminal evidence. */
+export async function* streamCompletionEvents(
+  request: StreamRequest,
+  parseLine: LineParser,
+  callerSignal?: AbortSignal
+): AsyncGenerator<LlmStreamEvent> {
+  const timing = new StreamTiming();
+  for await (const event of requestCompletionEvents(request, parseLine, callerSignal, timing)) {
+    yield timing.event(event);
   }
 }

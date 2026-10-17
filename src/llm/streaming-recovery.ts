@@ -1,3 +1,4 @@
+import { StreamTiming } from './stream-timing';
 /** Streaming execution shares the completion engine's retry and admission policy. */
 import { Err, Result } from '../error';
 import { GatewayResponse, StreamChunk } from './models';
@@ -48,6 +49,7 @@ async function* recoverStream<T>(
   payload: object,
   options: RecoveryOptions,
   parser: () => Parser<T>,
+  timing: StreamTiming,
   failure: (error: Error, sensitive: (value: string) => boolean) => T
 ): AsyncGenerator<T> {
   const controller = new AbortController();
@@ -98,6 +100,7 @@ async function* recoverStream<T>(
       }
     };
     try {
+      timing.start();
       state.response = await transport.send(url, frozenHeaders, body, attemptSignal);
       state.phase = 'streaming';
       state.category = state.response.ok ? 'transport' : 'http';
@@ -137,6 +140,7 @@ async function* recoverStream<T>(
         buffer = done ? '' : (lines.pop() ?? '');
         for (const line of lines) {
           if (attemptSignal.aborted) throw attemptSignal.reason;
+          timing.observe(line);
           const frame = decode.parse(line);
           state.responseEvidence = frame.evidence;
           if (frame.completedToolCalls !== undefined) {
@@ -331,13 +335,15 @@ export async function* recoverStreamEvents(
   options: RecoveryOptions,
   parseLine: LineParser
 ): AsyncGenerator<LlmStreamEvent> {
-  yield* recoverStream<LlmStreamEvent>(
+  const timing = new StreamTiming();
+  for await (const event of recoverStream<LlmStreamEvent>(
     provider,
     url,
     headers,
     payload,
     options,
     () => eventStreamParser(provider, parseLine),
+    timing,
     (error, sensitive) => ({
       type: 'error',
       error: new StreamEventError(
@@ -359,7 +365,9 @@ export async function* recoverStreamEvents(
         }
       ),
     })
-  );
+  )) {
+    yield timing.event(event);
+  }
 }
 /** Opted-in legacy chunks expose reasoning and fragments without executing partial calls. */
 export async function* recoverStreamChunks(
@@ -370,13 +378,27 @@ export async function* recoverStreamChunks(
   options: RecoveryOptions,
   parseLine: LineParser
 ): AsyncGenerator<Result<StreamChunk, Error>> {
-  yield* recoverStream(
+  const timing = new StreamTiming();
+  for await (const result of recoverStream(
     provider,
     url,
     headers,
     payload,
     options,
     () => streamParser(provider, parseLine),
-    (error) => Err(error)
-  );
+    timing,
+    (error, sensitive) =>
+      Err(
+        Object.assign(error, {
+          evidence: safeEvidence(
+            error instanceof RecoveryError
+              ? (inspectRecoveryFailure(error.failure)?.responseEvidence ?? NO_EVIDENCE)
+              : NO_EVIDENCE,
+            sensitive
+          ),
+        })
+      )
+  )) {
+    yield timing.chunk(result);
+  }
 }

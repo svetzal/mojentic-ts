@@ -530,6 +530,9 @@ describe('OMLXGateway', () => {
               id: 'chatcmpl-05014002',
               created: 1790679817,
               usage: streamedUsage('stream_thinking.sse'),
+              first_token_kind: 'thinking',
+              time_to_first_token_ms: expect.any(Number),
+              request_duration_ms: expect.any(Number),
             },
           },
         },
@@ -600,7 +603,12 @@ describe('OMLXGateway', () => {
       expect(result).toEqual([
         errorWith({
           reason: 'incomplete_stream',
-          evidence: { finishReason: null, usage: null, providerModel: null, metadata: null },
+          evidence: {
+            finishReason: null,
+            usage: null,
+            providerModel: null,
+            metadata: { request_duration_ms: expect.any(Number) },
+          },
         }),
       ]);
     });
@@ -699,6 +707,9 @@ describe('OMLXGateway', () => {
           ],
           done: true,
           finishReason: 'tool_calls',
+          evidence: expect.objectContaining({
+            metadata: expect.objectContaining({ request_duration_ms: expect.any(Number) }),
+          }),
         },
       ]);
     });
@@ -721,7 +732,13 @@ describe('OMLXGateway', () => {
 
       expect(result).toEqual([
         { content: '\n\nhello', done: false },
-        { done: true, finishReason: 'stop' },
+        {
+          done: true,
+          finishReason: 'stop',
+          evidence: expect.objectContaining({
+            metadata: expect.objectContaining({ first_token_kind: 'thinking' }),
+          }),
+        },
       ]);
     });
 

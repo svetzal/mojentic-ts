@@ -10,16 +10,22 @@ import { MojenticError } from '../error';
 import { CompletionUsage, FinishReason } from './models';
 
 /**
- * What the provider reported about how a completion ended.
+ * Provider completion evidence plus client-measured streaming latency.
  *
- * A null field means the provider did not report it. Nothing here is estimated.
+ * A null provider field means it was not reported. Client timing uses a monotonic clock.
  */
 export interface CompletionEvidence {
   readonly finishReason: FinishReason | null;
   readonly usage: CompletionUsage | null;
   /** Model name the provider reported, which can differ from the requested model. */
   readonly providerModel: string | null;
-  /** Other provider-reported fields, such as a response id or Ollama timings. */
+  /**
+   * Provider fields (response id, Ollama timings, oMLX usage) and client timing in milliseconds:
+   * `request_duration_ms` on dispatched terminal success/failure; `time_to_first_token_ms` and
+   * `first_token_kind` (`content`, `thinking`, `tool_call`) only after a nonempty token fragment.
+   * Timing starts at dispatch, ignores keepalives/empty deltas, and retains the first observation.
+   * Tool arguments count before a completed call; thinking counts even when not publicly yielded.
+   */
   readonly metadata: Readonly<Record<string, unknown>> | null;
 }
 

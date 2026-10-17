@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Client-measured streaming latency for every maintained OpenAI, Ollama and oMLX
+  legacy chunk/event path, with recovery on or off. Terminal evidence includes
+  `request_duration_ms`; `time_to_first_token_ms` and `first_token_kind` identify
+  the first content, thinking or tool-argument fragment and stay absent without
+  a token. The monotonic clock starts at HTTP dispatch, ignores keepalives and
+  empty deltas, and retains the first observation. Provider metrics retain their
+  own names and units. Legacy broker/session streams still yield text; use
+  gateway terminal chunks or broker events to inspect successful timing.
+
 - Optional `LlmGateway.getModelContextWindow(model)` and the exported fallback helper
   return `Result<ModelContextWindow | null, Error>` with a positive `maxContextTokens`
   and exact `field` provenance. oMLX queries its authenticated models endpoint;

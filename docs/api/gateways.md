@@ -4,6 +4,18 @@ A gateway connects Mojentic to one LLM provider. Most code does not call a gatew
 You give the gateway to an `LlmBroker`, and the broker calls it. Call a gateway directly to get
 the provider response without the broker, for example the finish reason or the token usage.
 
+## Streaming timing evidence
+
+Maintained OpenAI, Ollama and oMLX gateways attach monotonic client timing to
+terminal event evidence and legacy terminal chunks, including opt-in recovery.
+Read `request_duration_ms`, `time_to_first_token_ms` and `first_token_kind` from
+`CompletionEvidence.metadata`. First-token fields are absent when no nonempty
+content, thinking or tool-argument fragment arrives. Terminal stream errors
+expose the same `evidence` property while retaining their existing error class
+and recovery details. Provider durations and oMLX usage remain provider metrics.
+See [streaming timing](../streaming.md#client-first-token-timing) for locations,
+units, cancellation, and the distinction between gateway chunks and broker text.
+
 ## LlmGateway Interface
 
 ```typescript

@@ -1,3 +1,4 @@
+import { StreamTiming } from '../stream-timing';
 import { readContextWindow } from './model-context-transport';
 import { ModelContextWindow, parseOllamaContextWindow } from '../model-context';
 import { recoverStreamChunks, recoverStreamEvents } from '../streaming-recovery';
@@ -320,11 +321,29 @@ export class OllamaGateway implements LlmGateway {
     }
   }
 
+  /**
+   * Stream legacy chunks with monotonic client timings in terminal evidence and error.evidence.
+   * Thinking and tool arguments count for timing even when the legacy parser does not yield them.
+   * Recovery remains opt-in; provider metrics and chunk delivery retain their existing behavior.
+   */
   async *generateStream(
     model: string,
     messages: LlmMessage[],
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
+  ): AsyncGenerator<Result<StreamChunk, Error>> {
+    const timing = new StreamTiming(parseOllamaStreamLine);
+    for await (const result of this.generateStreamChunks(model, messages, config, tools, timing)) {
+      yield config?.recovery ? result : timing.chunk(result);
+    }
+  }
+
+  private async *generateStreamChunks(
+    model: string,
+    messages: LlmMessage[],
+    config: CompletionConfig | undefined,
+    tools: ToolDescriptor[] | undefined,
+    timing: StreamTiming
   ): AsyncGenerator<Result<StreamChunk, Error>> {
     if (config?.recovery) {
       yield* recoverStreamChunks(
@@ -343,6 +362,7 @@ export class OllamaGateway implements LlmGateway {
         stream: true,
       };
 
+      timing.start();
       const response = await fetch(`${this.baseUrl}/api/chat`, {
         method: 'POST',
         headers: {
@@ -381,6 +401,7 @@ export class OllamaGateway implements LlmGateway {
         buffer = lines.pop() || '';
 
         for (const line of lines) {
+          timing.observe(line);
           if (line.trim()) {
             try {
               const data = JSON.parse(line) as OllamaStreamResponse;

@@ -152,6 +152,7 @@ export interface StreamChunk {
   reasoning?: string;
   toolCallFragments?: readonly unknown[];
   frameIndex?: number;
+  /** Terminal evidence includes monotonic client timing alongside provider metrics. */
   evidence?: import('./stream-events').CompletionEvidence;
   content?: string;
   toolCalls?: ToolCall[];

@@ -77,7 +77,17 @@ function lastEvent(events: LlmStreamEvent[]): LlmStreamEvent {
 }
 
 function errorWith(fields: Partial<StreamEventError>): unknown {
-  return { type: 'error', error: expect.objectContaining(fields) };
+  const expected =
+    fields.evidence === undefined
+      ? fields
+      : {
+          ...fields,
+          evidence: {
+            ...fields.evidence,
+            metadata: expect.objectContaining(fields.evidence.metadata ?? {}),
+          },
+        };
+  return { type: 'error', error: expect.objectContaining(expected) };
 }
 
 function sentInit(): RequestInit {
@@ -110,7 +120,7 @@ describe('OllamaGateway.generateStreamEvents', () => {
           finishReason: 'stop',
           usage: reportedUsage,
           providerModel: 'llama3:8b',
-          metadata: { done_reason: 'stop', ...durations },
+          metadata: expect.objectContaining({ done_reason: 'stop', ...durations }),
         },
       },
     ]);

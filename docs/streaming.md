@@ -2,6 +2,55 @@
 
 Streaming allows you to receive LLM responses chunk-by-chunk as they are generated, improving perceived latency for users.
 
+## Client first-token timing
+
+OpenAI, Ollama and oMLX measure streaming latency with a monotonic client clock,
+starting immediately before HTTP dispatch. Constructing a lazy generator starts
+no timer and sends no request. Timing works with recovery disabled or enabled.
+
+Terminal `completed.metadata.metadata` and `error.evidence.metadata` contain:
+
+| Field | Meaning |
+| --- | --- |
+| `request_duration_ms` | Milliseconds from dispatch to terminal success or failure. |
+| `time_to_first_token_ms` | Milliseconds to the first nonempty content, thinking or tool-argument fragment. Absent if none arrives. |
+| `first_token_kind` | `content`, `thinking` or `tool_call`, paired with first-token time. Absent if none arrives. |
+
+Keepalives, empty deltas, and tool names without argument fragments do not count.
+The first observation is retained when later content arrives. Thinking counts
+for timing even on paths that discard thinking from public output; this adds
+no reasoning controls or reasoning delivery API. Tool arguments count before
+the completed call. Event streams still reject tool requests and never execute
+them; a name-only tool request can therefore fail before any token is observed.
+
+```typescript
+for await (const event of broker.generateStreamEvents(messages)) {
+  if (event.type === 'completed') {
+    console.log(event.metadata.metadata?.time_to_first_token_ms);
+    console.log(event.metadata.metadata?.first_token_kind);
+    console.log(event.metadata.metadata?.request_duration_ms);
+  } else if (event.type === 'error') {
+    console.log(event.error.evidence?.metadata);
+  }
+}
+```
+
+Direct gateway `generateStream` calls put the same fields in terminal
+`StreamChunk.evidence.metadata` and terminal errors' `evidence.metadata`.
+The broker's legacy stream and `ChatSession.sendStream` continue yielding text;
+use the gateway chunks or broker event API to read successful terminal metrics.
+Session failures retain the gateway error and timing evidence.
+
+Provider metrics stay separate: Ollama durations keep their original names
+and units; oMLX's reported `usage.time_to_first_token` stays in seconds in
+`metadata.usage`. The new client fields use milliseconds and include queueing
+and network time. Recovery keeps its existing evidence redaction rules.
+For an enabled logical completion, the timer spans its first dispatch through
+terminal delivery, including any authorized retry. Each tool-loop completion
+starts a new timer. A request rejected before dispatch has no elapsed request
+measurement. Stopping iteration still cancels the stream without manufacturing
+an additional terminal event.
+
 ## Basic Streaming
 
 Use `broker.generateStream` to get an async generator of chunks:

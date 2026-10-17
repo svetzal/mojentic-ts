@@ -66,7 +66,17 @@ function lastEvent(events: LlmStreamEvent[]): LlmStreamEvent {
 }
 
 function errorWith(fields: Partial<StreamEventError>): unknown {
-  return { type: 'error', error: expect.objectContaining(fields) };
+  const expected =
+    fields.evidence === undefined
+      ? fields
+      : {
+          ...fields,
+          evidence: {
+            ...fields.evidence,
+            metadata: expect.objectContaining(fields.evidence.metadata ?? {}),
+          },
+        };
+  return { type: 'error', error: expect.objectContaining(expected) };
 }
 
 function sentInit(): RequestInit {
@@ -105,7 +115,7 @@ describe('OpenAIGateway.generateStreamEvents', () => {
           finishReason: 'stop',
           usage: reportedUsage,
           providerModel: 'gpt-4o-2024-08-06',
-          metadata: { id: 'c1', system_fingerprint: 'fp_7' },
+          metadata: expect.objectContaining({ id: 'c1', system_fingerprint: 'fp_7' }),
         },
       },
     ]);

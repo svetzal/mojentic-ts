@@ -705,3 +705,132 @@ probe characterized existing Ollama completion bytes and rejected the absent
 oMLX operation (exit 1); after implementation the same HTTP probe passed (exit 0).
 No package, lockfile or runtime version changes, publication, tags or ref changes
 were made. Suggested finalization message: `Add provider context metadata and Ollama effective-window helper`.
+
+## Model metadata section 2: client first-token timing
+
+Scope: only section 2 of `MODEL-METADATA-2026-10.md`, SHA-256
+`a085da1c0d110f9d587a24ace6ac2854b653e1ac28905b3829d94d665b2c906e`,
+read from parent contract revision `4b08dcd1d87f520a4c70928c33a2bc84c228093d`.
+The initiative brief matched its required SHA-256
+`ea6a0efa56bfb3cd74b5ce728f80cc33c6fbd853114bec94b8aabe79f5d28e6e`.
+The TypeScript input commit is `199c3cfcbc78c4fc391cebaf826ec9437ac0aa07`;
+the corrected source is an uncommitted worktree identified below. Versions,
+lockfile, request serialization, reasoning controls and recovery policy remain
+unchanged. No consumers or sibling repositories were modified.
+
+### Local executable evidence: ts-stream-first-token-v1
+
+The existing Jest and scripted loopback HTTP mechanism is reused by
+`src/llm/first-token-http.test.ts`. Its SHA-256 below identifies this local
+executable set. Actual requests traverse the maintained gateway APIs and real
+HTTP transports; only `MonotonicClockGateway` is controlled. Fixtures are local
+scripts, not independently verified provider or consumer contracts.
+
+The hardest initial probe, `measures the first argument before an oMLX terminal
+failure through real HTTP`, first failed with absent timing metadata (exit 1),
+then passed with exact 25 ms first-token and request durations (exit 0), one
+request, a preceding keepalive and lazy construction before dispatch. Foundry
+retains the behavioral proof and complete logs outside the shipped files.
+
+The complete 91-case HTTP suite was also transplanted into a temporary source
+snapshot of base `199c3cfcbc78c4fc391cebaf826ec9437ac0aa07`, with the test's
+clock gateway available but unused by base production code: 79 timing cases
+failed and 12 existing-history/tool-execution characterizations passed. The
+corrected worktree passes all 91. This is a behavioral rejection, not a marker
+or request-count-only probe.
+
+| Requirement / maintained route | Named tests in `first-token-http.test.ts` |
+| --- | --- |
+| All OpenAI, Ollama and oMLX legacy chunk paths; recovery enabled and disabled | Provider/recovery matrix: `measures $name legacy chunks after keepalives and empty deltas` for content-first, thinking-first and tool-argument-first |
+| Shared `streamCompletionEvents` and `recoverStreamEvents`, including deltas discarded by parsers | `measures $name through broker terminal events`; real OpenAI/oMLX `reasoning_content` and Ollama `thinking` frames |
+| Exact first observation and terminal durations | Matrix asserts first token 25 ms, terminal 80 ms, correct kind and one actual HTTP request; later content cannot replace thinking/tool observations |
+| Keepalives and empty deltas do not count | Legacy and broker matrix starts with keepalive/empty content; oMLX keepalive deliberately carries content that must be ignored |
+| Lazy construction, dispatch origin | Legacy matrix asserts no clock read and zero requests before consuming the generator; initial oMLX probe advances the controlled clock between construction and dispatch |
+| Empty completion: paired first-token fields absent | `leaves first-token fields absent on empty legacy streams`; `leaves first-token fields absent on empty event streams and preserves provider timing` |
+| Tool names/empty argument deltas are not tokens | `does not count tool names or empty arguments as a token before event rejection` |
+| Terminal HTTP failures and authorized retries | `times a rejected HTTP attempt and preserves the recovery request policy`: disabled sends once; enabled retries once after admission; exact terminal timing |
+| Failure after first token, no replay | `retains content timing on a broker failure without replay`; `retains timing through session failure and excludes partial assistant history`; actual socket termination and one request |
+| Cancellation and exactly one terminal event | `retains first-token evidence when a broker event request is cancelled`; matrix asserts terminal cardinality and iterator completion |
+| Tool execution and successful session history | `executes a completed streamed tool once and sends exactly one follow-up request`; `preserves successful session content and history` |
+| Provider metrics stay separate | Empty-event and legacy matrix asserts original Ollama durations and nested oMLX `usage.time_to_first_token` alongside client milliseconds |
+
+The existing streaming/recovery conformance suites, terminal-event tests,
+streamed tool round-trip tests, session tests and request-byte assertions remain
+in the full required test gate. Existing optional custom gateway APIs are
+unchanged. Existing provider completion criteria, event-tool rejection,
+cancellation, partial-output history handling and recovery redaction are retained.
+Legacy chunk callers read `StreamChunk.evidence.metadata` or terminal
+`error.evidence.metadata`; broker/session text streams retain their output API.
+
+### Coordination relay and contract gaps
+
+Proposed parent PARITY row: **Model metadata section 2 / TypeScript** — client
+monotonic dispatch-to-first-token timing for content, thinking and tool arguments,
+plus terminal success/failure duration, implemented on maintained legacy/event
+and recovery routes; local HTTP executable evidence `ts-stream-first-token-v1`.
+Parent PARITY.md remains unchanged because it is outside this authorized worktree.
+
+No shared versioned executable first-token contract set was available in this
+repository. Existing `ts-recovery-typed-errors-v1` cases remain in required gates;
+they verify recovery semantics, not cross-repository first-token compatibility.
+The initiative must arrange the same identifiable executable cases and supported
+old/new API verification on the provider/consumer sides, including optional
+fields and failures. Counterpart commits, verification commands and results are
+**missing coordination work**. No current provider deployment/source revision,
+other port or consuming repository was verified. Local HTTP fixtures do not
+establish compatibility or authorize consumer migration or coordinated release.
+
+Two details need parent coordination rather than a new cross-port rule: section
+2 does not specify the first-token tie-break when several token kinds appear in
+one frame, or whether retry timing denotes the logical completion or an individual
+attempt. This implementation follows its existing observation order (thinking,
+content, tool arguments) for simultaneous deltas and retains the first dispatch
+origin across authorized retries of one logical completion. Each tool-loop
+completion starts a fresh timer. These are reported local behavior, not a claim
+that other ports agree. Tests separate token kinds and verify the local retry
+behavior without changing recovery decisions.
+
+### Commands and results
+
+All verbose verification used Foundry capture, with complete logs archived as
+execution evidence. `npm ci` installed the unchanged lockfile. The initial
+missing-Jest exit 127 was resolved before the behavioral rejecting probe and is
+not the behavioral proof. Existing exact-object assertions were updated for
+additive terminal metadata; no warnings were suppressed.
+
+| Command | Result |
+| --- | --- |
+| `npm test -- --runInBand src/llm/first-token-http.test.ts` | Passed, 91 cases |
+| `npm run lint` | Passed, zero warnings |
+| `npm run format` and `npm run format:check` | Passed |
+| `npm test` | Passed, 55 suites and 3,199 tests |
+| `npm run build` | Passed |
+| `npm test -- --coverage` | Passed; statements 87.60%, branches 83.16%, functions 90.39%, lines 87.97%, above every existing 70% threshold |
+| Timing core coverage | `stream-timing.ts` and `monotonic-clock-gateway.ts`: 100% statements, branches, functions and lines |
+| `npm audit` | Passed, zero vulnerabilities |
+| `npm audit --omit=dev --audit-level=moderate` | Passed, zero vulnerabilities |
+| `npm outdated --cache /tmp/mojentic-timing-npm-cache` | Exit 1 reports ESLint installed 10.12.0, wanted/latest 10.13.0; no dependency changes. Plain `npm outdated` first hit the read-only default npm cache; the writable-cache rerun completed the check. |
+| `npm run docs:build` | Passed |
+
+### Corrected source identities
+
+The following SHA-256 values identify the worktree implementation and executable
+regressions rather than a finalized commit. Foundry owns Git finalization.
+
+```text
+e94d4f53928b3ea519eceedcb0f7e7a41ae2eb5da52076369d92374108b3d2a8  src/llm/first-token-http.test.ts
+e2ad2e76b28dc5ae966c0dc59b7cad157e89bb45927a0f3b55c12a6388e2dcb7  src/llm/gateway.ts
+879cacc4e73d3e0f22bfc9541ee0ede7c1ce0a89541393657bebd8314b2eaa54  src/llm/gateways/ollama-stream-events.test.ts
+c4e6fcf942cbbb73e9c15109246ca766cda817d532b66f569c0564444a820a30  src/llm/gateways/ollama.test.ts
+9ce1e293d203a77f8bbf8604457e7094b17ea2ea7eff06dd4be7850bb7ad35ef  src/llm/gateways/ollama.ts
+34628f2ee96630c68f9107f0e99b684e342ea546feea786d7f279090ebba513f  src/llm/gateways/omlx.test.ts
+0060a754b8a5e74ce2f80ee1b74c84a964437003eab3ab116fad23d7bf98d3a7  src/llm/gateways/omlx.ts
+265607cc19817d34390ee559574c5083b9881b4e6b578532b351c4e5bc3a64f5  src/llm/gateways/openai-stream-events.test.ts
+8e8674ee297289a003fd7f3186da8865d2487f61f936f889d69f43b8a02c1dcd  src/llm/gateways/openai.ts
+d6dc5ed76573e6c6cc90993f18385f8cfee766d2365b7ee4e4bcebe46cddf706  src/llm/gateways/stream-event-transport.ts
+7865603318a366276c37917038ef79c820625bd00f9da4ee7f27b69918edd77f  src/llm/models.ts
+6de9469d0b56cf939009fadfa6abcd845160137667ff7fd1aae6b9e7c3627531  src/llm/monotonic-clock-gateway.ts
+7d17becc1c29b5dfcdeabc575cf9ecfe5df5a74fa5a1dc1181982b97426297e5  src/llm/stream-events.ts
+0afaeb93fa03c364a122f29add9364071221b580e0f827b11d8ae710900f1563  src/llm/stream-timing.ts
+df7106ad7be55a4b73e2207fcb411f2177bc53589813f4aa2301408db5f82f6b  src/llm/streaming-recovery.ts
+```

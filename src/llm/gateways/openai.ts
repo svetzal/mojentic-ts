@@ -1,3 +1,4 @@
+import { StreamTiming } from '../stream-timing';
 import { ModelContextWindow } from '../model-context';
 import { recoverStreamChunks, recoverStreamEvents } from '../streaming-recovery';
 import { z } from 'zod';
@@ -376,11 +377,29 @@ export class OpenAIGateway implements LlmGateway {
     }
   }
 
+  /**
+   * Stream legacy chunks with monotonic client timings in terminal evidence and error.evidence.
+   * Thinking and tool arguments count for timing even when the legacy parser does not yield them.
+   * Recovery remains opt-in; provider metrics and chunk delivery retain their existing behavior.
+   */
   async *generateStream(
     model: string,
     messages: LlmMessage[],
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
+  ): AsyncGenerator<Result<StreamChunk, Error>> {
+    const timing = new StreamTiming(parseOpenAIStreamLine);
+    for await (const result of this.generateStreamChunks(model, messages, config, tools, timing)) {
+      yield config?.recovery ? result : timing.chunk(result);
+    }
+  }
+
+  private async *generateStreamChunks(
+    model: string,
+    messages: LlmMessage[],
+    config: CompletionConfig | undefined,
+    tools: ToolDescriptor[] | undefined,
+    timing: StreamTiming
   ): AsyncGenerator<Result<StreamChunk, Error>> {
     try {
       // Check if model supports streaming
@@ -406,6 +425,7 @@ export class OpenAIGateway implements LlmGateway {
         stream: true,
       };
 
+      timing.start();
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -431,7 +451,7 @@ export class OpenAIGateway implements LlmGateway {
         return;
       }
 
-      for await (const chunk of parseOpenAILegacyStream(readLines(response.body))) {
+      for await (const chunk of parseOpenAILegacyStream(timing.lines(readLines(response.body)))) {
         yield Ok(chunk);
       }
     } catch (error) {

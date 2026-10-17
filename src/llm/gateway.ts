@@ -26,7 +26,10 @@ export interface LlmGateway {
   ): Promise<Result<GatewayResponse, Error>>;
 
   /**
-   * Generate a streaming completion from the LLM
+   * Generate a streaming completion from the LLM.
+   *
+   * Maintained gateways attach client timing to terminal chunk evidence and error.evidence.
+   * First-token timing includes thinking and tool-argument fragments, without changing delivery.
    */
   generateStream(
     model: string,
@@ -37,6 +40,7 @@ export interface LlmGateway {
 
   /**
    * Stream one completion as content events ending in exactly one terminal event.
+   * Maintained gateways include client timing in terminal metadata and error.evidence.
    *
    * Optional: gateways that do not implement it cause `LlmBroker.generateStreamEvents` to fail
    * with `stream_events_unsupported` before any request. Implementations send one HTTP request,

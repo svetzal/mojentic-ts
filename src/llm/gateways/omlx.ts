@@ -1,3 +1,4 @@
+import { StreamTiming } from '../stream-timing';
 import { readContextWindow } from './model-context-transport';
 import { ModelContextWindow, parseOMLXContextWindow } from '../model-context';
 import { recoverStreamChunks, recoverStreamEvents } from '../streaming-recovery';
@@ -300,6 +301,8 @@ export class OMLXGateway implements LlmGateway {
 
   /**
    * Stream a completion as chunks, as the OpenAI gateway does.
+   * Terminal evidence and error.evidence include client timing from dispatch; thinking and
+   * tool-argument fragments count for first-token timing even when not yielded.
    *
    * Keep-alive frames and `reasoning_content` deltas are dropped. Tool calls arrive as one chunk,
    * complete, when the finish reason is `tool_calls`.
@@ -309,6 +312,19 @@ export class OMLXGateway implements LlmGateway {
     messages: LlmMessage[],
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
+  ): AsyncGenerator<Result<StreamChunk, Error>> {
+    const timing = new StreamTiming(parseOMLXStreamLine);
+    for await (const result of this.generateStreamChunks(model, messages, config, tools, timing)) {
+      yield config?.recovery ? result : timing.chunk(result);
+    }
+  }
+
+  private async *generateStreamChunks(
+    model: string,
+    messages: LlmMessage[],
+    config: CompletionConfig | undefined,
+    tools: ToolDescriptor[] | undefined,
+    timing: StreamTiming
   ): AsyncGenerator<Result<StreamChunk, Error>> {
     if (config?.recovery) {
       yield* recoverStreamChunks(
@@ -323,6 +339,7 @@ export class OMLXGateway implements LlmGateway {
     }
     try {
       const body = { ...this.buildRequestBody(model, messages, config, tools), stream: true };
+      timing.start();
       const response = await this.send('POST', '/chat/completions', undefined, body);
       if (!response.ok) {
         yield Err(await providerError(response));
@@ -333,7 +350,7 @@ export class OMLXGateway implements LlmGateway {
         return;
       }
 
-      const lines = withoutKeepAlives(readLines(response.body));
+      const lines = withoutKeepAlives(timing.lines(readLines(response.body)));
       for await (const chunk of parseOpenAILegacyStream(lines)) {
         yield Ok(chunk);
       }

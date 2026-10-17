@@ -680,7 +680,15 @@ describe('OllamaGateway', () => {
       expect(chunks).toEqual([
         {
           ok: true,
-          value: { content: '', toolCalls: [normalized], done: true, finishReason: 'stop' },
+          value: {
+            content: '',
+            toolCalls: [normalized],
+            done: true,
+            finishReason: 'stop',
+            evidence: expect.objectContaining({
+              metadata: expect.objectContaining({ first_token_kind: 'tool_call' }),
+            }),
+          },
         },
       ]);
     });
