@@ -242,6 +242,10 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
 
   describe.each(['ordinary', 'structured'] as const)('%s', (operation) => {
     const content = operation === 'ordinary' ? 'answer' : '{"answer":42}';
+    const successfulResult =
+      operation === 'ordinary'
+        ? { ok: true, value: { content: 'answer' } }
+        : { ok: true, value: { answer: 42 } };
     it('accounts for a terminal 421 without a hidden transport resend', async () => {
       replies = [
         jsonReply(421, { error: 'misdirected request' }),
@@ -387,6 +391,51 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
         'exhausted',
       ]);
     });
+    it('rejects a malformed RFC850 weekday through public HTTP recovery', async () => {
+      replies = [
+        jsonReply(
+          429,
+          { error: 'rate limit' },
+          {
+            'Retry-After': 'Garbage, 10-Oct-26 00:00:04 GMT',
+          }
+        ),
+        jsonReply(200, provider.success(content)),
+      ];
+      const sleeper = jest.fn(async () => {});
+
+      const result = await call(
+        operation,
+        policy({
+          baseDelayMs: 100,
+          jitter: () => 1,
+          delayCeilingMs: 3000,
+          wallClock: () => retryAfterFixtures.wallClockMs,
+          monotonicClock: () => 0,
+          sleep: sleeper,
+        })
+      );
+
+      expect(events.find((event) => event.type === 'attempt_failed')?.failure?.retryAfter).toEqual({
+        kind: 'invalid',
+      });
+      expect(sleeper.mock.calls).toEqual([[100, expect.any(AbortSignal)]]);
+      expect(
+        events.filter((event) => event.type === 'delay_scheduled').map((event) => event.delayMs)
+      ).toEqual([100]);
+      expect(result).toMatchObject(successfulResult);
+      expect(events.map((event) => event.type)).toEqual([
+        'attempt_started',
+        'attempt_failed',
+        'admission_pending',
+        'admission_allowed',
+        'delay_scheduled',
+        'retry_started',
+        'attempt_started',
+        'attempt_succeeded',
+      ]);
+      assertSends(2);
+    });
     it.each(retryAfterFixtures.cases)(
       'handles Retry-After $name without shortening the minimum',
       async (fixture) => {
@@ -414,7 +463,7 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
 
         expect(result).toMatchObject(
           fixture.outcome === 'success'
-            ? { ok: true }
+            ? successfulResult
             : { ok: false, error: { outcome: fixture.outcome } }
         );
         expect(
@@ -432,6 +481,9 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
         assertSends(expectedSends);
         const started = events.filter((event) => event.type === 'attempt_started');
         expect(new Set(started.map((event) => event.attemptId)).size).toBe(expectedSends);
+        expect(started.map((event) => event.wireAttempt)).toEqual(
+          Array.from({ length: expectedSends }, (_, index) => index + 1)
+        );
         expect(new Set(started.map((event) => event.logicalRequestId)).size).toBe(1);
         expect(JSON.stringify(events)).not.toMatch(/credential-secret|payload-secret/);
       }
@@ -1303,6 +1355,10 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
         assertSends(expectedSends);
         const started = events.filter((event) => event.type === 'attempt_started');
         expect(new Set(started.map((event) => event.attemptId)).size).toBe(expectedSends);
+        expect(started.map((event) => event.wireAttempt)).toEqual(
+          Array.from({ length: expectedSends }, (_, index) => index + 1)
+        );
+        expect(new Set(started.map((event) => event.logicalRequestId)).size).toBe(1);
         expect(session.getMessages().map((message) => message.role)).toEqual(
           fixture.outcome === 'success' ? ['system', 'user', 'assistant'] : ['system', 'user']
         );

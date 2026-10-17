@@ -107,6 +107,10 @@ Zero base delay is supported. A supplied jitter value must be finite and in
 `[0, 1]`. Durations must be finite nonnegative milliseconds within Node's timer
 range, and `maxAttempts` must be a positive safe integer.
 
+HTTP weekday tokens must be exact: `Mon` through `Sun` for IMF-fixdate and
+asctime, and `Monday` through `Sunday` for RFC 850. Malformed weekday tokens
+are invalid and preserve the policy backoff.
+
 `Retry-After` accepts integer seconds and all three HTTP-date forms:
 IMF-fixdate (`Sat, 10 Oct 2026 00:00:02 GMT`), RFC 850
 (`Saturday, 10-Oct-26 00:00:02 GMT`) and asctime

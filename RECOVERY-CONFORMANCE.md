@@ -237,3 +237,13 @@ vulnerabilities. `npm outdated` exits 1 with only Prettier 3.9.9 → 3.9.10;
 no dependencies were changed. The docs build retains existing VitePress/Rolldown
 bundle-assignment and deprecation diagnostics in its complete capture while
 exiting 0; no gate was suppressed or waived.
+
+## Current item-5 weekday correction
+
+See [the current item-5 correction record](CONFORMANCE-3.0.0.md#item-5-correction-http-weekday-validation-current)
+for preserved `ef9c713` rejecting evidence, corrected source and executable
+fixture hashes, `retry-after-http-dates-v2`, public HTTP tests across all three
+maintained providers and broker/session paths, and fresh gate results.
+Prior measurements in this document remain historical. Local HTTP verification
+does not supply the missing paired provider/consumer repository verification or
+authorize publication. Package, lockfile and runtime versions remain unchanged.

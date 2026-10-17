@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reject malformed HTTP weekday tokens in Retry-After dates. IMF-fixdate and
+  asctime require HTTP short weekday names; RFC 850 requires full names.
+  Invalid headers now preserve policy backoff instead of causing a false
+  delay-ceiling refusal across OpenAI, Ollama and oMLX recovery paths.
+
 - Recovery now accepts RFC 850 and asctime Retry-After dates alongside
   IMF-fixdate and integer seconds across OpenAI, Ollama and oMLX ordinary,
   structured and streaming entrypoints, including brokers and sessions. asctime

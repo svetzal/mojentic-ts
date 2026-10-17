@@ -110,7 +110,7 @@ validated for shape, types, actual rejecting/corrected exit codes and existing
 nonempty logs, with six failed-before and six passed-after public HTTP probes.
 `git diff --check` passed.
 
-## Item 5: Retry-After HTTP dates
+## Item 5: historical Retry-After HTTP dates
 
 Current tested TypeScript base revision:
 `ccc1fe2fed735bbfd1f6dd3a0e471a6a90ad0abc`, plus the uncommitted item-5
@@ -205,6 +205,98 @@ consumer commits and consumer-side verification results are missing and remain
 coordination work before compatibility claims or consumer migrations. The broader
 publication hold remains in force. Suggested finalization message:
 `fix: honor all HTTP Retry-After date forms in recovery`.
+
+## Item 5 correction: HTTP weekday validation (current)
+
+Tested base: preserved cycle-2 TypeScript
+`ef9c713445550dcc52c3850451b7fd7cc9963053`, plus the uncommitted correction
+identified by these hashes. Foundry owns Git finalization.
+The initiative brief hash above was verified again. The parent release record
+is unavailable at `../RELEASE-3.0.0.md` in this isolated worktree; the prior
+parent-contract inspection above is historical evidence, not a fresh reading.
+
+The parser now admits only HTTP short weekday names for IMF-fixdate/asctime
+and full names for RFC 850 before date parsing. No other recovery decision or
+version changed. The local executable fixture set is `retry-after-http-dates-v2`:
+38 cases, preserving all 26 v1 cases and adding 12 malformed weekday cases.
+They include `Garbage, 10-Oct-26 00:00:04 GMT` and
+`Foo Oct 10 00:00:04 2026`, unknown/truncated names, incorrect short/full forms
+and incorrect case across all three date forms. At the fixed clock every new
+header is invalid, sleeps exactly 100 ms under a 3000 ms ceiling, and succeeds
+on replay. Provider frames and expected behavior derive from the same shared
+fixture mechanism; no live providers or fetch mocks are used.
+
+Current implementation SHA-256: `679388f921b1771f4daa90455855495c35bb08a9393d69e8596b8fbe898f7aec`.
+Fixture-set SHA-256: `e2dec3a652bdac185e91333ff3d2a87a3ae5c6a3f8d1344ea5de65b17088c1ac`,
+computed by hashing the exact UTF-8 `sha256sum` output below:
+
+```text
+1b11f27fb5b0c07d635167cc9e65dcf5d176c617ce88daa5c43cedbd64874992  src/llm/retry-after-fixtures.json
+d3bd090e427da29d232990598f9c590a306988a7f973099cde717b8b605d9efb  src/llm/recovery-conformance.test.ts
+742da209979ba7b9652dfb4a30d6eaaaf7ee07fef28d0310e388ab10e4ee82e8  src/llm/streaming-recovery-conformance.test.ts
+```
+
+Named public tests are the item-5 mapping above, now consuming v2. Ordinary and
+structured results assert actual content/objects, exact scheduled and injected
+sleeper delays, parsed failure metadata, server-received request bytes and
+destinations, capture agreement and wire/logical identities. Streaming chunks,
+streaming events and ordinary/streaming sessions assert successful content and
+history, request replay, identities and exact delays. The dedicated
+`rejects a malformed RFC850 weekday through public HTTP recovery` probe also
+asserts the complete admission/retry/success lifecycle.
+
+Proof first: before expanding fixtures or documentation, the ordinary public
+HTTP probe failed on all three providers against unchanged preserved production
+source (exit 1): the invalid token became a 4000 ms date. With only weekday
+validation corrected, the identical command passed all three (exit 0), including
+actual resend, exact 100 ms delay and successful results. Missing Jest initially
+caused a setup failure (127); `npm ci` resolved it without dependency changes.
+That setup failure is not behavioral evidence.
+
+After expansion, temporarily restoring only `src/llm/recovery.ts` from the exact
+preserved commit and running the new malformed-weekday cases produced 90 failed
+and 126 passed cases (exit 1). Already rejected malformed tokens remain rejected.
+Restoring corrected source passed all 690 focused cases (exit 0), including
+all v1 valid/invalid/absent, seconds, UTC, rolling-year, ceiling and budget cases.
+No Git refs or sibling files were changed to perform this comparison.
+
+Commands (each through `foundry capture --log-dir`):
+
+- Initial proof: `npm test -- --runInBand src/llm/recovery-conformance.test.ts -t 'ordinary rejects a malformed RFC850 weekday'` (1 then 0).
+- Preserved-source expanded regressions: `npm test -- --runInBand src/llm/recovery-conformance.test.ts src/llm/streaming-recovery-conformance.test.ts -t 'invalid weekday'` (1).
+- Corrected full date matrix: `npm test -- --runInBand src/llm/recovery-conformance.test.ts src/llm/streaming-recovery-conformance.test.ts -t 'Retry-After|malformed RFC850'` (0).
+
+Fresh validation on the corrected source:
+
+| Command | Exit | Result |
+| --- | --- | --- |
+| `npm run format` | 0 | Source/examples formatted |
+| `npm run lint` | 0 | Zero warnings |
+| `npm run format:check` | 0 | Passed |
+| `npm test` | 0 | 51 suites / 2,306 tests passed |
+| `npm run build` | 0 | Passed |
+| `npm test -- --coverage` | 0 | 2,306 tests; statements 86.73%, branches 81.54%, functions 89.70%, lines 87.23%; all 70% floors passed |
+| `npm audit` | 0 | Zero vulnerabilities |
+| `npm audit --omit=dev --audit-level=moderate` | 0 | Zero vulnerabilities |
+| `npm_config_cache=/tmp/mojentic-ts-npm-cache npm outdated` | 1 | Successful registry query; ESLint 10.12.0 current, 10.13.0 wanted/latest |
+| `npm run docs:build` | 0 | Passed; existing VitePress/Rolldown bundle-assignment and deprecation diagnostics retained |
+
+The final four `.hone-gates.json` commands were repeated after test cleanup and
+all exited 0. The focused 690-case date matrix also passed with
+`TZ=America/Toronto` (exit 0), confirming that asctime normalization remains UTC.
+
+Outdated exit 1 reports the available ESLint release, not an advisory. No
+suppression or dependency change was made. Package, lockfile and runtime source
+are byte-for-byte unchanged from the preserved commit. Complete captures and
+validated behavioral proof are retained as Foundry execution evidence, outside
+shipped project files.
+
+This is local TypeScript boundary verification, not paired cross-repository
+verification. No provider or consumer repository commit was tested against v1
+or v2; their verification commands and results remain missing coordination work.
+The publication hold and separately authorized consumer migration requirements
+remain in force. No compatibility or complete 3.0.0 readiness claim is made.
+The parent parity update also remains outside this repository's write scope.
 
 ## Remaining decisions: unverified
 
