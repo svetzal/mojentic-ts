@@ -3,6 +3,7 @@
  */
 
 import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk } from './models';
+import { ModelContextWindow } from './model-context';
 import { ToolDescriptor } from './tools';
 import { Result } from '../error';
 import { LlmStreamEvent } from './stream-events';
@@ -47,6 +48,13 @@ export interface LlmGateway {
     config?: CompletionConfig,
     signal?: AbortSignal
   ): AsyncGenerator<LlmStreamEvent>;
+
+  /**
+   * Query advertised context metadata without changing later completion requests.
+   * Ok(null) means not advertised; Err covers HTTP, transport and malformed responses.
+   * Optional for existing custom gateways; use the getModelContextWindow helper for fallback.
+   */
+  getModelContextWindow?(model: string): Promise<Result<ModelContextWindow | null, Error>>;
 
   /**
    * List available models

@@ -41,3 +41,6 @@ export type {
   RecoveryCapabilityEvidence,
   CompletionRecoveryCapabilities,
 } from './recovery-capabilities';
+
+export { getModelContextWindow, effectiveContextWindow } from './model-context';
+export type { ModelContextWindow } from './model-context';

@@ -404,6 +404,11 @@ export class OpenAIModelRegistry {
     this.patternMappings.set('text-moderation', ModelType.MODERATION);
   }
 
+  /** Exact metadata lookup; never invokes completion capability inference. */
+  getRegisteredModelCapabilities(modelName: string): ModelCapabilities | undefined {
+    return this.models.get(modelName);
+  }
+
   /**
    * Get the capabilities for a specific model.
    */

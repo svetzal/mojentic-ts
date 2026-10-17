@@ -29,6 +29,8 @@ interface LlmGateway {
     signal?: AbortSignal
   ): AsyncGenerator<LlmStreamEvent>;
 
+  getModelContextWindow?(model: string): Promise<Result<ModelContextWindow | null, Error>>;
+
   listModels(): Promise<Result<string[], Error>>;
 
   calculateEmbeddings(text: string, model?: string): Promise<Result<number[], Error>>;
@@ -47,6 +49,54 @@ All gateways implement this interface.
 - `generateStreamEvents` is optional. All three gateways in this package implement it. The
   broker uses it for `LlmBroker.generateStreamEvents`. Refer to
   [Streaming](../streaming.md#single-turn-streaming-with-terminal-completion-evidence).
+
+## Context window metadata
+
+`getModelContextWindow(model)` returns `Ok({ maxContextTokens, field, modelNumCtx? })`,
+`Ok(null)` when no window is advertised, or `Err(GatewayError)` for HTTP, transport,
+or malformed response failures. Advertised windows are positive integers.
+`field` preserves the provider source: `max_model_len` for oMLX,
+`model_info.<architecture>.context_length` for Ollama, and `registry` for OpenAI.
+Ollama's optional `modelNumCtx` comes from the `parameters` text's `num_ctx` line;
+it does not replace the advertised maximum.
+
+```typescript
+import { getModelContextWindow, effectiveContextWindow, OllamaGateway } from 'mojentic';
+
+const gateway = new OllamaGateway();
+const result = await getModelContextWindow(gateway, 'qwen3.8:27b-mlx');
+if (result.ok) {
+  const upperBound = effectiveContextWindow(result.value, { numCtx: 32768 });
+  console.log(upperBound); // 32768 when the advertised maximum is 262144; null if unknown
+} else {
+  console.error(result.error);
+}
+```
+
+All three built-in gateways implement the operation. For existing custom gateways,
+the interface method is optional; the exported `getModelContextWindow(gateway, model)`
+helper returns `Ok(null)` when it is absent.
+
+- oMLX sends `GET /v1/models` to its configured host with its configured bearer key,
+  selecting the exact model ID. A missing model or field is not advertised.
+- Ollama sends `POST /api/show` with `{"model": model}` to its configured host.
+  Any architecture prefix is supported. A missing context field is not advertised;
+  an unknown model's HTTP 404 is an error.
+- OpenAI reads only explicitly registered models, without an HTTP request.
+  Unknown names, including names that match completion inference patterns, return
+  `Ok(null)`. Completion parameter adaptation retains its existing inference.
+
+For Ollama, `effectiveContextWindow(window, config?)` is a pure helper. It returns
+`min(maxContextTokens, config.numCtx)` when set, then
+`min(maxContextTokens, modelNumCtx)` when the model has that parameter, then the
+advertised maximum. `numCtx` must be a positive integer. Unknown metadata returns
+`null`, even with explicit config. The result is an upper bound: the helper cannot
+observe the server's `OLLAMA_CONTEXT_LENGTH` or its built-in default. Applications
+that need the exact loaded size can query Ollama's `/api/ps` after generation.
+For other providers, use the advertised `maxContextTokens` directly.
+
+These queries do not cache metadata, change configuration, or alter subsequent
+completion requests. First-token timing and request fidelity are separate work.
 
 ## Available gateways
 

@@ -1,3 +1,5 @@
+import { readContextWindow } from './model-context-transport';
+import { ModelContextWindow, parseOllamaContextWindow } from '../model-context';
 import { recoverStreamChunks, recoverStreamEvents } from '../streaming-recovery';
 import { z } from 'zod';
 /**
@@ -206,6 +208,23 @@ export class OllamaGateway implements LlmGateway {
     }
 
     return requestBody;
+  }
+
+  /**
+   * Return the provider's context upper bound and field provenance, or Ok(null).
+   * HTTP, transport and malformed response failures return Err(GatewayError).
+   * This query does not modify completion configuration or cache model state.
+   */
+  async getModelContextWindow(model: string): Promise<Result<ModelContextWindow | null, Error>> {
+    return readContextWindow(
+      () =>
+        fetch(`${this.baseUrl}/api/show`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model }),
+        }),
+      (body) => parseOllamaContextWindow(body)
+    );
   }
 
   /**

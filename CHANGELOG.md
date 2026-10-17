@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Optional `LlmGateway.getModelContextWindow(model)` and the exported fallback helper
+  return `Result<ModelContextWindow | null, Error>` with a positive `maxContextTokens`
+  and exact `field` provenance. oMLX queries its authenticated models endpoint;
+  Ollama queries `/api/show`, including the optional `modelNumCtx` parameter;
+  OpenAI uses exact registry entries without network access. Unknown models get
+  no guessed window. HTTP, transport and malformed responses return gateway errors.
+- Pure `effectiveContextWindow(window, config)` calculates the Ollama upper bound
+  using explicit `numCtx`, then `modelNumCtx`, capped by the advertised maximum.
+  Unknown metadata returns `null`. Existing custom gateways need no changes;
+  the fallback helper treats the absent optional method as not advertised.
+  Metadata queries preserve completion request bytes and registry adaptation.
+
 ### Breaking changes
 
 - Invalid completion recovery policies now expose the public `RecoveryPolicyError`

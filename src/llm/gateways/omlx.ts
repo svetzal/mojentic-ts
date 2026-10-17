@@ -1,3 +1,5 @@
+import { readContextWindow } from './model-context-transport';
+import { ModelContextWindow, parseOMLXContextWindow } from '../model-context';
 import { recoverStreamChunks, recoverStreamEvents } from '../streaming-recovery';
 /**
  * oMLX gateway: chat completions, streaming, model loading and embeddings against an oMLX server.
@@ -386,6 +388,18 @@ export class OMLXGateway implements LlmGateway {
       },
       parseOMLXStreamLine,
       signal
+    );
+  }
+
+  /**
+   * Return the provider's context upper bound and field provenance, or Ok(null).
+   * HTTP, transport and malformed response failures return Err(GatewayError).
+   * This query does not modify completion configuration or cache model state.
+   */
+  async getModelContextWindow(model: string): Promise<Result<ModelContextWindow | null, Error>> {
+    return readContextWindow(
+      () => this.send('GET', '/models', this.timeout),
+      (body) => parseOMLXContextWindow(body, model)
     );
   }
 

@@ -601,3 +601,107 @@ Scripted-provider HTTP tests prove local boundary conformance only; paired
 verification is still required in separately authorized counterpart repositories.
 No reasoning, metadata, shared contracts or versions changed in this packet.
 Publication and consumer migration holds remain in force.
+
+## Model metadata section 1 (2026-10 correction packet)
+
+Scope: only section 1 of `MODEL-METADATA-2026-10.md`. No reasoning, first-token
+measurement or request-fidelity implementation is included in this packet.
+TypeScript tested source is base `261f3c0ca55730bfa6d27df650866e23769e799c`
+plus the uncommitted changes identified below. Versions remain unchanged;
+Foundry owns Git finalization.
+
+Contract source: `svetzal/mojentic-unify` at
+`4b08dcd1d87f520a4c70928c33a2bc84c228093d`; contract SHA-256
+`a085da1c0d110f9d587a24ace6ac2854b653e1ac28905b3829d94d665b2c906e`.
+Fixture version: oMLX 0.7.0rc1 capture from 2026-09-29, Ollama 0.40.5 captures
+from 2026-10-15. Replay reuses the existing raw JSON fixture mechanism through
+real loopback HTTP and public gateways, without mocking provider libraries.
+The Ollama JSON files are byte-identical parent copies; the existing oMLX
+`models.json` is also byte-identical to the parent.
+
+```text
+f5302087e61a9af18abef1b9315b226aa8dfab326ed1751d4bff12b05e1b9dab  src/llm/gateways/__fixtures__/ollama/error_model_not_found.json
+a95dc92e483a8b09d16e739be3111ecba58e90dc2ae5ab49cd22c78e16ff9233  src/llm/gateways/__fixtures__/ollama/show_context_length.json
+8236bd781ee623fa2859ce5187d855b2ef5806dfa6a2e38e38d4a612dc876930  src/llm/gateways/__fixtures__/ollama/show_num_ctx_parameter.json
+c2ff28301474919f3952ef819daa80c88abce2e502abb018ee3130046e6141cf  src/llm/gateways/__fixtures__/omlx/models.json
+```
+
+Executable case set: `src/llm/model-context.test.ts` and
+`src/llm/gateways/model-context-http.test.ts`, included in the required `npm test`
+gate. Supported prior custom gateways omit the optional callback; the public
+fallback returns `Ok(null)`. New gateways return an advertised positive integer
+with provenance, `Ok(null)`, or `Err(GatewayError)`.
+
+| Section 1 decision | Named executable evidence |
+| --- | --- |
+| Configured oMLX host, GET, bearer auth, exact ID, source field | `queries the configured authenticated oMLX endpoint for exact model provenance` |
+| Configured Ollama host, POST body, both architecture prefixes and model num_ctx | `reads captured Ollama architecture and model parameters for %s` |
+| Missing model, missing fields, unknown results | `returns not advertised for missing oMLX entry or field %j`; `returns not advertised for absent Ollama context %j` |
+| Malformed window types and envelopes | `rejects malformed oMLX window %j`; `rejects malformed Ollama window %j`; provider `rejects malformed response body %s`; provider envelope tests |
+| Model parameter validation and exact line identity | `rejects malformed model parameter %s`; `ignores num_ctx substrings in other Ollama parameter names` |
+| HTTP, including unknown-model 404, and transport errors | Both providers: `retains HTTP failure status %i and body`; `returns a Result error for transport failure` |
+| Exact OpenAI registry lookup, no network, no guesses | `reads exact registered context for %s offline`; `does not infer a window for unknown model %s`; `performs no OpenAI HTTP request for registry lookup %s`; missing and malformed registered-window tests |
+| Pure effective window precedence and lower/equal/higher caps | `caps explicit numCtx %i at the advertised maximum`; `caps model parameter %i at the advertised maximum`; `uses the model parameter when configuration omits numCtx` |
+| Advertised-only upper bound and unknown metadata | `returns the advertised upper bound when no context setting is visible`; `does not guess an unknown window with config %j` |
+| Prior custom gateway compatibility, method binding, errors | `keeps existing custom gateway implementations source compatible`; `preserves implemented metadata and method binding`; `preserves the implemented Result error` |
+| Completion bytes and registry inference unchanged | `characterizes existing Ollama completion request bytes`; `leaves %s completion request bytes unchanged after metadata`; `keeps inferred reasoning completion parameters after an unknown registry lookup` |
+| Shared oMLX endpoint retains list semantics; no metadata cache | `preserves oMLX listModels behavior on the shared endpoint`; `does not cache context metadata after the provider changes it` |
+
+### Coordination relay (parent PARITY.md and counterpart verification)
+
+Proposed parent PARITY row: **Model metadata section 1 / TypeScript** — optional
+`getModelContextWindow`, provider provenance and pure Ollama effective-window
+helper implemented; captured HTTP and offline registry evidence above. Sections
+2 and 3 remain outside this packet. Parent PARITY.md was not edited because
+only this TypeScript worktree is authorized.
+
+The TypeScript verification command is:
+`npm test -- --runInBand src/llm/model-context.test.ts src/llm/gateways/model-context-http.test.ts`.
+Provider captures are replayed, but no current external provider source revision
+or live deployment was verified here. No other port or consumer was executed.
+Counterpart tested commits, executable contract commands and results are therefore
+**missing initiative coordination work**, not a compatibility claim. Initiative
+owners must arrange the same identifiable executable contract set in each
+participating provider/consumer repository and its required gates, including
+supported prior/new API forms, optional metadata and error behavior. Consumer
+migrations still require separately authorized paired verification and full
+journey checks. No sibling repository was changed.
+
+### Tested source and results
+
+SHA-256 of the uncommitted implementation and executable tests:
+
+```text
+3f02a8c1953c028ac62603caa1202f5b45cb681d61d4756caec4b7a89c46b0ee  src/llm/model-context.ts
+fab3d4e4fad30b534960fa92910633cfdae966242a02850a1d0d99fe2f471235  src/llm/model-context.test.ts
+64cbcf0cef8c6024b5ac78fffb67d2a72ce0e8d6a49c8b2b02330baad915928d  src/llm/gateways/model-context-transport.ts
+ecc3277e9a2e3101e9620da4fc2b3f701342b20e86ec8ff339aa93d082ef66d1  src/llm/gateways/model-context-http.test.ts
+90bd107b4b35cc5fd919ed8a034d05783fdc037b65ae047379505d67a8b944ba  src/llm/gateways/ollama.ts
+4ca9ac9113b4493a80e321907e71575021e62f52a4ca9680cc64f9cdaf1c912a  src/llm/gateways/omlx.ts
+29ee96a58a3ccd902f54b969f0f744b173726c2cb86de4e1c1b212ba19e78eb8  src/llm/gateways/openai.ts
+efee4f605924d73072ec6080168c151177a23ef1170a1ae4b4da424f4fe26e10  src/llm/gateways/openai-model-registry.ts
+d21fae18ff4abf52daf819b9b56393290b063f0159a3e2ac8bffda9ab313666e  src/llm/gateway.ts
+f86c5dde016bfec0fe789a7487259c0b29f5f0277edcd1a4b83ec373d4599220  src/llm/index.ts
+```
+
+| Required verification | Result |
+| --- | --- |
+| `npm run format` | Passed; no unrelated formatting changes |
+| `npm run lint` | Passed, zero warnings |
+| `npm run format:check` | Passed |
+| `npm test` | Passed: 54 suites, 3,108 tests (93 metadata cases) |
+| `npm run build` | Passed |
+| `npm test -- --coverage --runInBand` | Passed: statements 87.27%, branches 82.54%, functions 90.01%, lines 87.71%; all exceed the 70% thresholds |
+| Metadata core and transport coverage | 100% statements, branches, functions and lines |
+| `npm audit` | Passed: zero vulnerabilities |
+| `npm audit --omit=dev --audit-level=moderate` | Passed: zero vulnerabilities |
+| `npm outdated` | Completed with npm's exit 1 for available updates: ESLint installed 10.12.0, wanted/latest 10.13.0; no versions changed |
+| `npm run docs:build` | Passed |
+
+`npm outdated` initially encountered a read-only default npm cache. Re-running
+with `npm_config_cache=/tmp/mojentic-ts-npm-cache` completed the registry check.
+All four `.hone-gates.json` commands passed in sequence. The initial executable
+probe characterized existing Ollama completion bytes and rejected the absent
+oMLX operation (exit 1); after implementation the same HTTP probe passed (exit 0).
+No package, lockfile or runtime version changes, publication, tags or ref changes
+were made. Suggested finalization message: `Add provider context metadata and Ollama effective-window helper`.

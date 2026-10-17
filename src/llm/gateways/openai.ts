@@ -1,3 +1,4 @@
+import { ModelContextWindow } from '../model-context';
 import { recoverStreamChunks, recoverStreamEvents } from '../streaming-recovery';
 import { z } from 'zod';
 /**
@@ -127,6 +128,17 @@ export class OpenAIGateway implements LlmGateway {
   constructor(apiKey?: string, baseUrl?: string) {
     this.apiKey = apiKey || process.env.OPENAI_API_KEY || '';
     this.baseUrl = baseUrl || process.env.OPENAI_API_ENDPOINT || 'https://api.openai.com/v1';
+  }
+
+  /** Return exact registry metadata without a request; unknown models return Ok(null). */
+  async getModelContextWindow(model: string): Promise<Result<ModelContextWindow | null, Error>> {
+    const maxContextTokens =
+      this.modelRegistry.getRegisteredModelCapabilities(model)?.maxContextTokens;
+    if (maxContextTokens === undefined) return Ok(null);
+    if (!z.number().int().positive().safeParse(maxContextTokens).success) {
+      return Err(new GatewayError('Invalid registry context window'));
+    }
+    return Ok({ maxContextTokens, field: 'registry' });
   }
 
   /**
