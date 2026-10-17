@@ -91,6 +91,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify fresh installed package against scripted HTTP contracts
+        run: npm run verify:package
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -190,6 +193,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Verify fresh installed package against scripted HTTP contracts
+        run: npm run verify:package
 
       - name: Publish to NPM
         run: npm publish --access public --provenance

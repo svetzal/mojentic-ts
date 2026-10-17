@@ -11,8 +11,11 @@ All six ports must meet the binding contracts, conformance evidence, changelog,
 quality gates and CI requirements before coordinated release. Keep package,
 lockfile and runtime versions unchanged during this correction task. Do not tag
 or publish until the coordinated release conditions and owner authorization
-permit it. Consumer migrations require separately authorized, paired executable
-contract verification; local conformance alone does not establish compatibility.
+permit it. Library readiness is self-validated through public APIs, a packed
+artifact and a fresh consumer install against the binding documents and fixtures. Dependents do
+not verify an unreleased library or another port's executable snapshot. Consumer
+migrations occur after publication in separately authorized work. Changed
+boundaries between running services still require paired executable contracts.
 
 Foundry owns Git finalization for this task. Leave changes in the task worktree;
 do not commit, push, merge, rebase, tag or modify refs.

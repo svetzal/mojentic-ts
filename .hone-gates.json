@@ -19,6 +19,11 @@
       "name": "build",
       "command": "npm run build",
       "required": true
+    },
+    {
+      "name": "package-conformance",
+      "command": "npm run verify:package",
+      "required": true
     }
   ]
 }

@@ -684,3 +684,17 @@ and cost more. OpenAI reasoning limits include hidden reasoning tokens. Set
 limit to the provider; use broker configuration when an explicit cap is needed.
 Sampling defaults, reasoning adaptation and recovery decisions are unchanged by
 this output-limit correction.
+
+### Current 3.0 assessment limitations
+
+The coordinated 3.0 work remains unreleased. Current `reasoningEffort` accepts
+`'low'`, `'medium'` and `'high'`; Ollama currently sends `think: true` for each.
+Disabled, Enabled and XHigh efforts, caller-selected model profiles and opt-in
+native reasoning history are not implemented. Gateway `thinking` output does
+not imply native history retention across broker tool calls.
+
+Ollama omits unset temperature and context size. OpenAI and oMLX still send a
+temperature of 1 when it is omitted, and `ChatSession` defaults to 1. Explicit
+zero is preserved. OpenAI currently drops configured `topP`, `frequencyPenalty`
+and `presencePenalty`. The output-limit correction above does not establish
+complete request fidelity.

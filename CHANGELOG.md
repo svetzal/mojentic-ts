@@ -126,8 +126,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced obsolete 2.1.0 release authorization with the binding coordinated
   3.0.0 authorization in `../RELEASE-3.0.0.md`. This correction changes no package
   versions and does not authorize publication.
-- Started `CONFORMANCE-3.0.0.md` with named local HTTP tests for recovery amendment
-  item 2 and explicit gaps for remaining decisions and paired verification.
+- Replaced the incremental conformance record with a current parts 1–3 decision
+  matrix and archived the historical evidence. Native reasoning efforts/profiles/
+  retention and remaining request-default/shape gaps are explicitly unfinished.
+- Added `npm run verify:package` to required gates and CI: build, pack and fresh
+  install, compile public declarations and exercise production HTTP transports
+  through installed public imports. Library self-validation supersedes obsolete
+  prepublication counterpart-verification requirements; consumer adoption remains
+  separate work after publication. No version or runtime behavior changed.
 
 ### Security
 
