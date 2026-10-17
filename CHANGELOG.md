@@ -14,7 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Migration: handle it in `Result.error` for ordinary/structured/chunk APIs,
   `StreamEventError.detail` for event streams, or catch it from sessions;
   replace checks for generic `RangeError` or message text. Static invalid policies
-  fail before capture and HTTP. Invalid custom jitter samples fail when sampled.
+  fail before capture and HTTP. Custom jitter samples for every possible retry
+  are validated and retained before HTTP, capture or lifecycle events, including
+  invalid later samples. Migration: make custom jitter callbacks pure; sampling
+  now precedes the first attempt. Valid endpoints and retry ordering are preserved.
 - Opt-in recovery treats `length` termination as a terminal failure before
   structured parsing or tool dispatch. Migration: inspect `RecoveryError.failure`
   with `inspectRecoveryFailure`; `cause` is a `StreamEventError` with

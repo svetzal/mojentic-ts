@@ -1,11 +1,82 @@
 {
   "version": "ts-recovery-typed-errors-v1",
   "invalidPolicies": [
-    { "field": "maxAttempts", "policy": { "maxAttempts": 0 } },
-    { "field": "maxAttempts", "policy": { "maxAttempts": 1.5 } },
-    { "field": "baseDelayMs", "policy": { "baseDelayMs": -1 } },
-    { "field": "delayCeilingMs", "policy": { "delayCeilingMs": 2147483648 } },
-    { "field": "budgetMs", "policy": { "budgetMs": -1 } }
+    {
+      "field": "maxAttempts",
+      "policy": {
+        "maxAttempts": 0
+      }
+    },
+    {
+      "field": "maxAttempts",
+      "policy": {
+        "maxAttempts": 1.5
+      }
+    },
+    {
+      "field": "baseDelayMs",
+      "policy": {
+        "baseDelayMs": -1
+      }
+    },
+    {
+      "field": "delayCeilingMs",
+      "policy": {
+        "delayCeilingMs": 2147483648
+      }
+    },
+    {
+      "field": "budgetMs",
+      "policy": {
+        "budgetMs": -1
+      }
+    }
   ],
-  "routes": ["gateway", "gatewayStructured", "gatewayChunks", "gatewayEvents", "response", "text", "object", "chunks", "events", "session", "sessionStream"]
+  "routes": [
+    "gateway",
+    "gatewayStructured",
+    "gatewayChunks",
+    "gatewayEvents",
+    "response",
+    "text",
+    "object",
+    "chunks",
+    "events",
+    "session",
+    "sessionStream"
+  ],
+  "invalidJitterSamples": [
+    {
+      "name": "NaN",
+      "sample": "NaN"
+    },
+    {
+      "name": "positive infinity",
+      "sample": "Infinity"
+    },
+    {
+      "name": "negative infinity",
+      "sample": "-Infinity"
+    },
+    {
+      "name": "below zero",
+      "sample": -0.01
+    },
+    {
+      "name": "above one",
+      "sample": 1.01
+    }
+  ],
+  "jitterPrefixes": [
+    {
+      "name": "first sample",
+      "samples": []
+    },
+    {
+      "name": "after a valid sample",
+      "samples": [
+        0.5
+      ]
+    }
+  ]
 }

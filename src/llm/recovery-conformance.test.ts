@@ -192,7 +192,8 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
     ...extra,
   });
   const boundaryCalls = (
-    recovery: RecoveryOptions
+    recovery: RecoveryOptions,
+    inspectEventError: (error: StreamEventError) => void = () => {}
   ): Map<string, () => Promise<Result<unknown, Error>>> => {
     const gateway = provider.gateway(url);
     const broker = new LlmBroker('gpt-4o', gateway);
@@ -214,6 +215,8 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
       for await (const event of stream) results.push(event);
       const last = results.at(-1);
       assert(last?.type === 'error');
+      expect(last.error).toBeInstanceOf(StreamEventError);
+      inspectEventError(last.error);
       const error = last.error.recovery ?? last.error.detail;
       assert(error instanceof Error);
       return Err(error);
@@ -263,12 +266,59 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
 
   const invokeBoundary = async (
     route: string,
-    recovery: RecoveryOptions
+    recovery: RecoveryOptions,
+    inspectEventError?: (error: StreamEventError) => void
   ): Promise<Result<unknown, Error>> => {
-    const invoke = boundaryCalls(recovery).get(route);
+    const invoke = boundaryCalls(recovery, inspectEventError).get(route);
     assert(invoke);
     return invoke();
   };
+
+  it.each(
+    typedErrorContracts.routes.flatMap((route) =>
+      typedErrorContracts.invalidJitterSamples.flatMap((fixture) =>
+        typedErrorContracts.jitterPrefixes.map((prefix) => ({ route, ...fixture, prefix }))
+      )
+    )
+  )(
+    'item 8 rejects invalid jitter $name $prefix.name through $route before wire effects',
+    async ({ route, sample, prefix }) => {
+      const samples = [...prefix.samples, Number(sample)];
+      const jitter = jest.fn(() => samples.shift() ?? 1);
+      const result = await invokeBoundary(route, policy({ maxAttempts: 3, jitter }), (error) => {
+        expect(error.detail).toBeInstanceOf(RecoveryPolicyError);
+        expect(error.recovery).toBeUndefined();
+      });
+
+      assert(!result.ok);
+      expect(result.error).toBeInstanceOf(RecoveryPolicyError);
+      expect(result.error).toMatchObject({
+        name: 'RecoveryPolicyError',
+        code: 'RECOVERY_POLICY_ERROR',
+        field: 'jitter',
+      });
+      expect(jitter).toHaveBeenCalledTimes(prefix.samples.length + 1);
+      expect(sends).toEqual([]);
+      expect(wires).toEqual([]);
+      expect(events).toEqual([]);
+      expect(JSON.stringify(result.error)).not.toMatch(/credential-secret|payload-secret/);
+    }
+  );
+
+  it('item 8 rejects later invalid jitter through sessionStream before wire effects', async () => {
+    const samples = [0.5, NaN];
+    const result = await invokeBoundary(
+      'sessionStream',
+      policy({ maxAttempts: 3, jitter: () => samples.shift() ?? 1 })
+    );
+
+    assert(!result.ok);
+    expect(result.error).toBeInstanceOf(RecoveryPolicyError);
+    expect(result.error).toMatchObject({ code: 'RECOVERY_POLICY_ERROR', field: 'jitter' });
+    expect(sends).toEqual([]);
+    expect(wires).toEqual([]);
+    expect(events).toEqual([]);
+  });
 
   it.each(
     typedErrorContracts.routes.flatMap((route) =>
@@ -530,6 +580,25 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
       operation === 'ordinary'
         ? { ok: true, value: { content: 'answer' } }
         : { ok: true, value: { answer: 42 } };
+    it('prevalidates valid jitter endpoints even when the first attempt succeeds', async () => {
+      replies = [jsonReply(200, provider.success(content))];
+      const samples = [0, 1];
+      const jitter = jest.fn(() => samples.shift() ?? NaN);
+      const result = await call(operation, policy({ maxAttempts: 3, jitter }));
+
+      expect(result).toMatchObject(successfulResult);
+      expect(jitter).toHaveBeenCalledTimes(2);
+      assertSends(1);
+    });
+    it('does not sample custom jitter when no retry is possible', async () => {
+      replies = [jsonReply(200, provider.success(content))];
+      const jitter = jest.fn(() => NaN);
+      const result = await call(operation, policy({ maxAttempts: 1, jitter }));
+
+      expect(result).toMatchObject(successfulResult);
+      expect(jitter).not.toHaveBeenCalled();
+      assertSends(1);
+    });
     it('accounts for a terminal 421 without a hidden transport resend', async () => {
       replies = [
         jsonReply(421, { error: 'misdirected request' }),

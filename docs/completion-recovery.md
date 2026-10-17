@@ -362,7 +362,12 @@ Import `RecoveryPolicyError`, `RecoveryError`, `StreamEventError` and
 `RecoveryPolicyError`, extending `MojenticError`, with code
 `RECOVERY_POLICY_ERROR` and a safe `field` name. No supplied values, prompts or
 credentials appear in that error. Validation precedes wire capture and HTTP;
-custom `jitter` is sampled and validated only after an admitted failure.
+custom `jitter` is sampled once for each possible retry (`maxAttempts - 1`)
+before capture, HTTP or lifecycle events. Every sample must be finite and in
+`[0, 1]`, including later samples. Samples are retained and used in retry order
+after admission; a policy allowing only one attempt does not sample custom jitter.
+Default randomness is still sampled only after admission. Custom jitter callbacks
+should be pure: they run before the first attempt even if no retry is needed.
 
 Ordinary and structured gateway/broker APIs return the error in `Result.error`.
 Chunk streams yield an error Result. Event streams yield a `StreamEventError`

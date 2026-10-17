@@ -104,7 +104,8 @@ export interface RecoveryWireEvent extends RecoveryIdentity {
   readonly frameIndex?: number;
 }
 /** Opt-in policy. Invalid numeric fields return RecoveryPolicyError before capture or HTTP.
- * A custom jitter sample is validated when retry delay is calculated, after admission.
+ * Custom jitter is sampled once per possible retry and validated before capture or HTTP.
+ * Validated samples are retained in retry order; default randomness is sampled after admission.
  * Capture exceptions remain available by identity through inspectRecoveryFailure.
  */
 export interface RecoveryOptions {
@@ -555,6 +556,15 @@ export async function recoverCompletion(
   });
   const policyError = validate(policy);
   if (policyError) return Err(policyError);
+  const jitterSamples: number[] = [];
+  if (policy.jitter) {
+    for (let retry = 1; retry < (policy.maxAttempts ?? 1); retry++) {
+      const sample = policy.jitter();
+      if (!Number.isFinite(sample) || sample < 0 || sample > 1)
+        return Err(new RecoveryPolicyError('jitter'));
+      jitterSamples.push(sample);
+    }
+  }
   const body = JSON.stringify(payload);
   const frozenHeaders = new Headers(headers);
   const requestStrings: string[] = [];
@@ -741,9 +751,7 @@ export async function recoverCompletion(
         : base >= ceiling || number - 1 >= Math.log2(ceiling / base)
           ? ceiling
           : base * 2 ** (number - 1);
-    const random = (policy.jitter ?? Math.random)();
-    if (!Number.isFinite(random) || random < 0 || random > 1)
-      return Err(new RecoveryPolicyError('jitter'));
+    const random = jitterSamples[number - 1] ?? Math.random();
     const providerDelay = 'delayMs' in failure.retryAfter ? failure.retryAfter.delayMs : 0;
     const delay = Math.max(providerDelay, random * exponential);
     if (delay > ceiling) return finish('delay_ceiling', failure);

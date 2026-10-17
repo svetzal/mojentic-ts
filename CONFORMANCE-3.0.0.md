@@ -572,3 +572,32 @@ unavailable. These local checks do not establish cross-repository compatibility.
 Supported old/new consumer contract verification and parent PARITY.md updates
 remain initiative coordination work. No sibling repository, binding contract,
 package version or Git ref changed; Foundry owns finalization and publication stays held.
+
+
+## Cycle 8: invalid-jitter correction
+
+Base revision: `a21ef3537208c3af004bab030fb674c8f810bad2`, with uncommitted
+source identified in [the recovery correction record](RECOVERY-CONFORMANCE.md#cycle-8-invalid-custom-jitter-before-wire-activity).
+The existing `ts-recovery-typed-errors-v1` local fixture mechanism now includes
+invalid custom jitter and valid-prefix cases; its additive revision SHA-256 is
+`90f28078781fcaff634372d568e992a3afede9257a7fbb3d8af6494559472f47`.
+Earlier fixture hashes above identify historical snapshots.
+
+Every possible custom retry sample is validated and retained before HTTP,
+capture or lifecycle events, including an invalid second sample after a valid
+first sample. Public policy errors expose `RecoveryPolicyError`, code
+`RECOVERY_POLICY_ERROR`, field `jitter` on all 11 routes across OpenAI, Ollama
+and oMLX. The named `item 8 rejects later invalid jitter through sessionStream
+before wire effects` proof failed on the base (three cases) and passed after
+correction. The expanded `item 8 rejects invalid jitter $name $prefix.name
+through $route before wire effects` matrix similarly failed all 330 cases on
+the base and passes after correction. The focused `jitter|item 8` run passes
+660 cases, including public event detail, Result/chunk and thrown session
+surfaces, valid endpoints and deterministic bounded delays. See the recovery
+record for commands, source hashes and final quality results.
+
+No counterpart tested commit or verification result exists for this set.
+Scripted-provider HTTP tests prove local boundary conformance only; paired
+verification is still required in separately authorized counterpart repositories.
+No reasoning, metadata, shared contracts or versions changed in this packet.
+Publication and consumer migration holds remain in force.

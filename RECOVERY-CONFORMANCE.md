@@ -297,7 +297,8 @@ package nor lockfile changed. Subsequent matrix tests additionally exposed the
 SSE length-without-end-marker replay path and now require terminal typed evidence.
 Static policy errors are Result errors rather than thrown generic RangeErrors;
 event streams retain them in `error.detail`, sessions throw them. Custom jitter
-samples are validated at delay calculation, after the failed request/admission.
+samples for every possible retry are now validated before HTTP, capture or
+lifecycle events and retained in retry order (see the cycle 8 correction below).
 
 ### Item 8 coordination gap
 
@@ -354,3 +355,103 @@ diagnostics and available ESLint update remain unresolved, outside this typed-er
 correction. No package, lockfile or runtime version changed. No commit, push,
 merge, rebase, ref change, tag or publication was performed.
 Suggested Foundry finalization message: `Preserve typed recovery errors across public completion APIs`.
+
+
+## Cycle 8: invalid custom jitter before wire activity
+
+Base revision: `a21ef3537208c3af004bab030fb674c8f810bad2`. Only the
+invalid-jitter sub-gap is corrected here; earlier records above describe their
+own historical source snapshots. Package, lockfile and runtime versions are
+unchanged. Foundry owns finalization; this tested source remains uncommitted.
+
+Custom jitter is sampled and validated for all `maxAttempts - 1` possible retries
+before the first HTTP request, capture or lifecycle event. Each finite sample in
+`[0, 1]` is retained in retry order. A later invalid sample rejects the whole
+policy with public `RecoveryPolicyError`, code `RECOVERY_POLICY_ERROR`, field
+`jitter`, before any attempt. One-attempt policies do not sample jitter. Default
+randomness is sampled after admission. Callbacks should be pure because custom
+sampling now precedes the first attempt even when that attempt succeeds.
+Admission decisions, bounded exponential delay, Retry-After minima and
+recovery-disabled behavior retain their existing semantics.
+
+The existing local executable set `ts-recovery-typed-errors-v1` is extended
+additively with invalid sample and prefix fixtures; all original policy cases
+and 11 routes remain. Its previous fixture hash was
+`358b2ca23b2c69cb592644fb8337d59b6f96d252228731d7a3d9295fe503e6d6`.
+The following hashes identify this tested local revision, including executable
+tests (JSON alone does not establish behavioral compatibility):
+
+```text
+90f28078781fcaff634372d568e992a3afede9257a7fbb3d8af6494559472f47  src/llm/recovery-typed-errors-v1.json
+4e4f1b5f84c1f1496809dcc592841abf59120cfa754c65249f6beea825a049c1  src/llm/recovery-conformance.test.ts
+ec7595a68d67d5c45592eb789b3ae9ca0540ad5efd8781903e4ccef3efe775d2  src/llm/recovery.ts
+```
+
+Proof preceded fixture expansion and full-suite verification:
+
+- `item 8 rejects later invalid jitter through sessionStream before wire effects`:
+  the real OpenAI, Ollama and oMLX session streams, valid first sample then `NaN`,
+  failed on the base implementation (exit 1, three failures, observed
+  `RecoveryError` instead of `RecoveryPolicyError`); corrected implementation
+  passed (exit 0, three passes), asserting the public type/code/field and zero
+  actual HTTP requests, captures and lifecycle events.
+- `item 8 rejects invalid jitter $name $prefix.name through $route before wire effects`:
+  all 330 cases failed against the base implementation (exit 1). The same cases
+  pass after correction: three providers, 11 real gateway/broker/session routes,
+  five invalid samples (`NaN`, both infinities, below zero and above one), each
+  first or following a valid sample in a multi-retry policy. Event APIs assert
+  `StreamEventError.detail`; Result/chunk APIs expose the policy error and
+  sessions throw it while retaining only system/user history. All cases assert
+  zero actual HTTP requests, captures and lifecycle events.
+- `prevalidates valid jitter endpoints even when the first attempt succeeds`,
+  `does not sample custom jitter when no retry is possible`, and existing
+  `uses bounded exponential full jitter for every retry` protect endpoints,
+  varying sample order and exact bounded delays. Existing Retry-After,
+  admission and recovery-disabled regressions remain in the full suite.
+
+Reproduce the proof and expanded local verification:
+
+```bash
+npm test -- --runInBand src/llm/recovery-conformance.test.ts -t 'item 8 rejects later invalid jitter'
+npm test -- --runInBand src/llm/recovery-conformance.test.ts -t 'item 8 rejects invalid jitter'
+npm test -- --runInBand src/llm/recovery-conformance.test.ts -t 'jitter|item 8'
+```
+
+The final focused command passed 660 tests (exit 0). Locked dependencies were
+installed with `npm ci`; the initial proof launch lacked Jest (exit 127) and is
+not counted as the behavioral rejection. The later base-source matrix replay
+restored the corrected source without changing Git refs.
+
+Counterpart verification remains a coordination gap: no external provider or
+consumer implementation verified this executable set, and there are no tested
+counterpart commits, commands or results to report. The loopback responder
+exercises real local HTTP wiring; it does not establish external compatibility.
+Initiative owners must arrange paired executable verification in separately
+authorized repositories before consumer migration or compatibility claims.
+Shared contracts and parent PARITY.md were not changed; publication remains held.
+
+
+### Cycle 8 final verification
+
+All commands ran in the task worktree with captured output. Every gate in
+`.hone-gates.json` passed:
+
+| Command | Result |
+| --- | --- |
+| `npm run format` | exit 0; source formatting applied |
+| `npm run lint` | exit 0; zero warnings |
+| `npm run format:check` | exit 0 |
+| `npm test` | exit 0; 52 suites, 3,015 tests passed |
+| `npm run build` | exit 0 |
+| `npm test -- --coverage` | exit 0; 52 suites, 3,015 tests passed; statements 87.08%, branches 82.19%, functions 89.75%, lines 87.54%; all exceed the 70% thresholds |
+| `npm audit` | exit 0; zero vulnerabilities |
+| `npm audit --omit=dev --audit-level=moderate` | exit 0; zero vulnerabilities |
+| `npm outdated` (writable temporary npm cache) | exit 1 indicating ESLint 10.12.0 installed, 10.13.0 wanted/latest; informational, dependencies unchanged |
+| `npm run docs:build` | exit 0 |
+
+The first `npm outdated` attempt could not write the default read-only npm cache;
+it was rerun successfully with `npm_config_cache=/tmp/mojentic-ts-c8-npm-cache`
+(the reported exit 1 reflects the available update, not a cache error).
+Neither audit reported an advisory. Package and lockfile hashes remain the
+unchanged values recorded above. No refs were modified. Suggested Foundry
+finalization message: `Validate all custom recovery jitter before wire activity`.
