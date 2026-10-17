@@ -3,8 +3,8 @@
 **Not ready for coordinated release.** Recovery, context-window metadata,
 first-token timing, output-limit corrections and explicit session temperature
 zero have executable coverage. Native reasoning and request fidelity still have
-substantive gaps below. This assessment preserves existing behavior; it does not
-implement the missing features. Package, lockfile and runtime versions stay at
+substantive gaps below. The correction below removes only gateway-invented
+temperature/context defaults; it does not close other request-shape or reasoning gaps. Package, lockfile and runtime versions stay at
 2.1.0. No publication, consumer migration, ref mutation or sibling edits occurred.
 
 ## Authority and source identity
@@ -23,9 +23,10 @@ files were read, without mutation, in
 | REASONING-PROTOTYPE-2026-10.md | `0a40f3ad45c593bc779411021e45db569e73d3ecce86c99b201e7f8ebb656809` |
 | MODEL-METADATA-2026-10.md, October 17 timing decisions included | `d9945dca45ce09e2163843263a75b5e93028b00ee1baf191fc3ff13396830e9c` |
 
-Tested TypeScript source: `54171796a2b02c0f0170d0758d2e3c693ad027c9`, plus
-this uncommitted assessment, package verification and gate changes. Production
-TypeScript is unchanged. Foundry owns finalization.
+Previous assessment source: `54171796a2b02c0f0170d0758d2e3c693ad027c9`, plus
+the assessment, package verification and gate changes. Current correction source:
+`716e6122f03c618a28f440bd18bfbe0ab63c2d1f` plus this uncommitted worktree diff. Production changes are limited to
+OpenAI/oMLX request builders and configuration JSDoc. Foundry owns finalization.
 [Earlier evidence](audit/CONFORMANCE-3.0.0-history.md) retains its original source
 revisions, commands, hashes and counts; none of those counts are substituted for
 this run. Historical counterpart prerequisites are superseded by the policy below.
@@ -94,12 +95,12 @@ implementation or evidence was not established.
 | Timing: monotonic first dispatch, lazy streams, thinking/content/tool arguments, priority thinking > content > tool, empty/keepalive excluded | `first-token-http.test.ts`: `measures $name legacy chunks after keepalives and empty deltas`; `measures $name through broker terminal events`; `does not count tool names or empty arguments as a token before event rejection`; split-frame/legacy-fragment matrices | Covered with controlled clock; installed probe samples thinking-first and real clock |
 | Timing success/failure/empty/cancel; provider metrics preserved separately | `first-token-http.test.ts`: `leaves first-token fields absent on empty event streams and preserves provider timing`; `retains timing through session failure and excludes partial assistant history`; `retains first-token evidence when a broker event request is cancelled` | Covered |
 | Timing observed before capture/delivery, retries share clock, tool continuations start fresh clock | `first-token-http.test.ts`: `retains split-frame token timing when response capture rejects`; retry/capture matrices; `executes a completed streamed tool once and sends exactly one follow-up request` | **Partial evidence**: retry/observation timing is covered and implementation starts a fresh timer per continuation; the tool test asserts content/count, not an independently advanced second-completion clock. A direct fresh-clock assertion remains an evidence gap |
-| temperature/numCtx/maxTokens optional without invented defaults | `output-limit-http.test.ts`: `preserves sampling defaults and reasoning controls without an output limit` characterizes current behavior | **Partial**: maxTokens corrected; OpenAI and oMLX invent temperature 1; ChatSession and deprecated broker entrypoint also default temperature. OpenAI internal args invent numCtx 32768, although it is not serialized; Ollama only sends configured num_ctx |
+| temperature/numCtx/maxTokens optional without invented defaults | `output-limit-http.test.ts`: temperature/context matrix `sends the complete $name body and preserves resend bytes`; `temperature-context-http.test.ts`: `omits sampling defaults on an admitted event-stream resend with identical encoded bodies`; installed `ts-temperature-context-v1` matrix | Covered for maintained gateways: unset temperature omitted, no internal OpenAI context fallback, Ollama emits num_ctx only when configured. Session configuration and deprecated broker entrypoint are outside this bounded correction |
 | One output limit; remove numPredict; serialize configured maxTokens exactly once per provider, including streams/retries/tools | `output-limit-http.test.ts`: `removes numPredict from the exported TypeScript CompletionConfig contract`; `ignores a stale JavaScript numPredict alias in favor of maxTokens`; configured limit matrix; `omits the output limit on recovered event requests and resends`; installed exact wire bodies | Covered; legacy behavior outside this correction preserved |
 | Required Anthropic max_tokens fallback | No maintained Anthropic adapter/public export in TypeScript | Not applicable to current adapter set; implementing Anthropic would require its documented registry/4096 fallback |
-| OpenAI fixed temperature rewrites caller-set value to only supported value; non-reasoning effort warns and drops | `gateways/openai.test.ts`: `should adapt parameters for reasoning models`; `should warn and ignore reasoning_effort for non-reasoning models` | **Partial**: warning/drop covered; fallback hardcodes 1 rather than deriving sole registry value. Omission remains incorrectly defaulted. Exact real-HTTP shape coverage for this complete rule is missing |
+| OpenAI fixed temperature rewrites caller-set value to only supported value; non-reasoning effort warns and drops | `gateways/openai.test.ts`: `should adapt parameters for reasoning models`; `should warn and ignore reasoning_effort for non-reasoning models` | **Partial**: warning/drop covered; fallback hardcodes 1 rather than deriving sole registry value. Omission and existing o3 caller-set adaptation now have complete real-HTTP body assertions; the broader registry rule remains open |
 | Other configured sampling/shape fields, client-only settings never serialized | `output-limit-http.test.ts`: `characterizes unrelated request controls before output-limit correction`; installed full-body assertions | **Gap**: OpenAI drops topP, frequencyPenalty and presencePenalty; six-value Ollama think mapping missing. Current tests characterize defaults, not full fidelity |
-| Default bodies omit temperature and limits; each configured control sent once; docs/CHANGELOG/PARITY aligned | Output-limit and context/timing guides exist, CHANGELOG has corrections. Installed probe records oMLX default temperature 1 as characterization | **Partial**: default-temperature contract fails; parent PARITY outside write scope. Do not claim full request fidelity |
+| Default bodies omit temperature and limits; each configured control sent once; docs/CHANGELOG/PARITY aligned | `output-limit-http.test.ts` complete sampling bodies, retained output-limit matrix, installed `ts-temperature-context-v1`; CHANGELOG and gateway/core guides include migration | Covered for this bounded omission correction; parent PARITY remains outside write scope. Other configured fields and reasoning gaps above remain open |
 
 ## Parts 4–5, records, gates and CI
 
@@ -107,7 +108,7 @@ Part 4 is Kotlin's target removal, not a TypeScript mutation. It is not verified
 here. Part 5 audit #4 is covered by `session-temperature-fixtures.json`,
 the fixture matrices in `recovery-conformance.test.ts` and `streaming-recovery-conformance.test.ts` and the output-limit session tests:
 explicit zero survives send/sendStream through maintained gateways. The omitted
-session temperature of 1.0 is preserved behavior and remains a part-3 gap.
+session temperature of 1.0 is separately configured behavior preserved outside this gateway correction.
 Python #2 and Rust #3 are outside this repository and were not verified.
 
 AGENTS.md already had coordinated 3.0 authorization; its outdated consumer
@@ -126,7 +127,12 @@ security audit on Node 24. Docs are built only for release/manual deployment;
 full development-dependency audit and npm outdated are local checks. No threshold,
 audit scope, runtime/dependency version or suppression was changed.
 
-## Installed-artifact executable set
+## Previous assessment evidence (historical)
+
+The following measurements and command results predate the current correction.
+Current executable identities and results are recorded at the end of this document.
+
+### Installed-artifact executable set
 
 `ts-packaged-library-v1` is `scripts/verify-package.cjs`, run by
 `npm run verify:package`. It builds with the existing compiler, packs unchanged
@@ -262,3 +268,100 @@ version, avoiding a duplicated release version in the probe. The revised docs
 build also exited 0. `git diff --check` and the package-script Prettier check
 passed. The lockfile SHA-256 is unchanged from HEAD:
 `a1fa41bfd32a2ea05fef34c7f3de7eb44c9282f6571d75452f92e3c8fdb65d2a`.
+
+
+## Current temperature/context correction — 2026-10-17
+
+Tested source is `716e6122f03c618a28f440bd18bfbe0ab63c2d1f` plus the
+uncommitted correction identified below. The binding scope is
+MODEL-METADATA-2026-10.md sections 3.2(1,3), 3.3 and 3.5–3.6, SHA-256
+`d9945dca45ce09e2163843263a75b5e93028b00ee1baf191fc3ff13396830e9c`.
+No package, lockfile or runtime version changed. Foundry owns Git finalization.
+
+OpenAI no longer invents temperature 1 or internal numCtx 32768; oMLX no
+longer invents temperature 1. Ollama source is unchanged. Explicit values,
+including zero, retain existing behavior and OpenAI model adaptation. The
+maxTokens correction, reasoning controls, recovery policy, timing and separately
+configured ChatSession default remain intact. Tracer/reporting fallbacks are
+not outbound defaults. This correction does not close the remaining native
+reasoning, registry adaptation or configured request-shape gaps above, and does
+not establish whole-release readiness. Parent PARITY updates remain owner work.
+
+### Executable identity and behavior
+
+`ts-temperature-context-v1` is the sampling matrix in
+`src/llm/output-limit-http.test.ts`, the focused
+`src/llm/temperature-context-http.test.ts` probe, and the installed-consumer
+matrix in `scripts/verify-package.cjs` (`ts-packaged-library-v1`). All use public
+APIs with production HTTP transports and a real loopback server. Scripted replies
+are local protocol fixtures, not live provider verification. No running-service
+boundary changed and no unreleased dependent or other port was asked to verify.
+The library and fresh consumer checks below are the required two validation
+contexts under the binding library policy.
+
+| File | Current SHA-256 |
+| --- | --- |
+| `src/llm/gateways/openai.ts` | `221d2e6a033aeb281121ca6ed9345405c1c7bbc2503e6f4eb4cc51f3e2bceab4` |
+| `src/llm/gateways/omlx.ts` | `e34484ce4cf86573bbaa98868d905cef4c86586a09083ce947e0f082e633b248` |
+| `src/llm/models.ts` | `8eccb11edf15d8a93fb708a24ae01c2fc844775c95a1a0639c0d79fa8a38303c` |
+| `src/llm/output-limit-http.test.ts` | `89422bbae53ab63c70095f8b120d79f4dc9cb1cf0301bb1025c00a86cd2b3c82` |
+| `src/llm/temperature-context-http.test.ts` | `b695a0d55d143753417f7bb9ba486d0988e91e2c87a0a453252524a42833e7af` |
+| `src/llm/gateways/model-context-http.test.ts` | `37f950c6df7b90bdcd1a7a1be420a37797219e0ecfc9ed77c29b0fab9f67ef2a` |
+| `scripts/verify-package.cjs` | `9238d01fdf02091e58c8e5b89c3de0c4c21302a14ae5469966e5e5af69b4bf0e` |
+
+Named-test mappings:
+
+- `omits sampling defaults on an admitted event-stream resend with identical encoded bodies`:
+  real HTTP 503 then admitted streaming success. Before the source correction it
+  exited 1 because both complete bodies contained temperature 1; after correction
+  the same command exited 0 with omitted temperature and identical resend bytes.
+  Command: `npm test -- --runInBand src/llm/temperature-context-http.test.ts`.
+  The behavioral proof JSON, actual exit codes and both logs were validated and
+  retained as Foundry execution evidence before expanding the matrix or docs.
+- `sends the complete $name body and preserves resend bytes`: 336 cases across
+  OpenAI chat/o3, Ollama and oMLX; ordinary, structured, legacy chunk and event
+  routes; recovery disabled, enabled without failure, and admitted 503 resends.
+  Configurations cover omitted config, empty config, explicit undefined, explicit
+  zero, nonzero sampling/context, temperature alone and context alone. Every
+  complete body is asserted, plus exact encoded-byte equality on resends.
+- `omits unset sampling controls and preserves reasoning controls without an output limit`:
+  existing reasoning and other supported controls are preserved.
+- `should omit unset temperature and output limit`: oMLX shared request builder.
+- `keeps inferred reasoning completion parameters after an unknown registry lookup`:
+  full encoded bodies now omit unset temperature while retaining the explicit
+  max_completion_tokens before and after metadata lookup.
+
+The fresh consumer runs the same declared 336 sampling cases through installed
+public brokers, verifies response semantics, full bodies, exact paths and retry
+bytes, and compiles installed declarations. The preexisting package probes still
+cover explicit maxTokens, metadata non-mutation, first-token timing, recovery
+rejection and safe attempt identities. Current artifact SHA-256:
+`6b75f9e752fedf57d1a31f385c2c6e7d62a74c4dfa0e1f3fc0a4a962c6d6762f`;
+fresh install: `/tmp/mojentic-package-UVebdW/mojentic-2.1.0.tgz`.
+This is an unpublished local artifact, not registry adoption.
+
+### Current verification results
+
+All commands used Foundry capture. The first full suite found one stale metadata
+expectation of temperature 1; it was updated to the corrected complete body,
+then the whole required sequence was rerun successfully. No failure was waived.
+
+| Command | Result |
+| --- | --- |
+| `npm run format` | Exit 0 |
+| `npm run lint` | Exit 0, zero warnings |
+| `npm run format:check` | Exit 0 |
+| `npm test` | Exit 0; 57 suites, 4,051 tests |
+| `npm run build` | Exit 0 |
+| `npm run verify:package` | Exit 0; fresh tarball install, declarations and production HTTP consumer matrix |
+| `npm test -- --coverage` | Exit 0; 4,051 tests; statements 87.66%, branches 83.24%, functions 90.39%, lines 88.04%; every global 70% threshold exceeded |
+| `npm audit --omit=dev --audit-level=moderate --cache /tmp/mojentic-c15-npm-cache` | Exit 0; zero vulnerabilities |
+| `npm audit --cache /tmp/mojentic-c15-npm-cache` | Exit 0; zero vulnerabilities including development dependencies |
+| `npm outdated --cache /tmp/mojentic-c15-npm-cache` | Exit 0; no outdated packages |
+| `npm run docs:build` | Exit 0; pages rendered; existing VitePress/Rolldown bundle-assignment diagnostics and transform deprecation remain |
+
+The only discovered gate file is the repository root `.hone-gates.json`; all
+five configured gates passed. The docs diagnostics were recorded, not
+suppressed. No dependencies or advisory suppressions changed. CI for this
+uncommitted correction remains pending Foundry finalization; no refs were
+modified, no commit/push/tag/publication occurred, and no sibling was edited.

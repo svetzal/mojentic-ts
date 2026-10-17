@@ -1,17 +1,21 @@
 import { createServer, Server } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { z } from 'zod';
-import { LlmBroker } from './broker';
-import { LlmGateway } from './gateway';
-import { OpenAIGateway } from './gateways/openai';
-import { OllamaGateway } from './gateways/ollama';
-import { OMLXGateway } from './gateways/omlx';
-import { CompletionConfig, Message } from './models';
-import { RecoveryOptions } from './recovery';
-import { Ok, unwrap } from '../error';
-import { ChatSession } from './chat-session';
-import { LlmTool } from './tools';
-import type { CompletionConfig as PublicCompletionConfig } from '../index';
+import {
+  LlmBroker,
+  LlmGateway,
+  OpenAIGateway,
+  OllamaGateway,
+  OMLXGateway,
+  CompletionConfig,
+  Message,
+  RecoveryOptions,
+  Ok,
+  unwrap,
+  ChatSession,
+  LlmTool,
+  type CompletionConfig as PublicCompletionConfig,
+} from '../index';
 
 interface Provider {
   readonly name: string;
@@ -25,7 +29,7 @@ const providers: readonly Provider[] = [
   {
     name: 'OpenAI chat',
     configuredControls: { temperature: 0, max_tokens: 37 },
-    defaultReasoningControls: { temperature: 1 },
+    defaultReasoningControls: {},
     model: 'gpt-4o',
     field: 'max_tokens',
     gateway: (host) => new OpenAIGateway('test-key', host),
@@ -33,7 +37,7 @@ const providers: readonly Provider[] = [
   {
     name: 'OpenAI reasoning',
     configuredControls: { temperature: 1, max_completion_tokens: 37 },
-    defaultReasoningControls: { temperature: 1, reasoning_effort: 'high' },
+    defaultReasoningControls: { reasoning_effort: 'high' },
     model: 'o3',
     field: 'max_completion_tokens',
     gateway: (host) => new OpenAIGateway('test-key', host),
@@ -55,7 +59,7 @@ const providers: readonly Provider[] = [
   },
   {
     configuredControls: { temperature: 0, max_tokens: 37, top_p: 0.7, top_k: 8 },
-    defaultReasoningControls: { temperature: 1, top_p: 0.7, top_k: 8, reasoning_effort: 'high' },
+    defaultReasoningControls: { top_p: 0.7, top_k: 8, reasoning_effort: 'high' },
     name: 'oMLX',
     model: 'qwen',
     field: 'max_tokens',
@@ -154,6 +158,49 @@ const limits: readonly { name: string; config?: CompletionConfig }[] = [
   { name: 'explicit limit', config: { maxTokens: 37 } },
   { name: 'explicit zero', config: { maxTokens: 0 } },
 ];
+// ts-temperature-context-v1 extends the existing real HTTP harness, including
+// complete bodies rather than field-only assertions. Scripted replies are local fixtures.
+const samplingConfigurations: readonly { name: string; config?: CompletionConfig }[] = [
+  { name: 'omitted config' },
+  { name: 'empty config', config: {} },
+  { name: 'explicit undefined', config: { temperature: undefined, numCtx: undefined } },
+  { name: 'explicit zero', config: { temperature: 0, numCtx: 0 } },
+  { name: 'explicit controls', config: { temperature: 0.4, numCtx: 4096 } },
+  { name: 'temperature only', config: { temperature: 0 } },
+  { name: 'context only', config: { numCtx: 8192 } },
+];
+function samplingBody(
+  provider: Provider,
+  route: string,
+  config?: CompletionConfig
+): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    model: provider.model,
+    messages: [{ role: 'user', content: 'hello' }],
+  };
+  const controls: Record<string, unknown> = {};
+  if (config?.temperature !== undefined)
+    controls.temperature = provider.name === 'OpenAI reasoning' ? 1 : config.temperature;
+  if (provider.name === 'Ollama') {
+    if (config?.numCtx !== undefined) controls.num_ctx = config.numCtx;
+    body.options = controls;
+    body.stream = route === 'legacy stream' || route === 'event stream';
+  } else {
+    Object.assign(body, controls);
+    if (route === 'legacy stream' || route === 'event stream') body.stream = true;
+    if (route === 'event stream') body.stream_options = { include_usage: true };
+  }
+  if (route === 'structured') {
+    const schema = {
+      type: 'object',
+      properties: { answer: { type: 'number' } },
+      required: ['answer'],
+    };
+    if (provider.name === 'Ollama') body.format = schema;
+    else body.response_format = { type: 'json_schema', json_schema: { name: 'response', schema } };
+  }
+  return body;
+}
 const policies = [
   { name: 'legacy', recovery: undefined, failures: 0 },
   { name: 'recovery enabled', recovery: {}, failures: 0 },
@@ -299,7 +346,7 @@ describe.each(providers)('$name output-limit HTTP contract', (provider) => {
     });
   });
 
-  it('preserves sampling defaults and reasoning controls without an output limit', async () => {
+  it('omits unset sampling controls and preserves reasoning controls without an output limit', async () => {
     const result = await provider.gateway(host).generate(provider.model, messages(), {
       topP: 0.7,
       topK: 8,
@@ -371,6 +418,33 @@ describe.each(providers)('$name output-limit HTTP contract', (provider) => {
           expect(requests).not.toEqual([]);
           for (const request of requests) assertLimit(request, provider, config);
           expect(requests.at(-1)).toEqual(requests[0]);
+        }
+      );
+    });
+  });
+
+  describe.each(routes)('$name temperature/context', (route) => {
+    describe.each(policies)('$name', (policy) => {
+      it.each(samplingConfigurations)(
+        'sends the complete $name body and preserves resend bytes',
+        async (sampling) => {
+          failures = policy.failures;
+          const config =
+            policy.recovery === undefined
+              ? sampling.config
+              : { ...sampling.config, recovery: policy.recovery };
+          const broker = new LlmBroker(provider.model, provider.gateway(host));
+
+          await route.run(broker, config);
+
+          expect(requests).toEqual(
+            Array.from({ length: 1 + policy.failures }, () =>
+              samplingBody(provider, route.name, config)
+            )
+          );
+          expect(requests.map((request) => serializedBodies.get(request))).toEqual(
+            Array.from({ length: 1 + policy.failures }, () => serializedBodies.get(requests[0]))
+          );
         }
       );
     });

@@ -392,11 +392,11 @@ interface CompletionConfig {
 Configuration for LLM generation.
 
 **Properties:**
-- `temperature`: Randomness (0.0-2.0, default varies by model)
+- `temperature`: Optional randomness (0.0-2.0). Omit to use provider/model settings; no gateway default is sent. Explicit values retain OpenAI model registry adaptation.
 - `maxTokens`: Optional output token limit. Omit to use provider/model limits; no library default is sent. Ollama receives `options.num_predict`, OpenAI chat and oMLX receive `max_tokens`, and OpenAI reasoning receives `max_completion_tokens`.
 - `topP`: Nucleus sampling threshold (0.0-1.0)
 - `topK`: Top-K sampling parameter (limits token selection to top K choices)
-- `numCtx`: Context window size (number of tokens for context)
+- `numCtx`: Optional Ollama context size in tokens. Omit to use model/server settings. OpenAI and oMLX do not send this field.
 - `frequencyPenalty`: Penalty for token frequency (reduces repetition)
 - `presencePenalty`: Penalty for token presence (encourages diversity)
 - `stop`: Array of strings that will stop generation

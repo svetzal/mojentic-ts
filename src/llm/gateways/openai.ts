@@ -262,8 +262,8 @@ export class OpenAIGateway implements LlmGateway {
       messages,
       objectModel: config?.responseFormat?.schema,
       tools,
-      temperature: config?.temperature ?? 1.0,
-      numCtx: config?.numCtx ?? 32768,
+      temperature: config?.temperature,
+      numCtx: config?.numCtx,
       maxTokens: config?.maxTokens,
       reasoningEffort: config?.reasoningEffort,
     };
@@ -276,7 +276,7 @@ export class OpenAIGateway implements LlmGateway {
       messages: adaptMessagesToOpenAI(messages),
     };
 
-    if ('temperature' in adaptedArgs) {
+    if (adaptedArgs.temperature !== undefined) {
       requestBody.temperature = adaptedArgs.temperature;
     }
 

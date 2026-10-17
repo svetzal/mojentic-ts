@@ -41,8 +41,6 @@ export const OMLX_DEFAULT_HOST = 'http://localhost:8000';
  */
 export const OMLX_DEFAULT_TIMEOUT_MS = 600_000;
 
-const DEFAULT_TEMPERATURE = 1.0;
-
 const usageCountsSchema = z.object({
   prompt_tokens: z.number(),
   completion_tokens: z.number(),
@@ -246,8 +244,8 @@ export class OMLXGateway implements LlmGateway {
     return {
       model,
       messages: adaptMessagesToOpenAI(messages),
-      temperature: config?.temperature ?? DEFAULT_TEMPERATURE,
       ...withoutEmptyValues({
+        temperature: config?.temperature,
         max_tokens: config?.maxTokens,
         top_p: config?.topP,
         top_k: config?.topK,

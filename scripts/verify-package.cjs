@@ -161,11 +161,11 @@ async function verify(consumer) {
     replies = [{ status: 404, body: '{}' }];
     assert.equal((await api.getModelContextWindow(gateway, 'qwen')).ok, false);
 
-    // Characterize remaining default; metadata queries cannot mutate the next request.
+    // Unset controls stay absent; metadata queries cannot mutate the next request.
     replies = [{ body: answer }];
     await gateway.generate('qwen', messages);
     const baseline = records.at(-1).body;
-    assert.deepEqual(JSON.parse(baseline), { model: 'qwen', messages, temperature: 1 });
+    assert.deepEqual(JSON.parse(baseline), { model: 'qwen', messages });
     replies = [
       { body: JSON.stringify({ data: [{ id: 'qwen', max_model_len: 65536 }] }) },
       { body: answer },
@@ -236,6 +236,135 @@ async function verify(consumer) {
       stream: false,
     });
     assert.equal(replies.length, 0);
+    // Installed executable set ts-temperature-context-v1. Each case traverses
+    // the public broker and production HTTP transport from this fresh install.
+    const schema = {
+      type: 'object',
+      properties: { answer: { type: 'number' } },
+      required: ['answer'],
+    };
+    const configurations = [
+      undefined,
+      {},
+      { temperature: undefined, numCtx: undefined },
+      { temperature: 0, numCtx: 0 },
+      { temperature: 0.4, numCtx: 4096 },
+      { temperature: 0 },
+      { numCtx: 8192 },
+    ];
+    const policies = [
+      undefined,
+      {},
+      {
+        maxAttempts: 2,
+        baseDelayMs: 0,
+        jitter: () => 0,
+        admit: async () => 'allow',
+      },
+    ];
+    for (const provider of [
+      {
+        name: 'openai',
+        model: 'gpt-4o',
+        gateway: new api.OpenAIGateway('fixture-key', `${host}/v1`),
+      },
+      {
+        name: 'openai-fixed',
+        model: 'o3',
+        gateway: new api.OpenAIGateway('fixture-key', `${host}/v1`),
+      },
+      { name: 'omlx', model: 'qwen', gateway },
+      { name: 'ollama', model: 'qwen', gateway: new api.OllamaGateway(host) },
+    ]) {
+      const ollama = provider.name === 'ollama';
+      const broker = new api.LlmBroker(provider.model, provider.gateway);
+      const text = '{"answer":42}';
+      for (const route of ['ordinary', 'structured', 'legacy stream', 'event stream']) {
+        const streaming = route.endsWith('stream');
+        const success = {
+          body: streaming
+            ? ollama
+              ? `${JSON.stringify({ message: { content: text }, done: false })}\n{"message":{"content":""},"done":true,"done_reason":"stop"}\n`
+              : `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\ndata: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n`
+            : JSON.stringify(
+                ollama
+                  ? { message: { role: 'assistant', content: text }, done: true }
+                  : { choices: [{ message: { content: text }, finish_reason: 'stop' }] }
+              ),
+          headers: {
+            'Content-Type': streaming
+              ? ollama
+                ? 'application/x-ndjson'
+                : 'text/event-stream'
+              : 'application/json',
+          },
+        };
+        for (const sampling of configurations)
+          for (const policy of policies) {
+            const config = policy === undefined ? sampling : { ...sampling, recovery: policy };
+            const retry = policy?.maxAttempts === 2;
+            replies = retry ? [unavailable, success] : [success];
+            const start = records.length;
+            if (route === 'ordinary') {
+              const result = await broker.generateResponse(messages, undefined, config);
+              assert.equal(result.ok, true);
+              assert.equal(result.value.content, text);
+            } else if (route === 'structured') {
+              assert.deepEqual(await broker.generateObject(messages, schema, config), {
+                ok: true,
+                value: { answer: 42 },
+              });
+            } else if (route === 'legacy stream') {
+              const chunks = [];
+              for await (const chunk of broker.generateStream(messages, config)) {
+                assert.equal(chunk.ok, true);
+                chunks.push(chunk.value);
+              }
+              assert.equal(chunks.join(''), text);
+            } else {
+              const events = [];
+              for await (const event of broker.generateStreamEvents(messages, config))
+                events.push(event);
+              assert.deepEqual(
+                events.filter((event) => event.type === 'content'),
+                [{ type: 'content', text }]
+              );
+              assert.equal(events.at(-1).type, 'completed');
+            }
+            const controls = {};
+            if (sampling?.temperature !== undefined)
+              controls.temperature = provider.name === 'openai-fixed' ? 1 : sampling.temperature;
+            const expected = { model: provider.model, messages };
+            if (ollama) {
+              if (sampling?.numCtx !== undefined) controls.num_ctx = sampling.numCtx;
+              expected.options = controls;
+              expected.stream = streaming;
+            } else {
+              Object.assign(expected, controls);
+              if (streaming) expected.stream = true;
+              if (route === 'event stream') expected.stream_options = { include_usage: true };
+            }
+            if (route === 'structured') {
+              if (ollama) expected.format = schema;
+              else
+                expected.response_format = {
+                  type: 'json_schema',
+                  json_schema: { name: 'response', schema },
+                };
+            }
+            const sent = records.slice(start);
+            assert.deepEqual(
+              sent.map((record) => JSON.parse(record.body)),
+              Array.from({ length: retry ? 2 : 1 }, () => expected)
+            );
+            for (const record of sent) {
+              assert.equal(record.url, ollama ? '/api/chat' : '/v1/chat/completions');
+              assert.equal(record.body, sent[0].body);
+            }
+            assert.equal(replies.length, 0);
+          }
+      }
+    }
     console.log(
       JSON.stringify({ contract: 'ts-packaged-library-v1', requests: records, terminal }, null, 2)
     );

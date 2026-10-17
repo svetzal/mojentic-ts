@@ -353,7 +353,7 @@ When it changes a value, it logs a warning with `console.warn`.
 
 | `CompletionConfig` | Request body |
 | ------------------ | ------------ |
-| `temperature` | `temperature` (default `1.0`), changed by the model registry |
+| `temperature` | `temperature`, only when set; changed by the model registry |
 | `maxTokens` | `max_tokens` or `max_completion_tokens`, only when set; omitted otherwise |
 | `reasoningEffort` | `reasoning_effort`, for a reasoning model only |
 | `responseFormat` | `response_format`. With a schema, `{ type: 'json_schema', json_schema: { name: 'response', schema } }` |
@@ -465,7 +465,7 @@ const result = await broker.generate([Message.user('Hello')]);
 
 | `CompletionConfig` | Request body |
 | ------------------ | ------------ |
-| `temperature` | `temperature` (default `1.0`) |
+| `temperature` | `temperature`, only when set; omitted otherwise |
 | `maxTokens` | `max_tokens`, only when set; omitted otherwise. Never `max_completion_tokens` |
 | `topP`, `topK` | `top_p`, `top_k`, when set |
 | `reasoningEffort` | `reasoning_effort`, unchanged, when set |
@@ -693,8 +693,16 @@ Disabled, Enabled and XHigh efforts, caller-selected model profiles and opt-in
 native reasoning history are not implemented. Gateway `thinking` output does
 not imply native history retention across broker tool calls.
 
-Ollama omits unset temperature and context size. OpenAI and oMLX still send a
-temperature of 1 when it is omitted, and `ChatSession` defaults to 1. Explicit
-zero is preserved. OpenAI currently drops configured `topP`, `frequencyPenalty`
+All maintained gateways omit unset `CompletionConfig.temperature`, including
+structured output, streaming and admitted recovery resends. Ollama also omits
+unset `numCtx`; OpenAI and oMLX never send a context-size field. Provider/model
+settings apply. Set `{ temperature: 1 }` to retain the former OpenAI/oMLX request
+value, or `{ temperature: 1, numCtx: 32768, maxTokens: 16384 }` to explicitly
+choose sampling, Ollama context and an output cap. A different model/server
+configuration may otherwise change sampling, reduce context or allow longer
+output. `ChatSession` keeps its separately configured default of 1. Explicit
+zero is preserved where supported, with existing OpenAI registry adaptation for
+caller-set temperatures. Broker tracer/reporting defaults do not supply outbound
+parameters. OpenAI currently drops configured `topP`, `frequencyPenalty`
 and `presencePenalty`. The output-limit correction above does not establish
 complete request fidelity.

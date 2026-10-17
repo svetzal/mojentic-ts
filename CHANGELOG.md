@@ -32,6 +32,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 
+- OpenAI and oMLX now omit unset `CompletionConfig.temperature` on ordinary,
+  structured and streaming completions, including admitted recovery resends.
+  Provider/model settings apply instead of the gateway's former `1.0` default.
+  Migration: set `{ temperature: 1 }` explicitly to retain that request value.
+  Explicit zero remains zero where supported; OpenAI's existing model registry
+  adaptation still applies to caller-set values (for example, o3 rewrites zero
+  to 1). Ollama continues to omit unset temperature and `numCtx`, preserving
+  model/server settings. To choose the former cross-port context/sampling values,
+  pass `{ temperature: 1, numCtx: 32768 }`; to bound output too, add
+  `{ maxTokens: 16384 }`. Explicit choices override model/server settings.
+  OpenAI's unused internal context fallback was removed; OpenAI and oMLX still
+  send no context-size field. `ChatSession` retains its separately configured
+  temperature default of 1; broker reporting fallbacks do not set outbound values.
+
 - Removed `CompletionConfig.numPredict` and its Ollama precedence rule.
   Migration: replace `{ numPredict: 100 }` with `{ maxTokens: 100 }`; when both
   were present, put the intended limit in `maxTokens`. This is the sole output

@@ -295,7 +295,7 @@ describe('OMLXGateway', () => {
       });
     });
 
-    it('should retain default temperature and omit an unset output limit', async () => {
+    it('should omit unset temperature and output limit', async () => {
       respondWith(fixture('chat_thinking.json'));
 
       await gateway.generate(MODEL, [Message.user('hi')], {}, []);
@@ -303,7 +303,6 @@ describe('OMLXGateway', () => {
       expect(sentBody()).toEqual({
         model: MODEL,
         messages: [{ role: 'user', content: 'hi' }],
-        temperature: 1.0,
       });
     });
 

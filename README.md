@@ -362,6 +362,14 @@ interface CompletionConfig {
 }
 ```
 
+Omitted `temperature` and `numCtx` leave sampling and Ollama context settings to
+the provider/model on all maintained completion routes, including structured
+output, streaming and recovery. OpenAI and oMLX never send `numCtx`. To keep the
+former OpenAI/oMLX sampling value, pass `{ temperature: 1 }`; add `numCtx: 32768`
+for an explicit Ollama context size. Explicit zero is preserved where the model
+supports it; existing OpenAI model adaptation still applies to caller-set values.
+`ChatSession` keeps its own configured temperature default of 1.
+
 ## 🧪 Examples
 
 Run any of the 24 included examples:

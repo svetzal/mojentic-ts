@@ -337,8 +337,8 @@ describe('model context metadata over HTTP', () => {
     await gateway.generate('o3-future', [Message.user('hi')], { maxTokens: 17 });
 
     expect(received.map((request) => request.body)).toEqual([
-      '{"model":"o3-future","messages":[{"role":"user","content":"hi"}],"temperature":1,"max_completion_tokens":17}',
-      '{"model":"o3-future","messages":[{"role":"user","content":"hi"}],"temperature":1,"max_completion_tokens":17}',
+      '{"model":"o3-future","messages":[{"role":"user","content":"hi"}],"max_completion_tokens":17}',
+      '{"model":"o3-future","messages":[{"role":"user","content":"hi"}],"max_completion_tokens":17}',
     ]);
   });
 

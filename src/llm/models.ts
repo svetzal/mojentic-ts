@@ -93,11 +93,13 @@ export type ReasoningEffort = 'low' | 'medium' | 'high';
 export interface CompletionConfig {
   /** Opt-in recovery for a single completion (including streaming). Omit for legacy behavior. */
   recovery?: import('./recovery').RecoveryOptions;
+  /** Sampling temperature. Omit to use provider/model settings; explicit values may be adapted by the model registry. */
   temperature?: number;
   /** Output token limit. Omit to use provider/model limits; no library fallback is sent. */
   maxTokens?: number;
   topP?: number;
   topK?: number;
+  /** Ollama context size. Omit to use model/server settings; other maintained gateways do not send it. */
   numCtx?: number;
   frequencyPenalty?: number;
   presencePenalty?: number;
