@@ -12,6 +12,7 @@ import { createServer } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { OMLXGateway } from './gateways/omlx';
 import { Message } from './models';
+import { inspectRecoveryFailure, RecoveryError, RecoveryOptions } from './recovery';
 
 it('measures the first argument before an oMLX terminal failure through real HTTP', async () => {
   let now = 10;
@@ -99,6 +100,37 @@ const providers: readonly Provider[] = [
     providerMetrics: { usage: { time_to_first_token: 0.7 } },
   },
 ];
+
+describe.each(providers)('$name capture observation timing', (provider) => {
+  it('retains split-frame token timing when response capture rejects', async () => {
+    const probe = await captureTimingProbe(
+      provider,
+      timingRoutes[1],
+      { content: 'answer' },
+      captureOutcomes[1].finish
+    );
+    const terminal = probe.observations[0];
+    const recovery = requireRecovery(terminal);
+
+    expect(probe.beforeRelease).toEqual([]);
+    expect(probe.observations).toHaveLength(1);
+    expect(terminal.value).toMatchObject({
+      evidence: {
+        metadata: {
+          time_to_first_token_ms: 25,
+          first_token_kind: 'content',
+          request_duration_ms: 80,
+        },
+      },
+    });
+    expect(terminal.identity).toBe(recovery);
+    expect(recovery.failure).toBe(recovery.history[0]);
+    expect(recovery.failure.classification.reason).toBe('capture_failed');
+    expect(inspectRecoveryFailure(recovery.failure)?.captureCause).toBe(probe.cause);
+    expect(recovery.failure.progress.delivered.contentBytes).toBe(0);
+    expect(probe.requests).toBe(1);
+  });
+});
 const cases = [
   {
     name: 'content-first',
@@ -449,5 +481,396 @@ describe.each(providers)('$name client stream timing', (provider) => {
       expect(session.getMessages().map((message) => message.role)).toEqual(['system', 'user']);
       expect(requests).toBe(1);
     });
+  });
+});
+
+interface TimingObservation {
+  readonly value: unknown;
+  readonly terminal: boolean;
+  readonly recovery?: RecoveryError;
+  readonly identity?: unknown;
+}
+interface TimingRoute {
+  readonly name: 'legacy chunks' | 'terminal events';
+  readonly stream: (
+    gateway: LlmGateway,
+    recovery?: RecoveryOptions
+  ) => AsyncIterable<TimingObservation>;
+}
+const timingRoutes: readonly TimingRoute[] = [
+  {
+    name: 'legacy chunks',
+    stream: async function* (gateway, recovery) {
+      for await (const result of gateway.generateStream('gpt-4o', [Message.user('hello')], {
+        recovery,
+      })) {
+        if (!result.ok) {
+          yield {
+            value: result.error,
+            terminal: true,
+            recovery: result.error instanceof RecoveryError ? result.error : undefined,
+            identity: result.error,
+          };
+        } else {
+          yield { value: { evidence: result.value.evidence }, terminal: result.value.done };
+        }
+      }
+    },
+  },
+  {
+    name: 'terminal events',
+    stream: async function* (gateway, recovery) {
+      const broker = new LlmBroker('gpt-4o', gateway);
+      for await (const event of broker.generateStreamEvents([Message.user('hello')], {
+        recovery,
+      })) {
+        if (event.type === 'error') {
+          yield {
+            value: event.error,
+            terminal: true,
+            recovery: event.error.recovery,
+            identity: event.error.detail,
+          };
+        } else if (event.type === 'completed') {
+          yield { value: { evidence: event.metadata }, terminal: true };
+        } else {
+          yield { value: event, terminal: false };
+        }
+      }
+    },
+  },
+];
+interface Deferred {
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+  readonly reject: (cause: Error) => void;
+}
+function deferred(): Deferred {
+  let resolve = (): void => undefined;
+  let reject = (_cause: Error): void => undefined;
+  const promise = new Promise<void>((accept, decline) => {
+    resolve = accept;
+    reject = decline;
+  });
+  return { promise, resolve, reject };
+}
+const captureOutcomes = [
+  {
+    name: 'delayed',
+    finish: (pending: Deferred, _controller: AbortController, _cause: Error): void =>
+      pending.resolve(),
+  },
+  {
+    name: 'rejected',
+    reason: 'capture_failed',
+    recoveryOutcome: 'interrupted',
+    finish: (pending: Deferred, _controller: AbortController, cause: Error): void =>
+      pending.reject(cause),
+  },
+  {
+    name: 'cancelled',
+    reason: 'cancelled',
+    recoveryOutcome: 'cancelled',
+    finish: (_pending: Deferred, controller: AbortController, cause: Error): void =>
+      controller.abort(cause),
+  },
+];
+
+// The first capture acknowledges the partial frame before the server writes the rest.
+// The second capture waits until the test has observed that delivery is still blocked.
+async function captureTimingProbe(
+  provider: Provider,
+  route: TimingRoute,
+  delta: object,
+  finish: (pending: Deferred, controller: AbortController, cause: Error) => void
+): Promise<{
+  readonly observations: readonly TimingObservation[];
+  readonly beforeRelease: readonly TimingObservation[];
+  readonly requests: number;
+  readonly cause: Error;
+  readonly admitted: jest.Mock;
+  readonly responseBytes: Buffer;
+}> {
+  let now = 100;
+  let requests = 0;
+  let responses = 0;
+  const pending = deferred();
+  const entered = deferred();
+  const controller = new AbortController();
+  const cause = new RangeError('private capture failure');
+  const admitted = jest.fn(async () => 'allow' as const);
+  const clock = jest.spyOn(MonotonicClockGateway.prototype, 'now').mockImplementation(() => now);
+  const frame = provider.frame(delta);
+  const split = frame.length - 4;
+  const prefix = provider.keepalive + provider.frame({ content: '' }) + provider.frame({});
+  let sendRemainder = (): void => undefined;
+  const server = createServer((_request, response) => {
+    requests++;
+    now = 110;
+    response.write(prefix + frame.slice(0, split));
+    sendRemainder = () => {
+      now = 125;
+      response.end(frame.slice(split) + provider.terminal);
+    };
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const gateway = provider.gateway(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
+  const observations: TimingObservation[] = [];
+  const consume = async (): Promise<void> => {
+    for await (const observation of route.stream(gateway, {
+      maxAttempts: 2,
+      baseDelayMs: 0,
+      signal: controller.signal,
+      admit: admitted,
+      onWire: async (event) => {
+        if (event.direction !== 'response' || event.complete) return;
+        responses++;
+        if (responses === 1) {
+          sendRemainder();
+          return;
+        }
+        entered.resolve();
+        await pending.promise;
+      },
+    }))
+      observations.push(observation);
+  };
+  const result = consume();
+  try {
+    await entered.promise;
+    const beforeRelease = observations.slice();
+    now = 180;
+    finish(pending, controller, cause);
+    await result;
+    return {
+      observations,
+      beforeRelease,
+      requests,
+      cause,
+      admitted,
+      responseBytes: Buffer.from(prefix + frame + provider.terminal),
+    };
+  } finally {
+    controller.abort();
+    pending.resolve();
+    await result;
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    clock.mockRestore();
+  }
+}
+function requireRecovery(observation: TimingObservation): RecoveryError {
+  if (!observation.recovery) throw new Error('Expected a terminal recovery failure');
+  return observation.recovery;
+}
+
+describe.each(providers)('$name capture milestone regressions', (provider) => {
+  describe.each(timingRoutes)('$name', (route) => {
+    it.each(cases)(
+      'preserves $name observation time across delayed capture',
+      async ({ delta, kind }) => {
+        const probe = await captureTimingProbe(provider, route, delta, captureOutcomes[0].finish);
+        const terminal = probe.observations.at(-1);
+
+        expect(probe.beforeRelease).toEqual([]);
+        expect(terminal?.terminal).toBe(true);
+        expect(terminal?.value).toMatchObject({
+          evidence: {
+            metadata: {
+              time_to_first_token_ms: 25,
+              first_token_kind: kind,
+              request_duration_ms: 80,
+            },
+          },
+        });
+        expect(probe.observations.filter((observation) => observation.terminal)).toHaveLength(1);
+        expect(probe.requests).toBe(1);
+        expect(probe.admitted).not.toHaveBeenCalled();
+      }
+    );
+
+    describe.each(captureOutcomes.slice(1))('capture $name', (outcome) => {
+      it.each(cases)('retains $name timing without delivery or retry', async ({ delta, kind }) => {
+        const probe = await captureTimingProbe(provider, route, delta, outcome.finish);
+        const terminal = probe.observations[0];
+        const recovery = requireRecovery(terminal);
+
+        expect(probe.beforeRelease).toEqual([]);
+        expect(probe.observations).toHaveLength(1);
+        expect(terminal.terminal).toBe(true);
+        expect(terminal.value).toMatchObject({
+          evidence: {
+            metadata: {
+              time_to_first_token_ms: 25,
+              first_token_kind: kind,
+              request_duration_ms: 80,
+            },
+          },
+        });
+        expect(recovery).toBeInstanceOf(RecoveryError);
+        expect(terminal.identity).toBe(recovery);
+        expect(recovery.history).toHaveLength(1);
+        expect(recovery.history[0]?.classification.reason).toBe('capture_failed');
+        expect(recovery.failure.progress).toBe(recovery.history[0]?.progress);
+        expect(recovery.outcome).toBe(outcome.recoveryOutcome);
+        expect(recovery.failure.classification.reason).toBe(outcome.reason);
+        expect(inspectRecoveryFailure(recovery.failure)?.captureCause).toBe(probe.cause);
+        expect(Buffer.from(inspectRecoveryFailure(recovery.failure)?.bytes ?? [])).toEqual(
+          probe.responseBytes
+        );
+        expect(recovery.failure.progress.delivered).toEqual({
+          contentBytes: 0,
+          reasoningBytes: 0,
+          toolFragments: 0,
+          completedToolCalls: 0,
+        });
+        expect(JSON.stringify(terminal.value)).not.toContain('private capture failure');
+        expect(probe.requests).toBe(1);
+        expect(probe.admitted).not.toHaveBeenCalled();
+      });
+    });
+  });
+});
+
+const legacyProviders = providers.filter((provider) => provider.name !== 'Ollama');
+const legacyFragments = [
+  {
+    name: 'nonempty legacy arguments',
+    delta: { function_call: { arguments: '{' } },
+    metrics: { time_to_first_token_ms: 25, first_token_kind: 'tool_call' },
+  },
+  { name: 'empty legacy arguments', delta: { function_call: { arguments: '' } }, metrics: {} },
+  { name: 'legacy name only', delta: { function_call: { name: 'lookup' } }, metrics: {} },
+];
+async function legacyTimingProbe(
+  provider: Provider,
+  route: TimingRoute,
+  delta: object,
+  recovery?: RecoveryOptions
+): Promise<{
+  readonly observations: readonly TimingObservation[];
+  readonly requests: number;
+}> {
+  let now = 100;
+  let requests = 0;
+  const clock = jest.spyOn(MonotonicClockGateway.prototype, 'now').mockImplementation(() => now);
+  const server = createServer((_request, response) => {
+    requests++;
+    now = 125;
+    response.end(
+      provider.keepalive +
+        provider.frame({}) +
+        provider.frame({ content: '' }) +
+        provider.frame(delta) +
+        provider.terminal
+    );
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const gateway = provider.gateway(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
+  try {
+    return { observations: await collect(route.stream(gateway, recovery)), requests };
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    clock.mockRestore();
+  }
+}
+describe.each(legacyProviders)('$name legacy function-call timing regressions', (provider) => {
+  describe.each(timingRoutes)('$name', (route) => {
+    describe.each([
+      {
+        name: 'disabled',
+        recovery: undefined,
+        expected: {
+          'legacy chunks': { evidence: { finishReason: 'stop' } },
+          'terminal events': { reason: 'unexpected_tool_calls' },
+        },
+      },
+      {
+        name: 'enabled',
+        recovery: { maxAttempts: 2, baseDelayMs: 0, admit: async () => 'allow' as const },
+        expected: {
+          'legacy chunks': { evidence: { finishReason: 'stop' } },
+          'terminal events': { reason: 'interrupted_stream', detail: expect.any(RecoveryError) },
+        },
+      },
+    ])('recovery $name', ({ recovery, expected }) => {
+      it.each(legacyFragments)(
+        'measures $name without changing delivery',
+        async ({ delta, metrics }) => {
+          const probe = await legacyTimingProbe(provider, route, delta, recovery);
+
+          expect(probe.observations).toHaveLength(1);
+          expect(probe.observations[0].terminal).toBe(true);
+          expect(probe.observations[0].value).toMatchObject(expected[route.name]);
+          expect(probe.observations[0].value).toMatchObject({
+            evidence: { metadata: { request_duration_ms: 25, ...metrics } },
+          });
+          expect(probe.requests).toBe(1);
+        }
+      );
+      it.each(legacyFragments.slice(1))(
+        'leaves first-token fields absent for $name',
+        async ({ delta }) => {
+          const probe = await legacyTimingProbe(provider, route, delta, recovery);
+
+          expect(probe.observations[0].value).not.toHaveProperty(
+            'evidence.metadata.time_to_first_token_ms'
+          );
+          expect(probe.observations[0].value).not.toHaveProperty(
+            'evidence.metadata.first_token_kind'
+          );
+        }
+      );
+    });
+    it.each(captureOutcomes)(
+      'retains split legacy arguments through $name capture',
+      async (outcome) => {
+        const probe = await captureTimingProbe(
+          provider,
+          route,
+          { function_call: { arguments: '{' } },
+          outcome.finish
+        );
+
+        expect(probe.beforeRelease).toEqual([]);
+        expect(probe.observations).toHaveLength(1);
+        expect(probe.observations[0].value).toMatchObject({
+          evidence: {
+            metadata: {
+              request_duration_ms: 80,
+              time_to_first_token_ms: 25,
+              first_token_kind: 'tool_call',
+            },
+          },
+        });
+        expect(probe.requests).toBe(1);
+        expect(probe.admitted).not.toHaveBeenCalled();
+      }
+    );
+  });
+});
+
+describe.each(providers)('$name empty capture timing regressions', (provider) => {
+  describe.each(timingRoutes)('$name', (route) => {
+    it.each(captureOutcomes)(
+      'ignores keepalives and empty deltas through $name capture',
+      async (outcome) => {
+        const probe = await captureTimingProbe(provider, route, { content: '' }, outcome.finish);
+
+        expect(probe.beforeRelease).toEqual([]);
+        expect(probe.observations).toHaveLength(1);
+        expect(probe.observations[0].value).toMatchObject({
+          evidence: { metadata: { request_duration_ms: 80 } },
+        });
+        expect(probe.observations[0].value).not.toHaveProperty(
+          'evidence.metadata.time_to_first_token_ms'
+        );
+        expect(probe.observations[0].value).not.toHaveProperty(
+          'evidence.metadata.first_token_kind'
+        );
+        expect(probe.requests).toBe(1);
+      }
+    );
   });
 });

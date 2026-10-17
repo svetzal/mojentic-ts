@@ -22,6 +22,11 @@ for timing even on paths that discard thinking from public output; this adds
 no reasoning controls or reasoning delivery API. Tool arguments count before
 the completed call. Event streams still reject tool requests and never execute
 them; a name-only tool request can therefore fail before any token is observed.
+OpenAI and oMLX legacy `function_call.arguments` fragments count too; empty
+arguments do not count. With recovery enabled, timing observes received frames
+before awaiting the response `onWire` callback. A delayed, rejected or cancelled
+capture retains the original token time, while public delivery still waits for
+capture to succeed. Split frames count when their complete wire line arrives.
 
 ```typescript
 for await (const event of broker.generateStreamEvents(messages)) {

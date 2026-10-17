@@ -9,6 +9,7 @@ const deltaSchema = z.object({
   content: z.string().nullish(),
   thinking: z.string().nullish(),
   reasoning_content: z.string().nullish(),
+  function_call: z.object({ arguments: z.string().optional() }).nullish(),
   tool_calls: z
     .array(
       z.object({
@@ -63,10 +64,12 @@ export class StreamTiming {
     const parsed = frameSchema.safeParse(json);
     if (!parsed.success || parsed.data.model === 'keepalive') return;
     const delta = parsed.data.message ?? parsed.data.choices?.[0]?.delta;
-    const argumentsPresent = delta?.tool_calls?.some((call) => {
-      const args = call.function?.arguments;
-      return typeof args === 'string' ? args.length > 0 : args !== undefined;
-    });
+    const argumentsPresent =
+      (delta?.function_call?.arguments?.length ?? 0) > 0 ||
+      delta?.tool_calls?.some((call) => {
+        const args = call.function?.arguments;
+        return typeof args === 'string' ? args.length > 0 : args !== undefined;
+      });
     const kind =
       delta?.thinking || delta?.reasoning_content
         ? 'thinking'

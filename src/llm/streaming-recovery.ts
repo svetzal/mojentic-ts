@@ -107,6 +107,10 @@ async function* recoverStream<T>(
       state.progress = Object.freeze({ ...state.progress, headersReceived: true });
       reader = state.response.body.getReader();
       const decoder = new TextDecoder('utf-8', { fatal: true });
+      // Timing observes received bytes independently of capture and public delivery.
+      // Keep the delivery decoder behind capture, including its fatal UTF-8 errors.
+      const timingDecoder = new TextDecoder();
+      let timingBuffer = '';
       let buffer = '';
       for (;;) {
         if (state.response.ok) state.category = 'transport';
@@ -119,6 +123,12 @@ async function* recoverStream<T>(
             rawBytes: state.progress.rawBytes + value.length,
             observed: state.response.ok ? observer.observe(value) : zero(),
           });
+        }
+        if (state.response.ok) {
+          timingBuffer += timingDecoder.decode(value, { stream: !done });
+          const receivedLines = timingBuffer.split('\n');
+          timingBuffer = done ? '' : (receivedLines.pop() ?? '');
+          for (const line of receivedLines) timing.observe(line);
         }
         await capture({
           ...state.identity,
@@ -140,7 +150,6 @@ async function* recoverStream<T>(
         buffer = done ? '' : (lines.pop() ?? '');
         for (const line of lines) {
           if (attemptSignal.aborted) throw attemptSignal.reason;
-          timing.observe(line);
           const frame = decode.parse(line);
           state.responseEvidence = frame.evidence;
           if (frame.completedToolCalls !== undefined) {

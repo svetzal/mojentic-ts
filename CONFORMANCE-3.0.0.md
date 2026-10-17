@@ -708,6 +708,9 @@ were made. Suggested finalization message: `Add provider context metadata and Ol
 
 ## Model metadata section 2: client first-token timing
 
+The cycle-10 evidence below is historical. The cycle-11 correction record at the
+end of this document supersedes its executable-set and corrected-source hashes.
+
 Scope: only section 2 of `MODEL-METADATA-2026-10.md`, SHA-256
 `a085da1c0d110f9d587a24ace6ac2854b653e1ac28905b3829d94d665b2c906e`,
 read from parent contract revision `4b08dcd1d87f520a4c70928c33a2bc84c228093d`.
@@ -833,4 +836,97 @@ d6dc5ed76573e6c6cc90993f18385f8cfee766d2365b7ee4e4bcebe46cddf706  src/llm/gatewa
 7d17becc1c29b5dfcdeabc575cf9ecfe5df5a74fa5a1dc1181982b97426297e5  src/llm/stream-events.ts
 0afaeb93fa03c364a122f29add9364071221b580e0f827b11d8ae710900f1563  src/llm/stream-timing.ts
 df7106ad7be55a4b73e2207fcb411f2177bc53589813f4aa2301408db5f82f6b  src/llm/streaming-recovery.ts
+```
+
+## Cycle-11 correction: first-token observation before capture
+
+This correction reconciles preserved cycle-10 commit
+`b8db5d59c02297e39335ba1deed83fa04e1b8f11` without changing versions,
+request fidelity, reasoning controls or recovery policy. The initiative brief
+was read and its required hash verified. Section 2 of the parent
+`MODEL-METADATA-2026-10.md` was reread from the main initiative checkout;
+its SHA-256 still matches
+`a085da1c0d110f9d587a24ace6ac2854b653e1ac28905b3829d94d665b2c906e`.
+
+Local executable set **ts-stream-first-token-v2** extends the existing Jest
+real-HTTP mechanism in `src/llm/first-token-http.test.ts`. The original 91 cases
+are retained; 127 regression cases bring the set to 218. New timing regressions
+control the clock through explicit server-write and response-capture milestones,
+without assigning meaning to clock invocation counts. In capture probes, the
+first callback acknowledges a partial frame before the server sends its rest.
+The second callback waits for an explicit release, rejection or cancellation.
+No public delivery occurs while it waits. Tokens arrive at 125 after dispatch
+at 100; capture finishes at 180. First-token time remains exactly 25 ms and
+terminal duration is exactly 80 ms.
+
+| Contract decision / route | Named regression in `first-token-http.test.ts` |
+| --- | --- |
+| Capture failure retains the original observation through real HTTP | `retains split-frame token timing when response capture rejects`, OpenAI/Ollama/oMLX |
+| Delayed capture cannot move content, thinking or tool timing | `preserves $name observation time across delayed capture`, both legacy chunks and terminal events, all three providers |
+| Rejected/cancelled capture cannot discard timing or deliver uncaptured output | `retains $name timing without delivery or retry`, both APIs and all three providers; exact terminal duration/kind, recovery identity, failure history, original capture cause, captured bytes, zero delivered progress, no admission and one request |
+| Legacy arguments count before a completed call | `measures $name without changing delivery`, OpenAI/oMLX, both APIs, recovery disabled/enabled; exact 25 ms `tool_call`, existing stop/error semantics |
+| Empty arguments and names are not tokens | `leaves first-token fields absent for $name`, both APIs and recovery modes |
+| Split legacy arguments retain time across delayed/rejected/cancelled capture | `retains split legacy arguments through $name capture`, OpenAI/oMLX and both APIs |
+| Keepalives and empty deltas do not create timing | `ignores keepalives and empty deltas through $name capture`, all three providers and both APIs |
+
+Cancellation preserves the existing distinction between the attempt history's
+`capture_failed` classification and the terminal `cancelled` classification.
+The terminal event retains its exact `RecoveryError` through `detail` and
+`recovery`; legacy errors retain that `RecoveryError` directly. Capture causes
+remain accessible only through the existing inspection API and are absent from
+safe JSON. The timing observer has its own incremental decoder so delivery's
+fatal decoding, parsing, capture ordering and cancellation behavior stay intact.
+
+### Rejecting and corrected verification
+
+Before expanding the tests or running full gates, the three-provider split-frame
+capture-rejection probe failed on the preserved source with absent first-token
+metadata (exit 1), then passed after correction (exit 0). The final executable
+set was subsequently run against the two original timing implementation files
+read from `b8db5d5`: **77 failed, 141 passed**, exit 1. After restoring the
+corrected source, the identical command
+`npm test -- --runInBand src/llm/first-token-http.test.ts` passed **218/218**, exit 0.
+Only the implementation files were temporarily replaced for that comparison;
+Git refs were untouched. Foundry archives the behavioral proof and full logs.
+
+The v2 executable set remains **local conformance evidence**. No shared,
+versioned provider/consumer executable contract set or paired verification is
+available for these timing cases. Provider and consumer tested commits,
+verification commands and results are missing and must be coordinated separately.
+No other repository was changed or verified, and no paired compatibility,
+consumer migration or release readiness is claimed. The parent PARITY update
+remains outside this task's authorized repository.
+
+### Cycle-11 commands and results
+
+The root `.hone-gates.json` is the only discovered project gate file. All verbose
+commands ran through Foundry capture. Its lint, format, test and build gates all
+passed. The mandatory combined sequence
+`npm run lint && npm run format:check && npm test && npm audit --omit=dev --audit-level=moderate`
+also passed as a single captured command.
+
+| Command | Result |
+| --- | --- |
+| `npm ci` | Passed using the unchanged lockfile |
+| `npm test -- --runInBand src/llm/first-token-http.test.ts` against `b8db5d5` timing sources | Exit 1: 77 failed, 141 passed, 218 total |
+| Same command against corrected timing sources | Exit 0: 218 passed |
+| `npm run lint` | Passed, zero warnings |
+| `npm run format` and `npm run format:check` | Passed |
+| `npm test` | Passed: 55 suites, 3,326 tests |
+| `npm run build` | Passed |
+| `npm test -- --coverage` | Passed: statements 87.62%, branches 83.24%, functions 90.39%, lines 87.99%; every global threshold is 70% |
+| Timing core coverage | `stream-timing.ts`: 100% statements, branches, functions and lines |
+| `npm audit` | Passed, zero vulnerabilities |
+| `npm audit --omit=dev --audit-level=moderate` | Passed, zero vulnerabilities |
+| `npm outdated --cache /tmp/mojentic-timing-npm-cache` | Exit 1: ESLint installed 10.12.0, wanted/latest 10.13.0; no version or lockfile changes |
+| `npm run docs:build` | Passed |
+| `git diff --check` | Passed |
+
+Corrected source identities (uncommitted worktree on `b8db5d5`; Foundry owns
+finalization). The test-file hash identifies **ts-stream-first-token-v2**:
+
+```text
+9b64e037af8ee375a6344b94f4f66992f867357a32b8db360042a8eff4f12eca  src/llm/first-token-http.test.ts
+fb65ae6890c42ad9363ca9e8309dcf15cb0e5dde50129a3b04f5a41e6527a646  src/llm/stream-timing.ts
+36109c56126cd2beaa75d60535e9d153190f1574a0afe1bb25a6229452f45abd  src/llm/streaming-recovery.ts
 ```

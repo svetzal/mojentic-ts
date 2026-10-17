@@ -82,6 +82,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Streaming first-token timing now recognizes nonempty legacy
+  `function_call.arguments` fragments on OpenAI and oMLX. Recovery records tokens
+  before awaiting response wire capture, preserving their observation time when
+  capture delays, rejects or is cancelled, without delivering uncaptured output.
+
 - Preserve an explicitly configured `ChatSession` temperature of `0` in `send`
   and `sendStream`, including recovery resends and tool follow-ups through
   OpenAI, Ollama and oMLX. Omitted temperature still defaults to `1.0`; nonzero
