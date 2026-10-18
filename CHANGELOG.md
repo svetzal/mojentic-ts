@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Explicit `CompletionConfig.reasoningProfile`, public `ReasoningProfile`,
+  `QWEN3_8_REASONING_PROFILE` and `validateReasoningProfile`. Qwen3.8 accepts
+  disabled/low/medium/xhigh and rejects enabled/high before HTTP across ordinary,
+  structured and streaming calls, with recovery off/on. Selection never depends
+  on a model-name fragment; omission creates no effort default. Profiles survive
+  broker structured configuration and tool continuations without entering requests.
+  Native history support is capability metadata only; serialization and retention
+  remain unfinished. OpenAI registry adaptation and disabled/enabled/xhigh
+  rejection remain unchanged, even with a permissive profile.
+
 - Client-measured streaming latency for every maintained OpenAI, Ollama and oMLX
   legacy chunk/event path, with recovery on or off. Terminal evidence includes
   `request_duration_ms`; `time_to_first_token_ms` and `first_token_kind` identify
@@ -45,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   error in `detail`. Omitted effort and Low/Medium/High registry adaptation
   remain unchanged. Migration: omit effort for model defaults or select a
   supported named level; OpenAI does not yet implement the 3.1 controls.
-  Caller-selected profiles, native reasoning history and opt-in retention
+  Native reasoning history serialization and opt-in retention
   remain explicit release gaps.
 
 - OpenAI now forwards explicitly configured `topP`, `frequencyPenalty` and

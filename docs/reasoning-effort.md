@@ -34,6 +34,41 @@ if (isOk(result)) {
 }
 ```
 
+## Explicit model profiles
+
+Select a profile through the shared `CompletionConfig`. Profiles are never inferred
+from model names: an arbitrary alias can select Qwen3.8, while a Qwen-looking name
+without a profile keeps existing provider behavior.
+
+```typescript
+import { QWEN3_8_REASONING_PROFILE, validateReasoningProfile } from 'mojentic';
+
+const config: CompletionConfig = {
+  reasoningProfile: QWEN3_8_REASONING_PROFILE,
+  reasoningEffort: 'xhigh',
+};
+const result = await new LlmBroker('my-local-alias', gateway)
+  .generate(messages, undefined, config);
+const validation = validateReasoningProfile(QWEN3_8_REASONING_PROFILE, 'low');
+```
+
+Qwen3.8 accepts `disabled`, `low`, `medium`, `xhigh` and rejects `enabled` and
+`high` with `ValidationError` before HTTP. Omitted effort stays unknown and adds
+no control. The public `ReasoningProfile` interface also supports caller-defined
+`name`, readonly `supportedEfforts`, and `supportsReasoningHistory` metadata.
+Profiles and capability metadata never enter request bodies. Accepted efforts
+keep the exact provider mappings below across ordinary, structured, legacy
+streaming and event streaming requests, with recovery off or on. Broker structured
+configuration and tool continuations preserve the selected profile.
+
+OpenAI's provider constraints still apply: even a profile permitting every effort
+cannot enable `disabled`, `enabled`, or `xhigh`. Its existing registry adaptation
+for omitted effort and low/medium/high remains unchanged.
+
+`QWEN3_8_REASONING_PROFILE.supportsReasoningHistory` is `true` as capability
+metadata only. It does not serialize native reasoning history or enable broker
+retention; those remain separate unfinished release work.
+
 ## Provider-Specific Behavior
 
 ### Ollama Gateway
@@ -68,7 +103,7 @@ const result = await broker.generate(messages, undefined, config);
 
 oMLX sends top-level `enable_thinking: false` for `disabled` and `enable_thinking: true` for `enabled`. Named levels use top-level `reasoning_effort` with the exact string. Boolean controls send no named effort; named controls send no boolean. Omission sends neither field. These mappings apply to ordinary, structured and streaming requests, with recovery on or off. Provider/model support determines whether the request is accepted.
 
-Caller-selected reasoning profiles, native assistant reasoning history and opt-in retention remain unimplemented. A returned thinking trace does not imply reasoning history is retained.
+Native assistant reasoning history serialization and opt-in retention remain unimplemented. A returned thinking trace does not imply reasoning history is retained.
 
 
 ## Streaming with Reasoning Effort

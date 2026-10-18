@@ -117,6 +117,8 @@ export interface CompletionConfig {
    * low/medium/high retain model-registry adaptation. Recovery does not change these rules.
    */
   reasoningEffort?: ReasoningEffort;
+  /** Explicit model capabilities; never inferred from the model name or sent on the wire. */
+  reasoningProfile?: import('./reasoning-profile').ReasoningProfile;
   /** Maximum recursive tool iterations (default: 10); null allows unlimited execution. */
   maxToolIterations?: number | null;
 }

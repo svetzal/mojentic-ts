@@ -1,0 +1,13 @@
+{
+  "contract": "ts-reasoning-profiles-v1",
+  "wireContract": "ts-reasoning-effort-v1",
+  "selections": [
+    { "name": "unselected Qwen-looking model", "model": "qwen3.8", "profile": null },
+    { "name": "explicit Qwen3.8 on arbitrary alias", "model": "arbitrary-alias", "profile": {
+      "name": "qwen3.8", "supportedEfforts": ["disabled", "low", "medium", "xhigh"], "supportsReasoningHistory": true
+    } },
+    { "name": "explicit unrestricted controls", "model": "arbitrary-alias", "profile": {
+      "name": "all-controls", "supportedEfforts": ["disabled", "enabled", "low", "medium", "high", "xhigh"], "supportsReasoningHistory": false
+    } }
+  ]
+}

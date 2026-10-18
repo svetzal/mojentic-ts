@@ -1,6 +1,7 @@
 /** Installed-artifact contract ts-packaged-library-v1. Public API only; shared JSON cases. */
 const assert = require('node:assert/strict');
 const reasoningContract = require('../src/llm/gateways/__fixtures__/reasoning-effort-v1.json');
+const profileContract = require('../src/llm/gateways/__fixtures__/reasoning-profiles-v1.json');
 const samplingContract = require('../src/llm/gateways/__fixtures__/openai-sampling-v1.json');
 const { createHash } = require('node:crypto');
 const { mkdtempSync, readFileSync, writeFileSync } = require('node:fs');
@@ -384,132 +385,154 @@ async function verify(consumer) {
     }
     const text = '{"answer":42}';
     // Same versioned effort cases as the source public-API HTTP tests.
-    for (const provider of ['ollama', 'omlx', 'openai-reasoning', 'openai-ordinary']) {
-      const ollama = provider === 'ollama';
-      const model =
-        provider === 'openai-reasoning' ? 'o3' : provider === 'openai-ordinary' ? 'gpt-4o' : 'qwen';
-      const effortGateway = ollama
-        ? new api.OllamaGateway(host)
-        : provider === 'omlx'
-          ? gateway
-          : new api.OpenAIGateway('fixture-key', `${host}/v1`);
-      for (const route of ['ordinary', 'structured', 'legacy stream', 'event stream']) {
-        const streaming = route.endsWith('stream');
-        for (const recovery of [undefined, {}]) {
-          for (const testCase of reasoningContract.cases) {
-            const config = {
-              ...testCase.config,
-              ...(recovery === undefined ? {} : { recovery }),
-              ...(route === 'structured'
-                ? { responseFormat: { type: 'json_object', schema } }
-                : {}),
-            };
-            const rejects = provider.startsWith('openai') && testCase.openaiRejects;
-            const start = records.length;
-            replies = rejects
-              ? []
-              : [
-                  {
-                    body: streaming
-                      ? ollama
-                        ? `${JSON.stringify({ message: { content: text }, done: false })}\n{"message":{"content":""},"done":true,"done_reason":"stop"}\n`
-                        : `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\ndata: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n`
-                      : JSON.stringify(
-                          ollama
-                            ? {
-                                message: { role: 'assistant', content: text },
-                                done: true,
-                                done_reason: 'stop',
-                              }
-                            : { choices: [{ message: { content: text }, finish_reason: 'stop' }] }
-                        ),
-                  },
-                ];
-            let error;
-            if (route === 'event stream') {
-              const events = [];
-              for await (const event of effortGateway.generateStreamEvents(model, messages, config))
-                events.push(event);
-              if (rejects) {
-                assert.equal(events.length, 1);
-                assert.equal(events[0].type, 'error');
-                assert.ok(events[0].error instanceof api.StreamEventError);
-                assert.equal(events[0].error.reason, 'request_failed');
-                error = events[0].error.detail;
-              } else {
-                assert.deepEqual(
-                  events.filter((event) => event.type === 'content'),
-                  [{ type: 'content', text }]
-                );
-                assert.equal(events.at(-1).type, 'completed');
-              }
-            } else if (route === 'legacy stream') {
-              const chunks = [];
-              for await (const chunk of effortGateway.generateStream(model, messages, config))
-                chunks.push(chunk);
-              if (rejects) {
-                assert.equal(chunks.length, 1);
-                assert.equal(chunks[0].ok, false);
-                error = chunks[0].error;
-              } else {
-                assert.equal(chunks.map((chunk) => api.unwrap(chunk).content).join(''), text);
-              }
-            } else {
-              const result = await effortGateway.generate(model, messages, config);
-              if (rejects) {
-                assert.equal(result.ok, false);
-                error = result.error;
-              } else assert.equal(api.unwrap(result).content, text);
-            }
-            if (rejects) {
-              assert.ok(error instanceof api.ValidationError);
-              assert.equal(error.code, 'VALIDATION_ERROR');
-              assert.equal(error.field, 'reasoningEffort');
-              assert.equal(
-                error.message,
-                `OpenAI does not support reasoningEffort "${testCase.config.reasoningEffort}" in 3.0.0`
-              );
-              assert.equal(records.length, start);
-            } else {
-              const wire = ollama
-                ? testCase.ollama
-                : provider === 'omlx'
-                  ? testCase.omlx
-                  : provider === 'openai-reasoning'
-                    ? testCase.openai
-                    : {};
-              const expected = {
-                model,
-                messages,
-                ...wire,
-                ...(ollama ? { options: {}, stream: streaming } : {}),
-                ...(!ollama && streaming ? { stream: true } : {}),
-                ...(route === 'event stream' && !ollama
-                  ? { stream_options: { include_usage: true } }
-                  : {}),
+    for (const selection of profileContract.selections) {
+      for (const provider of ['ollama', 'omlx', 'openai-reasoning', 'openai-ordinary']) {
+        const ollama = provider === 'ollama';
+        const model =
+          provider === 'openai-reasoning'
+            ? 'o3'
+            : provider === 'openai-ordinary'
+              ? 'gpt-4o'
+              : selection.model;
+        const effortGateway = ollama
+          ? new api.OllamaGateway(host)
+          : provider === 'omlx'
+            ? gateway
+            : new api.OpenAIGateway('fixture-key', `${host}/v1`);
+        for (const route of ['ordinary', 'structured', 'legacy stream', 'event stream']) {
+          const streaming = route.endsWith('stream');
+          for (const recovery of [undefined, {}]) {
+            for (const testCase of reasoningContract.cases) {
+              const config = {
+                ...testCase.config,
+                ...(selection.profile ? { reasoningProfile: selection.profile } : {}),
+                ...(recovery === undefined ? {} : { recovery }),
                 ...(route === 'structured'
-                  ? ollama
-                    ? { format: schema }
-                    : {
-                        response_format: {
-                          type: 'json_schema',
-                          json_schema: { name: 'response', schema },
-                        },
-                      }
+                  ? { responseFormat: { type: 'json_object', schema } }
                   : {}),
               };
-              assert.deepEqual(
-                records.slice(start).map((record) => JSON.parse(record.body)),
-                [expected]
-              );
-              assert.equal(records.at(-1).url, ollama ? '/api/chat' : '/v1/chat/completions');
+              const providerRejects = provider.startsWith('openai') && testCase.openaiRejects;
+              const profileRejects =
+                selection.profile &&
+                testCase.config.reasoningEffort !== undefined &&
+                !selection.profile.supportedEfforts.includes(testCase.config.reasoningEffort);
+              const rejects = providerRejects || profileRejects;
+              const start = records.length;
+              replies = rejects
+                ? []
+                : [
+                    {
+                      body: streaming
+                        ? ollama
+                          ? `${JSON.stringify({ message: { content: text }, done: false })}\n{"message":{"content":""},"done":true,"done_reason":"stop"}\n`
+                          : `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\ndata: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n`
+                        : JSON.stringify(
+                            ollama
+                              ? {
+                                  message: { role: 'assistant', content: text },
+                                  done: true,
+                                  done_reason: 'stop',
+                                }
+                              : { choices: [{ message: { content: text }, finish_reason: 'stop' }] }
+                          ),
+                    },
+                  ];
+              let error;
+              if (route === 'event stream') {
+                const events = [];
+                for await (const event of effortGateway.generateStreamEvents(
+                  model,
+                  messages,
+                  config
+                ))
+                  events.push(event);
+                if (rejects) {
+                  assert.equal(events.length, 1);
+                  assert.equal(events[0].type, 'error');
+                  assert.ok(events[0].error instanceof api.StreamEventError);
+                  assert.equal(events[0].error.reason, 'request_failed');
+                  error = events[0].error.detail;
+                } else {
+                  assert.deepEqual(
+                    events.filter((event) => event.type === 'content'),
+                    [{ type: 'content', text }]
+                  );
+                  assert.equal(events.at(-1).type, 'completed');
+                }
+              } else if (route === 'legacy stream') {
+                const chunks = [];
+                for await (const chunk of effortGateway.generateStream(model, messages, config))
+                  chunks.push(chunk);
+                if (rejects) {
+                  assert.equal(chunks.length, 1);
+                  assert.equal(chunks[0].ok, false);
+                  error = chunks[0].error;
+                } else {
+                  assert.equal(chunks.map((chunk) => api.unwrap(chunk).content).join(''), text);
+                }
+              } else {
+                const result = await effortGateway.generate(model, messages, config);
+                if (rejects) {
+                  assert.equal(result.ok, false);
+                  error = result.error;
+                } else assert.equal(api.unwrap(result).content, text);
+              }
+              if (rejects) {
+                assert.ok(error instanceof api.ValidationError);
+                assert.equal(error.code, 'VALIDATION_ERROR');
+                assert.equal(error.field, 'reasoningEffort');
+                assert.equal(
+                  error.message,
+                  providerRejects
+                    ? `OpenAI does not support reasoningEffort "${testCase.config.reasoningEffort}" in 3.0.0`
+                    : `Reasoning effort "${testCase.config.reasoningEffort}" is unsupported by profile ${selection.profile.name}; supported: ${selection.profile.supportedEfforts.join(', ')}`
+                );
+                assert.equal(records.length, start);
+              } else {
+                const wire = ollama
+                  ? testCase.ollama
+                  : provider === 'omlx'
+                    ? testCase.omlx
+                    : provider === 'openai-reasoning'
+                      ? testCase.openai
+                      : {};
+                const expected = {
+                  model,
+                  messages,
+                  ...wire,
+                  ...(ollama ? { options: {}, stream: streaming } : {}),
+                  ...(!ollama && streaming ? { stream: true } : {}),
+                  ...(route === 'event stream' && !ollama
+                    ? { stream_options: { include_usage: true } }
+                    : {}),
+                  ...(route === 'structured'
+                    ? ollama
+                      ? { format: schema }
+                      : {
+                          response_format: {
+                            type: 'json_schema',
+                            json_schema: { name: 'response', schema },
+                          },
+                        }
+                    : {}),
+                };
+                assert.deepEqual(
+                  records.slice(start).map((record) => JSON.parse(record.body)),
+                  [expected]
+                );
+                assert.equal(records.at(-1).url, ollama ? '/api/chat' : '/v1/chat/completions');
+              }
+              assert.equal(replies.length, 0);
             }
-            assert.equal(replies.length, 0);
           }
         }
       }
     }
-    console.log(`PASS ${reasoningContract.contract}: 224 installed public-API HTTP cases`);
+    assert.deepEqual(api.QWEN3_8_REASONING_PROFILE, profileContract.selections[1].profile);
+    assert.equal(api.validateReasoningProfile(api.QWEN3_8_REASONING_PROFILE).ok, true);
+    console.log(
+      `PASS ${profileContract.contract} with ${reasoningContract.contract}: 672 installed public-API HTTP cases`
+    );
     console.log(
       JSON.stringify({ contract: 'ts-packaged-library-v1', requests: records, terminal }, null, 2)
     );
@@ -543,6 +566,12 @@ async function main() {
       integrity: packed.integrity,
       source: run('git', ['rev-parse', 'HEAD'], root).trim(),
       contract: 'ts-packaged-library-v1',
+      profileContract: profileContract.contract,
+      profileContractSha256: createHash('sha256')
+        .update(
+          readFileSync(join(root, 'src/llm/gateways/__fixtures__/reasoning-profiles-v1.json'))
+        )
+        .digest('hex'),
       reasoningContract: reasoningContract.contract,
       reasoningContractSha256: createHash('sha256')
         .update(readFileSync(join(root, 'src/llm/gateways/__fixtures__/reasoning-effort-v1.json')))
@@ -560,12 +589,14 @@ async function main() {
     join(consumer, 'public-api.ts'),
     `
 import { OpenAIGateway, OMLXGateway, OllamaGateway, getModelContextWindow,
-  effectiveContextWindow, type CompletionConfig, type RecoveryOptions,
+  effectiveContextWindow, QWEN3_8_REASONING_PROFILE, validateReasoningProfile, type ReasoningProfile, type CompletionConfig, type RecoveryOptions,
   type CompletionEvidence, type CompletionRecoveryCapabilities, type ReasoningEffort } from 'mojentic';
 const recovery: RecoveryOptions = { maxAttempts: 2, admit: async () => 'allow' };
 const config: CompletionConfig = { temperature: 0, maxTokens: 19, topP: 0, frequencyPenalty: 0, presencePenalty: 0, recovery };
 const efforts: readonly ReasoningEffort[] = ['disabled', 'enabled', 'low', 'medium', 'high', 'xhigh'];
-const effortConfigs: CompletionConfig[] = efforts.map((reasoningEffort) => ({ reasoningEffort }));
+const profile: ReasoningProfile = QWEN3_8_REASONING_PROFILE;
+const effortConfigs: CompletionConfig[] = efforts.map((reasoningEffort) => ({ reasoningEffort, reasoningProfile: profile }));
+void validateReasoningProfile(profile, 'low');
 const gateway = new OMLXGateway('http://127.0.0.1:1');
 const capabilities: CompletionRecoveryCapabilities = gateway.recoveryCapabilities;
 async function check(): Promise<number | null> {

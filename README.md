@@ -14,6 +14,7 @@ A modern LLM integration framework for TypeScript with full feature parity acros
 - **🛠️ Tool System**: Extensible function calling with automatic recursive execution
 - **📊 Structured Output**: Type-safe response parsing with JSON schemas
 - **🌊 Streaming**: Real-time streaming with full tool calling support
+- **Reasoning profiles**: Explicit caller-selected effort validation, including Qwen3.8; see [reasoning effort](docs/reasoning-effort.md#explicit-model-profiles). Native history metadata does not enable history retention.
 - **🔍 Tracer System**: Complete observability for debugging and monitoring
 - **🔒 Type-Safe**: Full TypeScript support with comprehensive type definitions
 - **🎯 Result Type Pattern**: Rust-inspired error handling for robust code

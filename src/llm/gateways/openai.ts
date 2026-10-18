@@ -1,3 +1,4 @@
+import { reasoningProfileError } from '../reasoning-profile';
 import { StreamTiming } from '../stream-timing';
 import { ModelContextWindow } from '../model-context';
 import { recoverStreamChunks, recoverStreamEvents } from '../streaming-recovery';
@@ -87,7 +88,7 @@ function reasoningConfigurationError(config?: CompletionConfig): ValidationError
       'reasoningEffort'
     );
   }
-  return undefined;
+  return reasoningProfileError(config);
 }
 
 const recoveredOpenAISchema = z.object({

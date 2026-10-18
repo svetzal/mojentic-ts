@@ -44,3 +44,6 @@ export type {
 
 export { getModelContextWindow, effectiveContextWindow } from './model-context';
 export type { ModelContextWindow } from './model-context';
+
+export { QWEN3_8_REASONING_PROFILE, validateReasoningProfile } from './reasoning-profile';
+export type { ReasoningProfile } from './reasoning-profile';

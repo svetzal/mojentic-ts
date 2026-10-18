@@ -708,8 +708,12 @@ with `ValidationError` before HTTP on all models, including recovery paths;
 Low/Medium/High retain existing registry adaptation (sent on reasoning models,
 warned and dropped otherwise). Legacy streams yield an error result; event
 streams emit `request_failed` with the configuration error in `detail`.
-Caller-selected model profiles and opt-in native reasoning history remain
-unimplemented. Gateway `thinking` output does not imply native history retention across broker tool calls.
+Caller-selected `CompletionConfig.reasoningProfile` validates supported efforts before
+HTTP; see [explicit model profiles](../reasoning-effort.md#explicit-model-profiles).
+Qwen3.8 accepts disabled/low/medium/xhigh, rejects enabled/high, and advertises
+native history capability without enabling serialization or retention. Omission
+creates no default. Profile metadata never enters requests. Native history
+serialization and opt-in retention remain unimplemented. Gateway `thinking` output does not imply native history retention across broker tool calls.
 
 All maintained gateways omit unset `CompletionConfig.temperature`, including
 structured output, streaming and admitted recovery resends. Ollama also omits

@@ -1,3 +1,4 @@
+import { reasoningProfileError } from '../reasoning-profile';
 import { StreamTiming } from '../stream-timing';
 import { readContextWindow } from './model-context-transport';
 import { ModelContextWindow, parseOMLXContextWindow } from '../model-context';
@@ -17,7 +18,7 @@ import { providerRecoveryCapabilities } from '../recovery-capabilities';
 import { LlmGateway } from '../gateway';
 import { CompletionConfig, GatewayResponse, LlmMessage, StreamChunk } from '../models';
 import { ToolDescriptor } from '../tools';
-import { LlmStreamEvent } from '../stream-events';
+import { LlmStreamEvent, StreamEventError } from '../stream-events';
 import { Err, GatewayError, Ok, Result, TimeoutError, ValidationError } from '../../error';
 import { adaptMessagesToOpenAI } from './openai-messages-adapter';
 import {
@@ -271,6 +272,9 @@ export class OMLXGateway implements LlmGateway {
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
   ): Promise<Result<GatewayResponse, Error>> {
+    const configurationError = reasoningProfileError(config);
+    if (configurationError) return Err(configurationError);
+
     if (config?.recovery) {
       return recoverCompletion(
         'omlx',
@@ -319,6 +323,12 @@ export class OMLXGateway implements LlmGateway {
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
   ): AsyncGenerator<Result<StreamChunk, Error>> {
+    const configurationError = reasoningProfileError(config);
+    if (configurationError) {
+      yield Err(configurationError);
+      return;
+    }
+
     const timing = new StreamTiming(parseOMLXStreamLine);
     for await (const result of this.generateStreamChunks(model, messages, config, tools, timing)) {
       yield config?.recovery ? result : timing.chunk(result);
@@ -378,6 +388,17 @@ export class OMLXGateway implements LlmGateway {
     config?: CompletionConfig,
     signal?: AbortSignal
   ): AsyncGenerator<LlmStreamEvent> {
+    const configurationError = reasoningProfileError(config);
+    if (configurationError) {
+      yield {
+        type: 'error',
+        error: new StreamEventError('request_failed', configurationError.message, {
+          detail: configurationError,
+        }),
+      };
+      return;
+    }
+
     if (config?.recovery) {
       yield* recoverStreamEvents(
         'omlx',

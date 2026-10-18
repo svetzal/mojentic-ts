@@ -1,3 +1,4 @@
+import { reasoningProfileError } from '../reasoning-profile';
 import { StreamTiming } from '../stream-timing';
 import { readContextWindow } from './model-context-transport';
 import { ModelContextWindow, parseOllamaContextWindow } from '../model-context';
@@ -13,7 +14,7 @@ import { LlmGateway } from '../gateway';
 import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk, ToolCall } from '../models';
 import { ToolDescriptor } from '../tools';
 import { Result, Ok, Err, GatewayError } from '../../error';
-import { LlmStreamEvent } from '../stream-events';
+import { LlmStreamEvent, StreamEventError } from '../stream-events';
 import {
   OllamaCompletionStats,
   ollamaMetadata,
@@ -238,6 +239,17 @@ export class OllamaGateway implements LlmGateway {
     config?: CompletionConfig,
     signal?: AbortSignal
   ): AsyncGenerator<LlmStreamEvent> {
+    const configurationError = reasoningProfileError(config);
+    if (configurationError) {
+      yield {
+        type: 'error',
+        error: new StreamEventError('request_failed', configurationError.message, {
+          detail: configurationError,
+        }),
+      };
+      return;
+    }
+
     if (config?.recovery) {
       yield* recoverStreamEvents(
         'ollama',
@@ -272,6 +284,9 @@ export class OllamaGateway implements LlmGateway {
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
   ): Promise<Result<GatewayResponse, Error>> {
+    const configurationError = reasoningProfileError(config);
+    if (configurationError) return Err(configurationError);
+
     if (config?.recovery) {
       return recoverCompletion(
         'ollama',
@@ -330,6 +345,12 @@ export class OllamaGateway implements LlmGateway {
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
   ): AsyncGenerator<Result<StreamChunk, Error>> {
+    const configurationError = reasoningProfileError(config);
+    if (configurationError) {
+      yield Err(configurationError);
+      return;
+    }
+
     const timing = new StreamTiming(parseOllamaStreamLine);
     for await (const result of this.generateStreamChunks(model, messages, config, tools, timing)) {
       yield config?.recovery ? result : timing.chunk(result);

@@ -6,8 +6,8 @@ zero have executable coverage. Native reasoning and request fidelity still have
 substantive gaps below. The bounded corrections below remove gateway-invented temperature/context
 defaults and close OpenAI configured topP/frequencyPenalty/presencePenalty
 forwarding. The six-value reasoning controls and the 3.0.0 OpenAI rejection rule now have
-complete HTTP and installed-consumer matrices. Profile, native history and
-retention gaps remain open. Package, lockfile and runtime versions stay at
+complete HTTP and installed-consumer matrices. Explicit profile selection and validation now have source and installed-artifact
+coverage. Native history serialization and retention gaps remain open. Package, lockfile and runtime versions stay at
 2.1.0. No publication, consumer migration, ref mutation or sibling edits occurred.
 
 ## Authority and source identity
@@ -33,10 +33,11 @@ then-uncommitted worktree diff identified in the reasoning section below. Produc
 changes in cycle 18 were limited to OpenAI pre-dispatch configuration
 validation and public JSDoc. Six-value public types and Ollama/oMLX mappings
 from the preserved work are retained. Foundry owns finalization.
-The current documentation-only correction starts at
+The preceding documentation-only correction started at
 `5194643cb8842a26a150765f04f9ba35105eddec`; its scope and fresh results are
-recorded in the final section. Production code, fixtures, versions and dependencies
-are unchanged in this run.
+recorded in its own section. Production code, fixtures, versions and dependencies
+were unchanged in that run. The current profile correction starts at
+`deb0bdd13d10fe578e5f72a0fe70432c447d6ff5`; fresh evidence is recorded below.
 [Earlier evidence](audit/CONFORMANCE-3.0.0-history.md) retains its original source
 revisions, commands, hashes and counts; none of those counts are substituted for
 this run. Historical counterpart prerequisites are superseded by the policy below.
@@ -90,11 +91,11 @@ implementation or evidence was not established.
 | Migration example/capability table; completion scope excludes realtime and embeddings | `docs/completion-recovery.md`; public-export probe; capability tests | Documented; no realtime/embedding recovery claim |
 | Reasoning: native assistant thinking separate from content/tool results; serialize Ollama thinking and oMLX reasoning_content in history | `gateways/omlx.test.ts`: `should map reasoning_content to thinking`; gateway response/stream fields exist | **Partial**: response separation exists; `LlmMessage` and broker lack native history serialization/retention |
 | Disabled, Enabled, Low, Medium, High, XHigh remain distinct; boolean enable/disable versus exact named levels | `models.ts` six-value public type; `reasoning-effort-http.test.ts`: `preserves the complete $name request body`; installed `ts-reasoning-effort-v1` matrix | Covered: exact Ollama think boolean/string and oMLX top-level boolean/named fields; omission sends no control |
-| Explicit caller-selected profiles validate efforts/history capability, never model-name guessing | No profile field/type/validator on `CompletionConfig` or broker. OpenAI registry still infers legacy capabilities by model name | **Implementation gap** |
-| Qwen3.8 supports disabled/low/medium/xhigh and native history; omitted effort stays unknown | No caller-selectable Qwen3.8 profile or profile tests; current omission merely omits effort | **Implementation/evidence gap**; omission alone proves no profile semantics |
+| Explicit caller-selected profiles validate efforts/history capability, never model-name guessing | `reasoningProfile` plus public validator; `ts-reasoning-profiles-v1` explicit arbitrary alias and unselected Qwen-looking name HTTP cases; broker propagation tests | Effort selection covered; capability metadata does not implement history |
+| Qwen3.8 supports disabled/low/medium/xhigh and native history; omitted effort stays unknown | `QWEN3_8_REASONING_PROFILE`, `reasoning-profile.test.ts` and source/installed `ts-reasoning-profiles-v1` matrix | Covered for validation and metadata; history serialization remains open |
 | Broker retention opt-in; completed ordinary/streamed tool responses retained, never fabricate native history from errors/cancellation | Existing recovery tool-history tests concern content/tool results, not native reasoning. No retention option | **Implementation gap** |
 | oMLX preserve_thinking in chat_template_kwargs when retention enabled; recorded wire request | No retention flag or corresponding encoding/tests | **Implementation gap** |
-| Structured output shares all native reasoning controls | `ts-reasoning-effort-v1`: ordinary, structured, legacy stream and event stream × recovery off/on × omission and all six controls | Controls covered; profile/history/retention gaps remain |
+| Structured output shares all native reasoning controls | `ts-reasoning-effort-v1`: ordinary, structured, legacy stream and event stream × recovery off/on × omission and all six controls | Controls and profile validation covered; history/retention gaps remain |
 | OpenAI rejects unsupported new controls and preserves legacy behavior | `reasoning-effort-http.test.ts`: `rejects $name with no HTTP requests`, o3 and gpt-4o, recovery off/on; installed `ts-reasoning-effort-v1` | Covered for Disabled/Enabled/XHigh: explicit ValidationError before HTTP; event API wraps it in request_failed/detail. Omission and Low/Medium/High registry adaptation preserved. No history extension implemented |
 | Metadata: single-purpose public capability; unknown/custom gateway returns not-advertised; errors remain Result errors | `model-context.test.ts`: `keeps existing custom gateway implementations source compatible`; `preserves implemented metadata and method binding`; `preserves the implemented Result error`; installed export/metadata probe | Covered |
 | oMLX exact model max_model_len, missing model/field, invalid numeric field; configured endpoint/auth | `gateways/model-context-http.test.ts`: `queries the configured authenticated oMLX endpoint for exact model provenance`; missing/nonnumeric matrices; installed probe success/null/404 | Covered |
@@ -508,7 +509,7 @@ with an explicit configuration error and no HTTP request. Both actual probe logs
 and validated behavioral proof are retained as Foundry execution evidence. The
 expanded matrix supersedes that focused test in the final source.
 
-Caller-selected profiles, Qwen3.8 profile validation, native reasoning history
+At that assessment, caller-selected profiles, Qwen3.8 profile validation, native reasoning history
 serialization and opt-in retention (including oMLX preserve_thinking) remain
 implementation gaps. This bounded correction does not establish coordinated
 release readiness. Versions remain 2.1.0; publication, consumer migrations,
@@ -652,10 +653,134 @@ Harness SHA-256 remains
 The lockfile SHA-256 remains
 `a1fa41bfd32a2ea05fef34c7f3de7eb44c9282f6571d75452f92e3c8fdb65d2a`.
 
-Caller-selected profiles, Qwen3.8 profile validation, native reasoning history
+At that assessment, caller-selected profiles, Qwen3.8 profile validation, native reasoning history
 serialization and opt-in retention (including oMLX preserve_thinking) remain
 explicit implementation gaps. This documentation correction does not establish
 coordinated release readiness; CI remains pending Foundry finalization.
 No sibling edits, publication, tags or ref mutations occurred.
 
 Suggested commit message for Foundry: `Correct reasoning control documentation to match verified wire mappings`.
+
+
+## Explicit reasoning profiles: current bounded correction
+
+Tested source is `deb0bdd13d10fe578e5f72a0fe70432c447d6ff5` plus this uncommitted
+worktree correction. Foundry owns finalization. The brief hash and the two binding
+contract hashes above were verified again. Rust was read only as the semantic
+reference at `2d17022ea6024f1090a967a62c20daface24b3e2`:
+`src/llm/reasoning.rs` SHA-256
+`d2bd8de6dbe33fd4eacd2f905da634a17ce5b47552fccf9ba5c1be63c58a7117`.
+No sibling-port executable or dependent verification is claimed or needed for
+this library's local distribution readiness.
+
+The new public API is `CompletionConfig.reasoningProfile`, `ReasoningProfile`,
+`QWEN3_8_REASONING_PROFILE`, and `validateReasoningProfile`. Validation runs before
+HTTP and before recovery can dispatch. Profiles never select an effort default,
+never depend on model names, and never enter request bodies. OpenAI's existing
+registry is unchanged; provider rejection of disabled/enabled/xhigh runs before
+profile validation, even for a profile supporting all six efforts.
+
+The proof-first run characterized all 224 existing no-profile HTTP cases as
+passing while the added test `rejects an unsupported selected profile effort
+before recovery event HTTP` failed: high reached oMLX on an arbitrary alias with
+an explicitly selected Qwen3.8 profile (exit 1). After the production guard was
+added, the identical command `npm test -- --runInBand
+src/llm/reasoning-effort-http.test.ts` passed all 225 tests (exit 0), with the
+probe observing one typed request_failed event and zero HTTP requests. These
+observed rejecting/corrected results and logs are retained in Foundry's validated
+behavioral proof. Fixture and documentation expansion followed that proof.
+
+### Executable contract identities and results
+
+Both source verification and the fresh installed consumer consume the same
+versioned profile selection fixture and existing full-wire fixture:
+
+| Contract | SHA-256 |
+| --- | --- |
+| `ts-reasoning-profiles-v1` (`src/llm/gateways/__fixtures__/reasoning-profiles-v1.json`) | `9219cfb8d8f4f787513a2c5984d1db3fc78301118979016bddd27af6faaf21be` |
+| `ts-reasoning-effort-v1` (existing, unchanged) | `88fb59195f2731be3fa116f17da142e3516b02618a2ed82ec8eea58ada3d419a` |
+| Packaged verification harness (`scripts/verify-package.cjs`) | `f3d0699e6e72170e9442f0b5392e0c6adf4d0fed8e488e791d4642092eaff2ea` |
+
+`reasoning-effort-http.test.ts` uses public APIs and production HTTP gateways.
+Its named `ts-reasoning-profiles-v1 $name` selections exercise an unselected
+Qwen-looking model, explicit Qwen3.8 on an arbitrary alias, and a caller-defined
+profile permitting all controls. Each selection runs seven effort cases (omitted
+plus all six values), four provider modes (Ollama, oMLX, OpenAI reasoning and
+ordinary registry modes), four routes (ordinary, structured, legacy stream,
+event stream), recovery off/on: **672 cases**, including **192 pre-HTTP
+rejections** and **480 exact full-body successes**. Responses/stream completion,
+paths, typed errors and OpenAI legacy warnings are checked. Full-body equality
+proves exact existing mappings, omitted effort without a default, mutually
+exclusive oMLX controls and absence of profile/capability metadata on the wire.
+
+`reasoning-profile.test.ts` names `advertises Qwen3.8 native history capability
+without selecting a default effort`, `accepts Qwen3.8 %s exactly`, `rejects
+unsupported Qwen3.8 %s`, and `validates caller-defined boolean-only capabilities`:
+eight passing tests. The profile module has 100% coverage in every category.
+
+The additional `broker profile propagation recovery=%s` cases use a real oMLX
+HTTP gateway and a call-through gateway spy: `keeps the profile when constructing
+structured configuration`, `keeps the profile through ordinary tool continuation`,
+and `keeps the profile through streaming tool continuation`, each with recovery
+off/on. All six pass with usable results and actual continuation requests; no
+broker rewrite was needed. Shared `CompletionConfig` stays intact.
+
+Source command `npm test -- --runInBand src/llm/reasoning-effort-http.test.ts
+src/llm/reasoning-profile.test.ts` passed 687 tests before the full gates (672
+matrix, eight validator, six broker, one proof regression). Final `npm test`
+and coverage reran all these cases successfully. Installed command
+`npm run verify:package` packed this working tree, installed it into a new
+temporary consumer, compiled public declarations (including profiles), and passed
+all **672 identical HTTP contract cases**, plus the retained package, recovery,
+sampling and omission checks. No live provider/model benchmark or service-to-service
+compatibility outside these declared cases is claimed.
+
+Fresh artifact SHA-256: `67f4fc9e9cd48d06feb93c1535f0bb1c347b23547fed36f9cbccc8fcaa35230b`.
+Artifact: `/tmp/mojentic-package-8RFJ5O/mojentic-2.1.0.tgz`; fresh consumer: `/tmp/mojentic-package-8RFJ5O`.
+
+### Fresh quality results
+
+| Command | Actual result |
+| --- | --- |
+| `npm run format` | Exit 0 |
+| `npm run lint` | Exit 0; zero warnings |
+| `npm run format:check` | Exit 0 |
+| `npm test` | Exit 0; 60 suites, 4,931 tests |
+| `npm run build` | Exit 0 |
+| `npm run verify:package` | Exit 0; fresh consumer plus 672 profile/wire contract cases |
+| `npm test -- --coverage` | Exit 0; statements 87.87%, branches 83.65%, functions 90.43%, lines 88.23%; all exceed configured 70% thresholds |
+| `npm audit --omit=dev --audit-level=moderate` | Exit 0; zero vulnerabilities |
+| `npm audit` | Exit 0; zero vulnerabilities including development dependencies |
+| `npm outdated --cache /tmp/mojentic-npm-cache` | Exit 1; reports gpt-tokenizer current 4.0.3, wanted/latest 4.0.4; inventory only, no vulnerability reported by either audit |
+| `npm run docs:build` | Exit 0; pages rendered; existing VitePress/Rolldown bundle diagnostics and transform deprecation remain |
+
+All five `.hone-gates.json` gates passed after the source changes. Package
+verification and docs build passed again after README synchronization. Verbose
+commands used Foundry capture. Dependency versions were deliberately preserved:
+package, lockfile and runtime remain at 2.1.0; the lockfile SHA-256 stays
+`a1fa41bfd32a2ea05fef34c7f3de7eb44c9282f6571d75452f92e3c8fdb65d2a`.
+No advisory was suppressed or allowlisted. The outdated patch is reported for
+coordination under this task's version-preservation scope.
+
+The following tested file identities distinguish the uncommitted source from
+the base revision (including implementation, public exports and executable checks):
+
+| File | SHA-256 |
+| --- | --- |
+| `src/llm/reasoning-profile.ts` | `33c972acaa2a2fe89a1761689b89110e492929f8a8135f87b8f8580a54b29ace` |
+| `src/llm/models.ts` | `5b9af01379165157bb5cffc585004be8b4a19a04f685a682a6210a307744e91d` |
+| `src/llm/index.ts` | `3ab82d1cee82340c15b73843c05b4c993656cb914f181c37229bd05c388aff03` |
+| `src/llm/gateways/ollama.ts` | `258ba062ef7207b7497dd864ec8f35768cbf1d4a86c3afc5fdef1d537cd34acf` |
+| `src/llm/gateways/omlx.ts` | `2cb046421c519dd60f1f224ef0c5ad4a399732da82faafcca895db4d49beaa52` |
+| `src/llm/gateways/openai.ts` | `3ffda4120afaec7b4c878e63e275943b3eb3694eadec64e6764a4375704d3c8a` |
+| `src/llm/reasoning-profile.test.ts` | `e3be4e3260eab96625bb7e14a8993bc72efde8387174238902252ed0e95f96ef` |
+| `src/llm/reasoning-effort-http.test.ts` | `049020d72f2df102983c9fa84e66cb0df8a7be33f8269d18988cfca4732d4eff` |
+| `scripts/verify-package.cjs` | `f3d0699e6e72170e9442f0b5392e0c6adf4d0fed8e488e791d4642092eaff2ea` |
+
+**Remaining release gaps:** native reasoning history serialization, opt-in
+broker retention and oMLX preserve_thinking. `supportsReasoningHistory: true`
+is capability metadata only and does not implement any of these. Coordinated
+release and CI remain pending; no commit, ref mutation, publication or sibling
+edit occurred.
+
+Suggested commit message for Foundry: `Add explicit reasoning profiles and Qwen3.8 effort validation`.
