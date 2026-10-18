@@ -27,12 +27,16 @@ files were read, without mutation, in
 | MODEL-METADATA-2026-10.md, October 17 timing decisions included | `d9945dca45ce09e2163843263a75b5e93028b00ee1baf191fc3ff13396830e9c` |
 
 Previous assessment source: `54171796a2b02c0f0170d0758d2e3c693ad027c9`, plus
-the assessment, package verification and gate changes. Current correction source:
+the assessment, package verification and gate changes. Cycle 18 correction source:
 `4be3588c94dbf9956e2a25e23a1f943b90e8a975` (preserved cycle 17) plus the
-uncommitted worktree diff identified in the reasoning section below. Production
-changes in this correction are limited to OpenAI pre-dispatch configuration
+then-uncommitted worktree diff identified in the reasoning section below. Production
+changes in cycle 18 were limited to OpenAI pre-dispatch configuration
 validation and public JSDoc. Six-value public types and Ollama/oMLX mappings
 from the preserved work are retained. Foundry owns finalization.
+The current documentation-only correction starts at
+`5194643cb8842a26a150765f04f9ba35105eddec`; its scope and fresh results are
+recorded in the final section. Production code, fixtures, versions and dependencies
+are unchanged in this run.
 [Earlier evidence](audit/CONFORMANCE-3.0.0-history.md) retains its original source
 revisions, commands, hashes and counts; none of those counts are substituted for
 this run. Historical counterpart prerequisites are superseded by the policy below.
@@ -511,7 +515,7 @@ release readiness. Versions remain 2.1.0; publication, consumer migrations,
 parent PARITY edits and Git finalization remain outside this worktree task.
 CI for the uncommitted correction remains pending Foundry finalization.
 
-### Tested identities and actual results
+### Cycle 18 tested identities and actual results
 
 The initial full suite exposed two stale cycle-17 expectations that still
 asserted think=true for High. They now expect the exact string high in
@@ -564,3 +568,94 @@ provider, other port or dependent repository verification is claimed.
 
 Suggested commit message for Foundry: `Fix OpenAI 3.0 reasoning control rejection and verify effort mappings`.
 Changes remain uncommitted in this task worktree for Foundry; no refs changed.
+
+
+## Cycle 19 documentation consistency correction
+
+Tested source: `5194643cb8842a26a150765f04f9ba35105eddec` plus the
+uncommitted documentation diff in `docs/api/core.md`, `docs/broker.md` and this
+assessment. The initiative brief was reread and its SHA-256 matched
+`ea6a0efa56bfb3cd74b5ce728f80cc33c6fbd853114bec94b8aabe79f5d28e6e`.
+No production code, executable fixtures, package/lockfile/runtime versions or
+dependencies changed. Foundry owns Git finalization.
+
+Corrected passages:
+
+- `docs/api/core.md:406–408`: Ollama disabled/enabled send `think: false/true`;
+  named levels send exact strings. oMLX disabled/enabled send top-level
+  `enable_thinking: false/true`; named levels send exact `reasoning_effort`
+  strings. oMLX fields are mutually exclusive; omission preserves defaults.
+  OpenAI still rejects disabled/enabled/xhigh before HTTP, including recovery.
+- `docs/broker.md:262–264`: replaced the blanket `think: true` summary with the
+  same boolean/named distinctions, oMLX exclusivity, omitted controls and
+  OpenAI pre-dispatch rejection. Ordinary, structured and streaming paths agree.
+
+The targeted consistency review covered all reasoning-control references in
+`docs/` and `README.md`, especially `docs/reasoning-effort.md` provider sections
+and `docs/api/gateways.md` mapping tables/current limitations. These already
+agree with the corrected summaries; no further contradictory summary was found.
+Production builders were checked directly: `ollama.ts` sets `think` to a boolean
+only for disabled/enabled, and otherwise preserves the named string; `omlx.ts`
+omits the alternative control; `openai.ts` rejects unsupported controls before
+HTTP. Their unchanged SHA-256 identities are:
+
+| Builder | SHA-256 |
+| --- | --- |
+| `src/llm/gateways/ollama.ts` | `22ec973b8862db75d52f1dafa1bb626fb4484757549da173d23e57d7e961f559` |
+| `src/llm/gateways/omlx.ts` | `fc63da6ec2fb362773250320a7abb882d6daab3beb11f9b2af34ce93be5d303f` |
+| `src/llm/gateways/openai.ts` | `56901cbc1b6c8efa3f2f625e5a7426aaf5b39e44e514184377cf9b65885b56c3` |
+
+The unchanged shared contract is `ts-reasoning-effort-v1`, fixture SHA-256
+`88fb59195f2731be3fa116f17da142e3516b02618a2ed82ec8eea58ada3d419a`.
+Both verification paths consume this exact fixture on the source revision above:
+`reasoning-effort-http.test.ts` compares full HTTP bodies and paths and asserts
+usable responses, completed streams and zero HTTP on OpenAI rejection;
+`scripts/verify-package.cjs` applies the same full-body and rejection assertions
+through the freshly installed public package. Full-body equality proves omitted
+controls and mutually exclusive oMLX fields, beyond schema matching. Each path
+passed all 224 cases (including 48 rejections), across omitted/six explicit
+controls, four routes, recovery off/on and reasoning/ordinary OpenAI models.
+No live provider, sibling port or dependent verification is claimed or required
+for this documentation-only library correction.
+
+The non-behavioral acceptance probe ran before documentation edits:
+`npm test -- --runInBand src/llm/reasoning-effort-http.test.ts` exited 0,
+224 tests passed. Its first attempt exited 127 because Jest was absent;
+`npm ci` exited 0 using the unchanged lockfile, then the probe passed.
+
+Fresh required gate and quality results:
+
+| Command | Actual result |
+| --- | --- |
+| `npm run format` | Exit 0; no source changes |
+| `npm run lint` | Exit 0; zero warnings |
+| `npm run format:check` | Exit 0 |
+| `npm test` | Exit 0; 59 suites, 4,468 tests |
+| `npm run build` | Exit 0 |
+| `npm run verify:package` | Exit 0; PASS ts-packaged-library-v1 and 224 installed ts-reasoning-effort-v1 cases, with retained sampling/omission probes |
+| `npm test -- --coverage` | Exit 0; 87.74% statements, 83.50% branches, 90.40% functions, 88.11% lines; all exceed the configured 70% thresholds |
+| `npm audit --omit=dev --audit-level=moderate` | Exit 0; zero vulnerabilities |
+| `npm audit` | Exit 0; zero vulnerabilities |
+| `npm outdated --cache /tmp/mojentic-docs-npm-cache` | Exit 0; no outdated packages reported |
+| `npm run docs:build` | Exit 0; pages rendered successfully; existing Rolldown bundle diagnostics and transform deprecation remain |
+
+All five root `.hone-gates.json` gates passed with their configured commands.
+Verbose commands ran through Foundry capture. The initial `npm outdated` attempt
+failed with EROFS because npm's default cache is read-only; it was retried with
+a writable temporary cache, without changing dependencies.
+
+Fresh artifact: `/tmp/mojentic-package-jYuUiW/mojentic-2.1.0.tgz`, installed in
+`/tmp/mojentic-package-jYuUiW`; SHA-256
+`2fec0daff89cf0dac87c3488a903defb48a9e3b16c62ef1118bed48ed08946d5`.
+Harness SHA-256 remains
+`9682b48204c188be4e7b71332927fe5a12f2c7eddd5e6754ff1991d31254d44a`.
+The lockfile SHA-256 remains
+`a1fa41bfd32a2ea05fef34c7f3de7eb44c9282f6571d75452f92e3c8fdb65d2a`.
+
+Caller-selected profiles, Qwen3.8 profile validation, native reasoning history
+serialization and opt-in retention (including oMLX preserve_thinking) remain
+explicit implementation gaps. This documentation correction does not establish
+coordinated release readiness; CI remains pending Foundry finalization.
+No sibling edits, publication, tags or ref mutations occurred.
+
+Suggested commit message for Foundry: `Correct reasoning control documentation to match verified wire mappings`.

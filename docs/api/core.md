@@ -403,9 +403,9 @@ Configuration for LLM generation.
 - `stream`: Whether to stream responses
 - `responseFormat`: Structured output configuration for JSON responses
 - `reasoningEffort`: Native reasoning control: disabled/enabled or low/medium/high/xhigh. Omission preserves provider defaults. See [provider mappings](../reasoning-effort.md); OpenAI rejects disabled/enabled/xhigh before HTTP in 3.0.0, including recovery.
-  - Ollama: Maps to `think: true` parameter for extended thinking
-  - OpenAI: Maps to `reasoning_effort` API parameter for reasoning models (o1, o3, etc.)
-  - oMLX: Maps to `reasoning_effort`, unchanged, for all models
+  - Ollama: Sends `think: false` for `disabled`, `think: true` for `enabled`, and the exact string for `low`, `medium`, `high` or `xhigh`. Omission sends no `think` field.
+  - OpenAI: Sends `reasoning_effort` for `low`, `medium` or `high` on reasoning models; warns and drops these levels on other models. Rejects `disabled`, `enabled` and `xhigh` before HTTP, including recovery.
+  - oMLX: Sends top-level `enable_thinking: false` for `disabled` and `enable_thinking: true` for `enabled`; named levels use top-level `reasoning_effort` with the exact string. These fields are mutually exclusive; omission sends neither and preserves provider defaults.
 
 ## Gateway Types
 

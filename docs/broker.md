@@ -259,7 +259,9 @@ const fastConfig: CompletionConfig = {
 };
 ```
 
-For Ollama, this enables the `think: true` parameter. For OpenAI reasoning models (o1, o3 series), it maps to the `reasoning_effort` API parameter. See [Reasoning Effort](reasoning-effort.md) for full details.
+Ollama sends `think: false` for `disabled`, `think: true` for `enabled`, and the exact string for `low`, `medium`, `high` or `xhigh`. oMLX sends top-level `enable_thinking: false/true` for `disabled`/`enabled` and top-level `reasoning_effort` with the exact string for named levels. The oMLX fields are mutually exclusive. Omission sends no reasoning control and preserves provider defaults on both gateways.
+
+OpenAI sends `reasoning_effort` for `low`, `medium` or `high` on reasoning models and warns and drops these levels on other models. Under the 3.0.0 rule, `disabled`, `enabled` and `xhigh` fail with `ValidationError` before HTTP dispatch on every model, including recovery-enabled requests. These mappings apply to ordinary, structured and streaming requests. See [Reasoning Effort](reasoning-effort.md) for full details.
 
 ## Best Practices
 
