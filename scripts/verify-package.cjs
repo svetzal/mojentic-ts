@@ -1,5 +1,7 @@
 /** Installed-artifact contract ts-packaged-library-v1. Public API only; shared JSON cases. */
 const assert = require('node:assert/strict');
+const historyContract = require('../src/llm/gateways/__fixtures__/reasoning-history-v1.json');
+const { verifyAll: verifyReasoningHistory } = require('./reasoning-history-contract.cjs');
 const reasoningContract = require('../src/llm/gateways/__fixtures__/reasoning-effort-v1.json');
 const profileContract = require('../src/llm/gateways/__fixtures__/reasoning-profiles-v1.json');
 const samplingContract = require('../src/llm/gateways/__fixtures__/openai-sampling-v1.json');
@@ -26,6 +28,10 @@ function run(command, args, cwd) {
 async function verify(consumer) {
   const installed = createRequire(join(consumer, 'package.json'));
   const api = installed('mojentic');
+  await verifyReasoningHistory(api);
+  console.log(
+    `PASS ${historyContract.contract}: exact continuation, interruption, controls and OpenAI exclusion`
+  );
   for (const name of [
     'OpenAIGateway',
     'OllamaGateway',
@@ -572,6 +578,13 @@ async function main() {
           readFileSync(join(root, 'src/llm/gateways/__fixtures__/reasoning-profiles-v1.json'))
         )
         .digest('hex'),
+      historyContract: historyContract.contract,
+      historyContractSha256: createHash('sha256')
+        .update(readFileSync(join(root, 'src/llm/gateways/__fixtures__/reasoning-history-v1.json')))
+        .digest('hex'),
+      historyVerifierSha256: createHash('sha256')
+        .update(readFileSync(join(root, 'scripts/reasoning-history-contract.cjs')))
+        .digest('hex'),
       reasoningContract: reasoningContract.contract,
       reasoningContractSha256: createHash('sha256')
         .update(readFileSync(join(root, 'src/llm/gateways/__fixtures__/reasoning-effort-v1.json')))
@@ -588,15 +601,17 @@ async function main() {
   writeFileSync(
     join(consumer, 'public-api.ts'),
     `
-import { OpenAIGateway, OMLXGateway, OllamaGateway, getModelContextWindow,
+import { Message, type LlmMessage, OpenAIGateway, OMLXGateway, OllamaGateway, getModelContextWindow,
   effectiveContextWindow, QWEN3_8_REASONING_PROFILE, validateReasoningProfile, type ReasoningProfile, type CompletionConfig, type RecoveryOptions,
   type CompletionEvidence, type CompletionRecoveryCapabilities, type ReasoningEffort } from 'mojentic';
+const nativeMessage: LlmMessage = Message.assistant('Visible', undefined, 'Native');
+void nativeMessage;
 const recovery: RecoveryOptions = { maxAttempts: 2, admit: async () => 'allow' };
-const config: CompletionConfig = { temperature: 0, maxTokens: 19, topP: 0, frequencyPenalty: 0, presencePenalty: 0, recovery };
+const config: CompletionConfig = { retainReasoning: true, temperature: 0, maxTokens: 19, topP: 0, frequencyPenalty: 0, presencePenalty: 0, recovery };
 const efforts: readonly ReasoningEffort[] = ['disabled', 'enabled', 'low', 'medium', 'high', 'xhigh'];
 const profile: ReasoningProfile = QWEN3_8_REASONING_PROFILE;
 const effortConfigs: CompletionConfig[] = efforts.map((reasoningEffort) => ({ reasoningEffort, reasoningProfile: profile }));
-void validateReasoningProfile(profile, 'low');
+void validateReasoningProfile(profile, 'low', true);
 const gateway = new OMLXGateway('http://127.0.0.1:1');
 const capabilities: CompletionRecoveryCapabilities = gateway.recoveryCapabilities;
 async function check(): Promise<number | null> {

@@ -181,6 +181,12 @@ relatedEvents.forEach(event => {
 
 See [Tracer Documentation](docs/tracer.md) for comprehensive usage guide.
 
+Native tool-turn reasoning history is opt-in on Ollama and oMLX with
+`{ retainReasoning: true }`. Assistant `thinking` stays separate from visible
+content and tool results; selected profiles validate history capability. OpenAI
+rejects enabled retention before dispatch. See the [reasoning history migration
+guide](docs/reasoning-effort.md#native-history-and-migration).
+
 ## 🏗️ Architecture
 
 Mojentic is structured in three layers:
@@ -339,7 +345,7 @@ class LlmBroker {
 class Message {
   static system(content: string): LlmMessage;
   static user(content: string): LlmMessage;
-  static assistant(content: string, toolCalls?: ToolCall[]): LlmMessage;
+  static assistant(content: string, toolCalls?: ToolCall[], thinking?: string): LlmMessage;
   static tool(content: string, toolCallId: string, name: string): LlmMessage;
 }
 ```
@@ -348,6 +354,7 @@ class Message {
 
 ```typescript
 interface CompletionConfig {
+  retainReasoning?: boolean;
   temperature?: number;
   /** Optional output limit; omit to use provider/model limits. */
   maxTokens?: number;

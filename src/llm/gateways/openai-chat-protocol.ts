@@ -31,6 +31,7 @@ export interface OpenAIResponseToolCall {
 }
 
 interface OpenAIStreamDelta {
+  reasoning_content?: string | null;
   role?: string;
   content?: string | null;
   tool_calls?: Array<{
@@ -213,10 +214,12 @@ function chunksForFrame(
  * Content is yielded as it arrives. Tool calls are accumulated across deltas and yielded once,
  * complete, when the finish reason is `tool_calls` or the terminal `[DONE]` marker arrives.
  * A stream that ends without either marker leaves pending calls uncompleted. Frames that cannot be parsed are logged and
- * skipped. Fields this parser does not know, such as `reasoning_content`, are ignored.
+ * skipped by default. Opt-in native retention exposes reasoning deltas and fails on invalid frames
+ * or tool calls terminated without a successful finish reason. OpenAI keeps the default behavior.
  */
 export async function* parseOpenAILegacyStream(
-  lines: AsyncIterable<string>
+  lines: AsyncIterable<string>,
+  includeReasoning = false
 ): AsyncGenerator<StreamChunk> {
   const accumulator = new Map<number, ToolCallInProgress>();
 
@@ -224,6 +227,9 @@ export async function* parseOpenAILegacyStream(
     const trimmedLine = line.trim();
     if (!trimmedLine) continue;
     if (trimmedLine === 'data: [DONE]') {
+      if (includeReasoning && accumulator.size > 0) {
+        throw new Error('Native tool history requires a successful finish reason');
+      }
       if (accumulator.size > 0) {
         yield {
           toolCalls: completedToolCalls(accumulator),
@@ -238,8 +244,12 @@ export async function* parseOpenAILegacyStream(
     const chunks: StreamChunk[] = [];
     try {
       const data = JSON.parse(trimmedLine.slice(6)) as OpenAIStreamChunk;
+      if (includeReasoning && data.choices[0]?.delta.reasoning_content) {
+        chunks.push({ reasoning: data.choices[0].delta.reasoning_content, done: false });
+      }
       chunksForFrame(data, accumulator, chunks);
     } catch (parseError) {
+      if (includeReasoning) throw parseError;
       console.error(`Failed to parse stream chunk: ${trimmedLine}`, parseError);
     }
     yield* chunks;

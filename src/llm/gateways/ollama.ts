@@ -49,6 +49,7 @@ function normalizeToolCall(call: OllamaToolCall): ToolCall {
 }
 
 interface OllamaMessage {
+  thinking?: string;
   role: string;
   content: string;
   images?: string[];
@@ -425,12 +426,17 @@ export class OllamaGateway implements LlmGateway {
             try {
               const data = JSON.parse(line) as OllamaStreamResponse;
               const chunk: StreamChunk = {
+                ...(config?.retainReasoning && data.message?.thinking !== undefined
+                  ? { reasoning: data.message.thinking }
+                  : {}),
                 content: data.message?.content,
                 toolCalls: data.message?.tool_calls?.map(normalizeToolCall),
                 done: data.done,
               };
               if (data.done) {
-                chunk.finishReason = 'stop';
+                chunk.finishReason = config?.retainReasoning
+                  ? (data.done_reason ?? 'stop')
+                  : 'stop';
               }
               yield Ok(chunk);
             } catch (parseError) {
@@ -484,6 +490,8 @@ export class OllamaGateway implements LlmGateway {
         role: msg.role,
         content: typeof msg.content === 'string' ? msg.content : '',
       };
+
+      if (msg.role === 'assistant' && msg.thinking !== undefined) ollamaMsg.thinking = msg.thinking;
 
       // Handle array content (multimodal)
       if (Array.isArray(msg.content)) {

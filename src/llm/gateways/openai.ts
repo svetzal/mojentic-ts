@@ -81,6 +81,12 @@ function responseMetadata(
 
 /** Validate the 3.0.0 controls before registry adaptation or recovery can dispatch. */
 function reasoningConfigurationError(config?: CompletionConfig): ValidationError | undefined {
+  if (config?.retainReasoning) {
+    return new ValidationError(
+      'OpenAI does not support retainReasoning in 3.0.0',
+      'retainReasoning'
+    );
+  }
   const effort = config?.reasoningEffort;
   if (effort === 'disabled' || effort === 'enabled' || effort === 'xhigh') {
     return new ValidationError(

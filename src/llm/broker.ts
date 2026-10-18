@@ -253,8 +253,9 @@ export class LlmBroker {
     correlationId?: string
   ): Promise<Result<string, Error>> {
     try {
-      // Opt-in recovery retains completed tool history even when a later completion fails.
-      const currentMessages = config?.recovery ? messages : [...messages];
+      // Recovery or native retention keeps completed tool history after later failures.
+      const currentMessages =
+        config?.recovery || config?.retainReasoning ? messages : [...messages];
       let iterations = 0;
 
       const maxToolIterations =
@@ -274,7 +275,16 @@ export class LlmBroker {
         }
 
         // Add assistant message with tool calls
-        currentMessages.push(Message.assistant(response.content || '', response.toolCalls));
+        currentMessages.push(
+          Message.assistant(
+            response.content || '',
+            response.toolCalls,
+            config?.retainReasoning &&
+              (response.finishReason === 'stop' || response.finishReason === 'tool_calls')
+              ? response.thinking
+              : undefined
+          )
+        );
 
         // Execute tools
         if (!tools) {
@@ -461,8 +471,10 @@ export class LlmBroker {
     }
 
     const toolDescriptors = tools?.map((t) => t.descriptor());
-    const currentMessages = config?.recovery ? messages : [...messages];
+    const currentMessages = config?.recovery || config?.retainReasoning ? messages : [...messages];
     let accumulatedContent = '';
+    let accumulatedReasoning: string | undefined;
+    let reasoningComplete = true;
     const accumulatedToolCalls: ToolCall[] = [];
 
     // Record LLM call in tracer
@@ -487,12 +499,16 @@ export class LlmBroker {
       toolDescriptors
     )) {
       if (!isOk(chunkResult)) {
+        reasoningComplete = false;
         yield chunkResult;
         if (config?.recovery) return;
         continue;
       }
 
       const chunk = chunkResult.value;
+      if (config?.retainReasoning && chunk.reasoning !== undefined) {
+        accumulatedReasoning = (accumulatedReasoning ?? '') + chunk.reasoning;
+      }
 
       // Yield content chunks immediately
       if (chunk.content) {
@@ -528,7 +544,17 @@ export class LlmBroker {
         }
 
         // Add assistant message with tool calls
-        currentMessages.push(Message.assistant(accumulatedContent, accumulatedToolCalls));
+        currentMessages.push(
+          Message.assistant(
+            accumulatedContent,
+            accumulatedToolCalls,
+            config?.retainReasoning &&
+              reasoningComplete &&
+              (chunk.finishReason === 'tool_calls' || chunk.finishReason === 'stop')
+              ? accumulatedReasoning
+              : undefined
+          )
+        );
 
         const { messages: toolMessages } = await this.runToolBatch(
           accumulatedToolCalls,

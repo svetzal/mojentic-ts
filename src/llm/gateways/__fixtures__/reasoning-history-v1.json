@@ -1,0 +1,211 @@
+{
+  "contract": "ts-native-reasoning-history-v1",
+  "request": {
+    "role": "user",
+    "content": "weather?"
+  },
+  "thinking": "Need météo. Then units.",
+  "content": "Checking.",
+  "calls": [
+    {
+      "id": "call-weather",
+      "type": "function",
+      "function": {
+        "name": "lookup",
+        "arguments": "{\"city\":\"Paris\"}"
+      }
+    },
+    {
+      "id": "call-units",
+      "type": "function",
+      "function": {
+        "name": "units",
+        "arguments": "{\"scale\":\"C\"}"
+      }
+    }
+  ],
+  "toolResults": [
+    {
+      "temperature": 18
+    },
+    "Celsius"
+  ],
+  "providers": {
+    "omlx": {
+      "ordinary": "{\"choices\": [{\"message\": {\"role\": \"assistant\", \"content\": \"Checking.\", \"tool_calls\": [{\"id\": \"call-weather\", \"type\": \"function\", \"function\": {\"name\": \"lookup\", \"arguments\": \"{\\\"city\\\":\\\"Paris\\\"}\"}}, {\"id\": \"call-units\", \"type\": \"function\", \"function\": {\"name\": \"units\", \"arguments\": \"{\\\"scale\\\":\\\"C\\\"}\"}}], \"reasoning_content\": \"Need m\\u00e9t\\u00e9o. Then units.\"}, \"finish_reason\": \"tool_calls\"}]}",
+      "stream": "data: {\"choices\": [{\"delta\": {\"reasoning_content\": \"Need m\\u00e9t\\u00e9o. \"}}]}\n\ndata: {\"choices\": [{\"delta\": {\"content\": \"Checking.\", \"reasoning_content\": \"Then units.\", \"tool_calls\": [{\"index\": 0, \"id\": \"call-weather\", \"type\": \"function\", \"function\": {\"name\": \"lookup\", \"arguments\": \"{\\\"city\\\":\\\"Paris\\\"}\"}}, {\"index\": 1, \"id\": \"call-units\", \"type\": \"function\", \"function\": {\"name\": \"units\", \"arguments\": \"{\\\"scale\\\":\\\"C\\\"}\"}}]}}]}\n\ndata: {\"choices\": [{\"delta\": {}, \"finish_reason\": \"tool_calls\"}]}\n\ndata: [DONE]\n\n",
+      "partial": "data: {\"choices\": [{\"delta\": {\"reasoning_content\": \"Need m\\u00e9t\\u00e9o. \"}}]}\n\ndata: {\"choices\": [{\"delta\": {\"content\": \"Checking.\", \"reasoning_content\": \"Then units.\", \"tool_calls\": [{\"index\": 0, \"id\": \"call-weather\", \"type\": \"function\", \"function\": {\"name\": \"lookup\", \"arguments\": \"{\\\"city\\\":\\\"Paris\\\"}\"}}, {\"index\": 1, \"id\": \"call-units\", \"type\": \"function\", \"function\": {\"name\": \"units\", \"arguments\": \"{\\\"scale\\\":\\\"C\\\"}\"}}]}}]}\n\n",
+      "final": "{\"choices\": [{\"message\": {\"content\": \"18 degrees\"}, \"finish_reason\": \"stop\"}]}",
+      "finalStream": "data: {\"choices\": [{\"delta\": {\"content\": \"18 degrees\"}}]}\n\ndata: {\"choices\": [{\"delta\": {}, \"finish_reason\": \"stop\"}]}\n\ndata: [DONE]\n\n",
+      "off": [
+        {
+          "role": "user",
+          "content": "weather?"
+        },
+        {
+          "role": "assistant",
+          "content": "Checking.",
+          "tool_calls": [
+            {
+              "id": "call-weather",
+              "type": "function",
+              "function": {
+                "name": "lookup",
+                "arguments": "{\"city\":\"Paris\"}"
+              }
+            },
+            {
+              "id": "call-units",
+              "type": "function",
+              "function": {
+                "name": "units",
+                "arguments": "{\"scale\":\"C\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "{\"temperature\":18}",
+          "tool_call_id": "call-weather"
+        },
+        {
+          "role": "tool",
+          "content": "\"Celsius\"",
+          "tool_call_id": "call-units"
+        }
+      ],
+      "on": [
+        {
+          "role": "user",
+          "content": "weather?"
+        },
+        {
+          "role": "assistant",
+          "content": "Checking.",
+          "tool_calls": [
+            {
+              "id": "call-weather",
+              "type": "function",
+              "function": {
+                "name": "lookup",
+                "arguments": "{\"city\":\"Paris\"}"
+              }
+            },
+            {
+              "id": "call-units",
+              "type": "function",
+              "function": {
+                "name": "units",
+                "arguments": "{\"scale\":\"C\"}"
+              }
+            }
+          ],
+          "reasoning_content": "Need météo. Then units."
+        },
+        {
+          "role": "tool",
+          "content": "{\"temperature\":18}",
+          "tool_call_id": "call-weather"
+        },
+        {
+          "role": "tool",
+          "content": "\"Celsius\"",
+          "tool_call_id": "call-units"
+        }
+      ],
+      "ordinaryWithoutReasoning": "{\"choices\": [{\"message\": {\"role\": \"assistant\", \"content\": \"Checking.\", \"tool_calls\": [{\"id\": \"call-weather\", \"type\": \"function\", \"function\": {\"name\": \"lookup\", \"arguments\": \"{\\\"city\\\":\\\"Paris\\\"}\"}}, {\"id\": \"call-units\", \"type\": \"function\", \"function\": {\"name\": \"units\", \"arguments\": \"{\\\"scale\\\":\\\"C\\\"}\"}}]}, \"finish_reason\": \"tool_calls\"}]}",
+      "streamWithoutReasoning": "data: {\"choices\": [{\"delta\": {}}]}\n\ndata: {\"choices\": [{\"delta\": {\"content\": \"Checking.\", \"tool_calls\": [{\"index\": 0, \"id\": \"call-weather\", \"type\": \"function\", \"function\": {\"name\": \"lookup\", \"arguments\": \"{\\\"city\\\":\\\"Paris\\\"}\"}}, {\"index\": 1, \"id\": \"call-units\", \"type\": \"function\", \"function\": {\"name\": \"units\", \"arguments\": \"{\\\"scale\\\":\\\"C\\\"}\"}}]}}]}\n\ndata: {\"choices\": [{\"delta\": {}, \"finish_reason\": \"tool_calls\"}]}\n\ndata: [DONE]\n\n"
+    },
+    "ollama": {
+      "ordinary": "{\"message\": {\"role\": \"assistant\", \"content\": \"Checking.\", \"tool_calls\": [{\"id\": \"call-weather\", \"type\": \"function\", \"function\": {\"name\": \"lookup\", \"arguments\": {\"city\": \"Paris\"}}}, {\"id\": \"call-units\", \"type\": \"function\", \"function\": {\"name\": \"units\", \"arguments\": {\"scale\": \"C\"}}}], \"thinking\": \"Need m\\u00e9t\\u00e9o. Then units.\"}, \"done\": true, \"done_reason\": \"stop\"}",
+      "stream": "{\"message\": {\"thinking\": \"Need m\\u00e9t\\u00e9o. \"}, \"done\": false}\n{\"message\": {\"content\": \"Checking.\", \"thinking\": \"Then units.\", \"tool_calls\": [{\"id\": \"call-weather\", \"type\": \"function\", \"function\": {\"name\": \"lookup\", \"arguments\": {\"city\": \"Paris\"}}}, {\"id\": \"call-units\", \"type\": \"function\", \"function\": {\"name\": \"units\", \"arguments\": {\"scale\": \"C\"}}}]}, \"done\": false}\n{\"message\": {\"content\": \"\"}, \"done\": true, \"done_reason\": \"stop\"}\n",
+      "partial": "{\"message\": {\"thinking\": \"Need m\\u00e9t\\u00e9o. \"}, \"done\": false}\n{\"message\": {\"content\": \"Checking.\", \"thinking\": \"Then units.\", \"tool_calls\": [{\"id\": \"call-weather\", \"type\": \"function\", \"function\": {\"name\": \"lookup\", \"arguments\": {\"city\": \"Paris\"}}}, {\"id\": \"call-units\", \"type\": \"function\", \"function\": {\"name\": \"units\", \"arguments\": {\"scale\": \"C\"}}}]}, \"done\": false}\n",
+      "final": "{\"message\": {\"role\": \"assistant\", \"content\": \"18 degrees\"}, \"done\": true, \"done_reason\": \"stop\"}",
+      "finalStream": "{\"message\": {\"content\": \"18 degrees\"}, \"done\": false}\n{\"message\": {\"content\": \"\"}, \"done\": true, \"done_reason\": \"stop\"}\n",
+      "off": [
+        {
+          "role": "user",
+          "content": "weather?"
+        },
+        {
+          "role": "assistant",
+          "content": "Checking.",
+          "tool_calls": [
+            {
+              "id": "call-weather",
+              "type": "function",
+              "function": {
+                "name": "lookup",
+                "arguments": {
+                  "city": "Paris"
+                }
+              }
+            },
+            {
+              "id": "call-units",
+              "type": "function",
+              "function": {
+                "name": "units",
+                "arguments": {
+                  "scale": "C"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "{\"temperature\":18}"
+        },
+        {
+          "role": "tool",
+          "content": "\"Celsius\""
+        }
+      ],
+      "on": [
+        {
+          "role": "user",
+          "content": "weather?"
+        },
+        {
+          "role": "assistant",
+          "content": "Checking.",
+          "tool_calls": [
+            {
+              "id": "call-weather",
+              "type": "function",
+              "function": {
+                "name": "lookup",
+                "arguments": {
+                  "city": "Paris"
+                }
+              }
+            },
+            {
+              "id": "call-units",
+              "type": "function",
+              "function": {
+                "name": "units",
+                "arguments": {
+                  "scale": "C"
+                }
+              }
+            }
+          ],
+          "thinking": "Need météo. Then units."
+        },
+        {
+          "role": "tool",
+          "content": "{\"temperature\":18}"
+        },
+        {
+          "role": "tool",
+          "content": "\"Celsius\""
+        }
+      ],
+      "ordinaryWithoutReasoning": "{\"message\": {\"role\": \"assistant\", \"content\": \"Checking.\", \"tool_calls\": [{\"id\": \"call-weather\", \"type\": \"function\", \"function\": {\"name\": \"lookup\", \"arguments\": {\"city\": \"Paris\"}}}, {\"id\": \"call-units\", \"type\": \"function\", \"function\": {\"name\": \"units\", \"arguments\": {\"scale\": \"C\"}}}]}, \"done\": true, \"done_reason\": \"stop\"}",
+      "streamWithoutReasoning": "{\"message\": {}, \"done\": false}\n{\"message\": {\"content\": \"Checking.\", \"tool_calls\": [{\"id\": \"call-weather\", \"type\": \"function\", \"function\": {\"name\": \"lookup\", \"arguments\": {\"city\": \"Paris\"}}}, {\"id\": \"call-units\", \"type\": \"function\", \"function\": {\"name\": \"units\", \"arguments\": {\"scale\": \"C\"}}}]}, \"done\": false}\n{\"message\": {\"content\": \"\"}, \"done\": true, \"done_reason\": \"stop\"}\n"
+    }
+  }
+}

@@ -15,8 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   structured and streaming calls, with recovery off/on. Selection never depends
   on a model-name fragment; omission creates no effort default. Profiles survive
   broker structured configuration and tool continuations without entering requests.
-  Native history support is capability metadata only; serialization and retention
-  remain unfinished. OpenAI registry adaptation and disabled/enabled/xhigh
+  History capability is validated when retention is requested. OpenAI registry adaptation and disabled/enabled/xhigh
   rejection remain unchanged, even with a permissive profile.
 
 - Client-measured streaming latency for every maintained OpenAI, Ollama and oMLX
@@ -40,6 +39,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the fallback helper treats the absent optional method as not advertised.
   Metadata queries preserve completion request bytes and registry adaptation.
 
+- Opt-in `CompletionConfig.retainReasoning` preserves completed native assistant
+  tool-turn reasoning through ordinary and streamed broker continuation on Ollama
+  and oMLX, separately from visible content and tool results. `LlmMessage.thinking`
+  and `Message.assistant(content, toolCalls, thinking)` serialize as Ollama `thinking`
+  or oMLX `reasoning_content`. oMLX requests `chat_template_kwargs.preserve_thinking`
+  when enabled; server configuration may override it. Selected profiles reject
+  unsupported history before HTTP. Structured requests use the same controls.
+  Completed tool turns remain in the caller's message array after later failure;
+  cancellation, malformed and incomplete streams never synthesize native history.
+  Retention is off by default. Migration: opt in only on native-history providers,
+  keep reasoning in `thinking`, and reuse the message array for completed tool history.
+  OpenAI rejects `retainReasoning: true` with `ValidationError` (`field: retainReasoning`).
+
 ### Breaking changes
 
 - `ReasoningEffort` exposes disabled, enabled, low, medium, high and xhigh.
@@ -55,8 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   error in `detail`. Omitted effort and Low/Medium/High registry adaptation
   remain unchanged. Migration: omit effort for model defaults or select a
   supported named level; OpenAI does not yet implement the 3.1 controls.
-  Native reasoning history serialization and opt-in retention
-  remain explicit release gaps.
+  OpenAI also rejects `retainReasoning: true` before dispatch; `false` or omission
+  preserves its request behavior and excludes the oMLX history extension.
 
 - OpenAI now forwards explicitly configured `topP`, `frequencyPenalty` and
   `presencePenalty` as `top_p`, `frequency_penalty` and `presence_penalty` on

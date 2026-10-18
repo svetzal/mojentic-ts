@@ -65,9 +65,11 @@ OpenAI's provider constraints still apply: even a profile permitting every effor
 cannot enable `disabled`, `enabled`, or `xhigh`. Its existing registry adaptation
 for omitted effort and low/medium/high remains unchanged.
 
-`QWEN3_8_REASONING_PROFILE.supportsReasoningHistory` is `true` as capability
-metadata only. It does not serialize native reasoning history or enable broker
-retention; those remain separate unfinished release work.
+`QWEN3_8_REASONING_PROFILE.supportsReasoningHistory` is `true`. Profiles do not
+activate retention: set `retainReasoning: true` explicitly. A selected profile
+with `supportsReasoningHistory: false` returns `ValidationError`
+(`field: retainReasoning`) before HTTP when retention is requested.
+`validateReasoningProfile(profile, effort, true)` provides the same validation.
 
 ## Provider-Specific Behavior
 
@@ -103,8 +105,52 @@ const result = await broker.generate(messages, undefined, config);
 
 oMLX sends top-level `enable_thinking: false` for `disabled` and `enable_thinking: true` for `enabled`. Named levels use top-level `reasoning_effort` with the exact string. Boolean controls send no named effort; named controls send no boolean. Omission sends neither field. These mappings apply to ordinary, structured and streaming requests, with recovery on or off. Provider/model support determines whether the request is accepted.
 
-Native assistant reasoning history serialization and opt-in retention remain unimplemented. A returned thinking trace does not imply reasoning history is retained.
+With `retainReasoning: true`, oMLX also requests
+`chat_template_kwargs: { preserve_thinking: true }`. Forced server settings can
+override this request. Effort and retention are separate controls.
 
+
+## Native history and migration
+
+Retention defaults to off. Enable it for Ollama or oMLX when the selected model
+accepts native reasoning history:
+
+```typescript
+const config: CompletionConfig = {
+  reasoningProfile: QWEN3_8_REASONING_PROFILE,
+  reasoningEffort: 'low',
+  retainReasoning: true,
+};
+const history = [Message.user('What is the weather?')];
+// supply your LlmTool[] as tools
+const result = await broker.generate(history, tools, config);
+// generateStream(history, config, tools) uses the same controls.
+```
+
+The broker stores completed assistant tool turns and ordered tool results in
+`history`, including native reasoning in `LlmMessage.thinking`. It preserves
+those completed turns if a later request fails. The final visible answer is
+returned separately; callers managing outer turns append their final message.
+With retention off, the broker omits native reasoning from new tool history;
+existing recovery-specific preservation of completed content/tools is unchanged.
+
+For caller-managed native history, use
+`Message.assistant(visibleContent, toolCalls, nativeThinking)` or set `thinking`
+on an assistant message. Gateways serialize supplied assistant thinking as
+Ollama `thinking` or oMLX `reasoning_content` independently of automatic retention.
+Keep it out of visible content and tool results. Native fields on user/tool
+messages are not serialized. Missing reasoning stays absent.
+
+Incomplete, cancelled or failed streams do not create completed native history.
+Opt-in oMLX legacy streaming rejects malformed frames and tool calls ended with
+`[DONE]` without a successful finish reason. Broker streams still yield visible
+text only. Recovery admission, semantic progress and timing retain their existing
+rules; retaining reasoning does not authorize retries of partial output.
+
+Structured requests use the same history, profile and preservation controls.
+OpenAI rejects `retainReasoning: true` before dispatch on every request route,
+including recovery, and never sends `reasoning_content`. Use omission or `false`
+for OpenAI; its existing named-effort adaptation remains unchanged.
 
 ## Streaming with Reasoning Effort
 

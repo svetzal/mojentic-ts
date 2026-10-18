@@ -7,7 +7,7 @@ export interface ReasoningProfile {
   readonly name: string;
   /** Exact controls accepted by this model. Omission never selects a default. */
   readonly supportedEfforts: readonly ReasoningEffort[];
-  /** Capability metadata only; does not enable history serialization or retention. */
+  /** Whether this model accepts native assistant reasoning history. */
   readonly supportsReasoningHistory: boolean;
 }
 
@@ -18,10 +18,11 @@ export const QWEN3_8_REASONING_PROFILE: ReasoningProfile = Object.freeze({
   supportsReasoningHistory: true,
 });
 
-/** Validate an explicit effort. Unsupported controls return a ValidationError. */
+/** Validate explicit effort and opt-in history. Unsupported controls return a ValidationError. */
 export function validateReasoningProfile(
   profile: ReasoningProfile,
-  effort?: ReasoningEffort
+  effort?: ReasoningEffort,
+  retainReasoning?: boolean
 ): Result<void, ValidationError> {
   if (effort !== undefined && !profile.supportedEfforts.includes(effort)) {
     return Err(
@@ -31,12 +32,24 @@ export function validateReasoningProfile(
       )
     );
   }
+  if (retainReasoning && !profile.supportsReasoningHistory) {
+    return Err(
+      new ValidationError(
+        `Reasoning history is unsupported by profile ${profile.name}`,
+        'retainReasoning'
+      )
+    );
+  }
   return Ok(undefined);
 }
 
 /** Shared pre-dispatch validation; no profile leaves existing behavior intact. */
 export function reasoningProfileError(config?: CompletionConfig): ValidationError | undefined {
   if (!config?.reasoningProfile) return undefined;
-  const result = validateReasoningProfile(config.reasoningProfile, config.reasoningEffort);
+  const result = validateReasoningProfile(
+    config.reasoningProfile,
+    config.reasoningEffort,
+    config.retainReasoning
+  );
   return result.ok ? undefined : result.error;
 }

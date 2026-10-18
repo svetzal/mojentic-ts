@@ -711,9 +711,13 @@ streams emit `request_failed` with the configuration error in `detail`.
 Caller-selected `CompletionConfig.reasoningProfile` validates supported efforts before
 HTTP; see [explicit model profiles](../reasoning-effort.md#explicit-model-profiles).
 Qwen3.8 accepts disabled/low/medium/xhigh, rejects enabled/high, and advertises
-native history capability without enabling serialization or retention. Omission
-creates no default. Profile metadata never enters requests. Native history
-serialization and opt-in retention remain unimplemented. Gateway `thinking` output does not imply native history retention across broker tool calls.
+native history capability. Omission creates no default. Profile metadata never
+enters requests. Opt in with `retainReasoning: true` to retain completed native
+tool-turn reasoning. Selected profiles without history support reject it before
+HTTP. Supplied assistant `thinking` serializes as Ollama `thinking` or oMLX
+`reasoning_content`; oMLX also requests `chat_template_kwargs.preserve_thinking`
+when retention is enabled. OpenAI rejects enabled retention and excludes the
+history extension. See [native history migration](../reasoning-effort.md#native-history-and-migration).
 
 All maintained gateways omit unset `CompletionConfig.temperature`, including
 structured output, streaming and admitted recovery resends. Ollama also omits

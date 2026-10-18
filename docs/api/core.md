@@ -255,10 +255,11 @@ Role identifier for messages in conversation.
 ```typescript
 interface LlmMessage {
   role: MessageRole;
-  content: string;
+  content: string | ContentItem[];
+  thinking?: string;
   name?: string;
-  toolCalls?: ToolCall[];
-  toolCallId?: string;
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
 }
 ```
 
@@ -266,10 +267,11 @@ Message in a conversation.
 
 **Properties:**
 - `role`: Who sent the message
-- `content`: Message text
+- `content`: Visible message text or content items
+- `thinking`: Optional native assistant reasoning, separate from visible content
 - `name`: Optional name/identifier
-- `toolCalls`: Optional tool calls (for assistant messages)
-- `toolCallId`: Optional tool call ID (for tool result messages)
+- `tool_calls`: Optional tool calls (for assistant messages)
+- `tool_call_id`: Optional tool call ID (for tool result messages)
 
 ### Message Helpers
 
@@ -277,7 +279,7 @@ Message in a conversation.
 class Message {
   static system(content: string): LlmMessage
   static user(content: string, name?: string): LlmMessage
-  static assistant(content: string, toolCalls?: ToolCall[]): LlmMessage
+  static assistant(content: string, toolCalls?: ToolCall[], thinking?: string): LlmMessage
   static tool(content: string, toolCallId: string, name: string): LlmMessage
 }
 ```
@@ -385,6 +387,7 @@ interface CompletionConfig {
     type: 'json_object' | 'text';
     schema?: Record<string, unknown>;
   };
+  retainReasoning?: boolean;
   reasoningEffort?: 'disabled' | 'enabled' | 'low' | 'medium' | 'high' | 'xhigh';
 }
 ```
@@ -402,6 +405,7 @@ Configuration for LLM generation.
 - `stop`: Array of strings that will stop generation
 - `stream`: Whether to stream responses
 - `responseFormat`: Structured output configuration for JSON responses
+- `retainReasoning`: Opt in to completed native tool-turn history on Ollama/oMLX; defaults off. Selected profiles validate history support. OpenAI rejects true before HTTP. See [migration](../reasoning-effort.md#native-history-and-migration).
 - `reasoningEffort`: Native reasoning control: disabled/enabled or low/medium/high/xhigh. Omission preserves provider defaults. See [provider mappings](../reasoning-effort.md); OpenAI rejects disabled/enabled/xhigh before HTTP in 3.0.0, including recovery.
   - Ollama: Sends `think: false` for `disabled`, `think: true` for `enabled`, and the exact string for `low`, `medium`, `high` or `xhigh`. Omission sends no `think` field.
   - OpenAI: Sends `reasoning_effort` for `low`, `medium` or `high` on reasoning models; warns and drops these levels on other models. Rejects `disabled`, `enabled` and `xhigh` before HTTP, including recovery.

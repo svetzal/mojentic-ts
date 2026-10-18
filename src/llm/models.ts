@@ -39,6 +39,8 @@ export interface ToolCall {
  * Message in a conversation with an LLM
  */
 export interface LlmMessage {
+  /** Native assistant reasoning, separate from visible content and tool results. */
+  thinking?: string;
   role: MessageRole;
   content: string | ContentItem[];
   name?: string;
@@ -64,11 +66,12 @@ export class Message {
     };
   }
 
-  static assistant(content: string, toolCalls?: ToolCall[]): LlmMessage {
+  static assistant(content: string, toolCalls?: ToolCall[], thinking?: string): LlmMessage {
     return {
       role: MessageRole.Assistant,
       content,
       tool_calls: toolCalls,
+      ...(thinking !== undefined ? { thinking } : {}),
     };
   }
 
@@ -92,6 +95,11 @@ export type ReasoningEffort = 'disabled' | 'enabled' | 'low' | 'medium' | 'high'
  * Configuration for LLM completion requests
  */
 export interface CompletionConfig {
+  /**
+   * Retain completed native tool-turn reasoning in the caller's message array, even after later failure.
+   * Defaults off. Selected profiles validate history support; OpenAI rejects true before dispatch.
+   */
+  retainReasoning?: boolean;
   /** Opt-in recovery for a single completion (including streaming). Omit for legacy behavior. */
   recovery?: import('./recovery').RecoveryOptions;
   /** Sampling temperature. Omit to use provider/model settings; explicit values may be adapted by the model registry. */
@@ -159,7 +167,7 @@ export interface GatewayResponse {
  * Stream chunk from an LLM gateway
  */
 export interface StreamChunk {
-  /** Opt-in recovery exposes observed reasoning and partial calls without executing them. */
+  /** Recovery or native retention exposes reasoning; recovery also reports partial calls without executing them. */
   reasoning?: string;
   toolCallFragments?: readonly unknown[];
   frameIndex?: number;

@@ -244,8 +244,9 @@ export class OMLXGateway implements LlmGateway {
   ): Record<string, unknown> {
     return {
       model,
-      messages: adaptMessagesToOpenAI(messages),
+      messages: adaptMessagesToOpenAI(messages, true),
       ...withoutEmptyValues({
+        chat_template_kwargs: config?.retainReasoning ? { preserve_thinking: true } : undefined,
         temperature: config?.temperature,
         max_tokens: config?.maxTokens,
         top_p: config?.topP,
@@ -314,7 +315,7 @@ export class OMLXGateway implements LlmGateway {
    * Terminal evidence and error.evidence include client timing from dispatch; thinking and
    * tool-argument fragments count for first-token timing even when not yielded.
    *
-   * Keep-alive frames and `reasoning_content` deltas are dropped. Tool calls arrive as one chunk,
+   * Keep-alive frames are dropped; native reasoning is exposed when retention is enabled. Tool calls arrive as one chunk,
    * complete, when the finish reason is `tool_calls`.
    */
   async *generateStream(
@@ -367,7 +368,7 @@ export class OMLXGateway implements LlmGateway {
       }
 
       const lines = withoutKeepAlives(timing.lines(readLines(response.body)));
-      for await (const chunk of parseOpenAILegacyStream(lines)) {
+      for await (const chunk of parseOpenAILegacyStream(lines, config?.retainReasoning === true)) {
         yield Ok(chunk);
       }
     } catch (error) {

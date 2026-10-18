@@ -21,6 +21,7 @@ interface OpenAIMessage {
     };
   }>;
   tool_call_id?: string;
+  reasoning_content?: string;
 }
 
 /**
@@ -59,7 +60,10 @@ function getImageType(filePath: string): string {
 /**
  * Adapt LLM messages to OpenAI format.
  */
-export function adaptMessagesToOpenAI(messages: LlmMessage[]): OpenAIMessage[] {
+export function adaptMessagesToOpenAI(
+  messages: LlmMessage[],
+  includeReasoning = false
+): OpenAIMessage[] {
   const newMessages: OpenAIMessage[] = [];
 
   for (const m of messages) {
@@ -75,6 +79,8 @@ export function adaptMessagesToOpenAI(messages: LlmMessage[]): OpenAIMessage[] {
         role: 'assistant',
         content: typeof m.content === 'string' ? m.content : getTextFromContent(m) || '',
       };
+
+      if (includeReasoning && m.thinking !== undefined) msg.reasoning_content = m.thinking;
 
       if (m.tool_calls && m.tool_calls.length > 0) {
         msg.tool_calls = m.tool_calls.map((tc: ToolCall) => ({
