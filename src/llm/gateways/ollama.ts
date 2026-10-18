@@ -201,8 +201,9 @@ export class OllamaGateway implements LlmGateway {
       requestBody.format = config.responseFormat.schema || 'json';
     }
 
-    if (config?.reasoningEffort) {
-      requestBody.think = true;
+    if (config?.reasoningEffort !== undefined) {
+      const effort = config.reasoningEffort;
+      requestBody.think = effort === 'disabled' ? false : effort === 'enabled' ? true : effort;
     }
 
     return requestBody;

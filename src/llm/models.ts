@@ -83,9 +83,10 @@ export class Message {
 }
 
 /**
- * Reasoning effort level for extended thinking
+ * Native reasoning control. Boolean enablement and named levels are distinct;
+ * omission leaves provider/model defaults unknown.
  */
-export type ReasoningEffort = 'low' | 'medium' | 'high';
+export type ReasoningEffort = 'disabled' | 'enabled' | 'low' | 'medium' | 'high' | 'xhigh';
 
 /**
  * Configuration for LLM completion requests
@@ -109,6 +110,7 @@ export interface CompletionConfig {
     type: 'json_object' | 'text';
     schema?: Record<string, unknown>;
   };
+  /** Native reasoning control; supported values depend on the provider and model. */
   reasoningEffort?: ReasoningEffort;
   /** Maximum recursive tool iterations (default: 10); null allows unlimited execution. */
   maxToolIterations?: number | null;

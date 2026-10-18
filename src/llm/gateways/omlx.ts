@@ -249,7 +249,16 @@ export class OMLXGateway implements LlmGateway {
         max_tokens: config?.maxTokens,
         top_p: config?.topP,
         top_k: config?.topK,
-        reasoning_effort: config?.reasoningEffort,
+        enable_thinking:
+          config?.reasoningEffort === 'disabled'
+            ? false
+            : config?.reasoningEffort === 'enabled'
+              ? true
+              : undefined,
+        reasoning_effort:
+          config?.reasoningEffort === 'disabled' || config?.reasoningEffort === 'enabled'
+            ? undefined
+            : config?.reasoningEffort,
         response_format: toOpenAIResponseFormat(config?.responseFormat),
         tools: tools && tools.length > 0 ? toOpenAITools(tools) : undefined,
       }),
