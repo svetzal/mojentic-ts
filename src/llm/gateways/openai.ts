@@ -11,7 +11,7 @@ import { providerRecoveryCapabilities } from '../recovery-capabilities';
 import { LlmGateway } from '../gateway';
 import { LlmMessage, CompletionConfig, GatewayResponse, StreamChunk } from '../models';
 import { ToolDescriptor } from '../tools';
-import { Result, Ok, Err, GatewayError } from '../../error';
+import { Result, Ok, Err, GatewayError, ValidationError } from '../../error';
 import { adaptMessagesToOpenAI } from './openai-messages-adapter';
 import {
   OpenAIResponseToolCall,
@@ -28,7 +28,7 @@ import {
   ModelType,
 } from './openai-model-registry';
 import { TokenizerGateway } from './tokenizerGateway';
-import { LlmStreamEvent } from '../stream-events';
+import { LlmStreamEvent, StreamEventError } from '../stream-events';
 import { parseOpenAIStreamLine, toCompletionUsage } from './openai-stream-protocol';
 import { streamCompletionEvents } from './stream-event-transport';
 
@@ -76,6 +76,18 @@ function responseMetadata(
     metadata.system_fingerprint = data.system_fingerprint;
   }
   return metadata;
+}
+
+/** Validate the 3.0.0 controls before registry adaptation or recovery can dispatch. */
+function reasoningConfigurationError(config?: CompletionConfig): ValidationError | undefined {
+  const effort = config?.reasoningEffort;
+  if (effort === 'disabled' || effort === 'enabled' || effort === 'xhigh') {
+    return new ValidationError(
+      `OpenAI does not support reasoningEffort "${effort}" in 3.0.0`,
+      'reasoningEffort'
+    );
+  }
+  return undefined;
 }
 
 const recoveredOpenAISchema = z.object({
@@ -311,12 +323,15 @@ export class OpenAIGateway implements LlmGateway {
     return requestBody;
   }
 
+  /** Return Err(ValidationError) before HTTP for unsupported 3.0.0 reasoning controls. */
   async generate(
     model: string,
     messages: LlmMessage[],
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
   ): Promise<Result<GatewayResponse, Error>> {
+    const configurationError = reasoningConfigurationError(config);
+    if (configurationError) return Err(configurationError);
     if (config?.recovery) {
       return recoverCompletion(
         'openai',
@@ -385,6 +400,7 @@ export class OpenAIGateway implements LlmGateway {
   /**
    * Stream legacy chunks with monotonic client timings in terminal evidence and error.evidence.
    * Thinking and tool arguments count for timing even when the legacy parser does not yield them.
+   * Unsupported 3.0.0 reasoning controls yield Err(ValidationError) before dispatch.
    * Recovery remains opt-in; provider metrics and chunk delivery retain their existing behavior.
    */
   async *generateStream(
@@ -393,6 +409,11 @@ export class OpenAIGateway implements LlmGateway {
     config?: CompletionConfig,
     tools?: ToolDescriptor[]
   ): AsyncGenerator<Result<StreamChunk, Error>> {
+    const configurationError = reasoningConfigurationError(config);
+    if (configurationError) {
+      yield Err(configurationError);
+      return;
+    }
     const timing = new StreamTiming(parseOpenAIStreamLine);
     for await (const result of this.generateStreamChunks(model, messages, config, tools, timing)) {
       yield config?.recovery ? result : timing.chunk(result);
@@ -473,7 +494,8 @@ export class OpenAIGateway implements LlmGateway {
    *
    * Sends one request with no tools and asks the provider to report usage. Success needs a
    * `stop` finish reason followed by `data: [DONE]`. Stopping iteration or aborting `signal`
-   * cancels the request.
+   * cancels the request. Unsupported 3.0.0 reasoning controls emit request_failed with
+   * a ValidationError detail before HTTP, including when recovery is configured.
    */
   async *generateStreamEvents(
     model: string,
@@ -481,6 +503,16 @@ export class OpenAIGateway implements LlmGateway {
     config?: CompletionConfig,
     signal?: AbortSignal
   ): AsyncGenerator<LlmStreamEvent> {
+    const configurationError = reasoningConfigurationError(config);
+    if (configurationError) {
+      yield {
+        type: 'error',
+        error: new StreamEventError('request_failed', configurationError.message, {
+          detail: configurationError,
+        }),
+      };
+      return;
+    }
     if (config?.recovery) {
       yield* recoverStreamEvents(
         'openai',

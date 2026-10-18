@@ -5,7 +5,9 @@ first-token timing, output-limit corrections and explicit session temperature
 zero have executable coverage. Native reasoning and request fidelity still have
 substantive gaps below. The bounded corrections below remove gateway-invented temperature/context
 defaults and close OpenAI configured topP/frequencyPenalty/presencePenalty
-forwarding. Other request-shape and reasoning gaps remain open. Package, lockfile and runtime versions stay at
+forwarding. The six-value reasoning controls and the 3.0.0 OpenAI rejection rule now have
+complete HTTP and installed-consumer matrices. Profile, native history and
+retention gaps remain open. Package, lockfile and runtime versions stay at
 2.1.0. No publication, consumer migration, ref mutation or sibling edits occurred.
 
 ## Authority and source identity
@@ -26,8 +28,11 @@ files were read, without mutation, in
 
 Previous assessment source: `54171796a2b02c0f0170d0758d2e3c693ad027c9`, plus
 the assessment, package verification and gate changes. Current correction source:
-`716e6122f03c618a28f440bd18bfbe0ab63c2d1f` plus this uncommitted worktree diff. Production changes are limited to
-OpenAI/oMLX request builders and configuration JSDoc. Foundry owns finalization.
+`4be3588c94dbf9956e2a25e23a1f943b90e8a975` (preserved cycle 17) plus the
+uncommitted worktree diff identified in the reasoning section below. Production
+changes in this correction are limited to OpenAI pre-dispatch configuration
+validation and public JSDoc. Six-value public types and Ollama/oMLX mappings
+from the preserved work are retained. Foundry owns finalization.
 [Earlier evidence](audit/CONFORMANCE-3.0.0-history.md) retains its original source
 revisions, commands, hashes and counts; none of those counts are substituted for
 this run. Historical counterpart prerequisites are superseded by the policy below.
@@ -80,13 +85,13 @@ implementation or evidence was not established.
 | oMLX recovery keepalive model frames change neither frame index nor metadata | `streaming-recovery-conformance.test.ts`: `recovers keepalive-only interruption with explicit admission and fixed request bytes`; streaming oMLX frame-index assertions | Covered |
 | Migration example/capability table; completion scope excludes realtime and embeddings | `docs/completion-recovery.md`; public-export probe; capability tests | Documented; no realtime/embedding recovery claim |
 | Reasoning: native assistant thinking separate from content/tool results; serialize Ollama thinking and oMLX reasoning_content in history | `gateways/omlx.test.ts`: `should map reasoning_content to thinking`; gateway response/stream fields exist | **Partial**: response separation exists; `LlmMessage` and broker lack native history serialization/retention |
-| Disabled, Enabled, Low, Medium, High, XHigh remain distinct; boolean enable/disable versus exact named levels | `models.ts` exports only `'low' \| 'medium' \| 'high'`; Ollama `buildRequestBody` sends `think: true` for any effort | **Implementation gap**: Disabled/Enabled/XHigh absent; named levels conflated in Ollama; no six-value conformance matrix |
+| Disabled, Enabled, Low, Medium, High, XHigh remain distinct; boolean enable/disable versus exact named levels | `models.ts` six-value public type; `reasoning-effort-http.test.ts`: `preserves the complete $name request body`; installed `ts-reasoning-effort-v1` matrix | Covered: exact Ollama think boolean/string and oMLX top-level boolean/named fields; omission sends no control |
 | Explicit caller-selected profiles validate efforts/history capability, never model-name guessing | No profile field/type/validator on `CompletionConfig` or broker. OpenAI registry still infers legacy capabilities by model name | **Implementation gap** |
 | Qwen3.8 supports disabled/low/medium/xhigh and native history; omitted effort stays unknown | No caller-selectable Qwen3.8 profile or profile tests; current omission merely omits effort | **Implementation/evidence gap**; omission alone proves no profile semantics |
 | Broker retention opt-in; completed ordinary/streamed tool responses retained, never fabricate native history from errors/cancellation | Existing recovery tool-history tests concern content/tool results, not native reasoning. No retention option | **Implementation gap** |
 | oMLX preserve_thinking in chat_template_kwargs when retention enabled; recorded wire request | No retention flag or corresponding encoding/tests | **Implementation gap** |
-| Structured output shares all native reasoning controls | Existing low/medium/high request paths share builders; no profile/new effort/retention controls | **Partial**; full ordinary/structured/streaming six-value matrix missing |
-| OpenAI rejects unsupported new controls and does not accept oMLX history extension; legacy behavior preserved | New controls are absent from public types, but there is no runtime validator proving explicit rejection | **Implementation/evidence gap**; compile-time absence is insufficient |
+| Structured output shares all native reasoning controls | `ts-reasoning-effort-v1`: ordinary, structured, legacy stream and event stream × recovery off/on × omission and all six controls | Controls covered; profile/history/retention gaps remain |
+| OpenAI rejects unsupported new controls and preserves legacy behavior | `reasoning-effort-http.test.ts`: `rejects $name with no HTTP requests`, o3 and gpt-4o, recovery off/on; installed `ts-reasoning-effort-v1` | Covered for Disabled/Enabled/XHigh: explicit ValidationError before HTTP; event API wraps it in request_failed/detail. Omission and Low/Medium/High registry adaptation preserved. No history extension implemented |
 | Metadata: single-purpose public capability; unknown/custom gateway returns not-advertised; errors remain Result errors | `model-context.test.ts`: `keeps existing custom gateway implementations source compatible`; `preserves implemented metadata and method binding`; `preserves the implemented Result error`; installed export/metadata probe | Covered |
 | oMLX exact model max_model_len, missing model/field, invalid numeric field; configured endpoint/auth | `gateways/model-context-http.test.ts`: `queries the configured authenticated oMLX endpoint for exact model provenance`; missing/nonnumeric matrices; installed probe success/null/404 | Covered |
 | Ollama /api/show architecture-prefix context_length, absent model_info, parameter num_ctx, malformed/nonpositive values and 404 | `gateways/model-context-http.test.ts` prefix/missing/invalid/status matrices; `ignores num_ctx substrings in other Ollama parameter names` | Covered |
@@ -100,7 +105,7 @@ implementation or evidence was not established.
 | One output limit; remove numPredict; serialize configured maxTokens exactly once per provider, including streams/retries/tools | `output-limit-http.test.ts`: `removes numPredict from the exported TypeScript CompletionConfig contract`; `ignores a stale JavaScript numPredict alias in favor of maxTokens`; configured limit matrix; `omits the output limit on recovered event requests and resends`; installed exact wire bodies | Covered; legacy behavior outside this correction preserved |
 | Required Anthropic max_tokens fallback | No maintained Anthropic adapter/public export in TypeScript | Not applicable to current adapter set; implementing Anthropic would require its documented registry/4096 fallback |
 | OpenAI fixed temperature rewrites caller-set value to only supported value; non-reasoning effort warns and drops | `gateways/openai.test.ts`: `should adapt parameters for reasoning models`; `should warn and ignore reasoning_effort for non-reasoning models` | **Partial**: warning/drop covered; fallback hardcodes 1 rather than deriving sole registry value. Omission and existing o3 caller-set adaptation now have complete real-HTTP body assertions; the broader registry rule remains open |
-| Other configured sampling/shape fields, client-only settings never serialized | `ts-openai-sampling-v1`: shared JSON cases in `output-limit-http.test.ts` and installed full-body assertions; `openai-sampling-http.test.ts`: tool continuation with retries | OpenAI topP/frequencyPenalty/presencePenalty covered; unrelated six-value Ollama think mapping remains missing |
+| Other configured sampling/shape fields, client-only settings never serialized | `ts-openai-sampling-v1`: shared JSON cases in `output-limit-http.test.ts` and installed full-body assertions; `openai-sampling-http.test.ts`: tool continuation with retries | OpenAI topP/frequencyPenalty/presencePenalty covered; six-value Ollama/oMLX controls now covered by ts-reasoning-effort-v1; unrelated request-shape gaps remain |
 | Default bodies omit temperature and limits; each configured control sent once; docs/CHANGELOG/PARITY aligned | `output-limit-http.test.ts` complete sampling bodies, retained output-limit matrix, installed `ts-temperature-context-v1`; CHANGELOG and gateway/core guides include migration | Covered for this bounded omission correction; parent PARITY remains outside write scope. Other configured fields and reasoning gaps above remain open |
 
 ## Parts 4–5, records, gates and CI
@@ -271,7 +276,7 @@ passed. The lockfile SHA-256 is unchanged from HEAD:
 `a1fa41bfd32a2ea05fef34c7f3de7eb44c9282f6571d75452f92e3c8fdb65d2a`.
 
 
-## Current temperature/context correction — 2026-10-17
+## Prior temperature/context correction
 
 Tested source is `716e6122f03c618a28f440bd18bfbe0ab63c2d1f` plus the
 uncommitted correction identified below. The binding scope is
@@ -368,7 +373,7 @@ uncommitted correction remains pending Foundry finalization; no refs were
 modified, no commit/push/tag/publication occurred, and no sibling was edited.
 
 
-## OpenAI configured sampling correction — 2026-10-17
+## Prior OpenAI configured sampling correction
 
 This correction closes only the configured OpenAI sampling-field gap under
 `MODEL-METADATA-2026-10.md` sections 3.1 (Field coverage) and 3.6. Source base:
@@ -450,3 +455,112 @@ No dependency, advisory suppression, package/lockfile/runtime version or other
 provider implementation changed. Git finalization and subsequent CI remain with
 Foundry; no commit, push, ref mutation, publication or sibling edits occurred.
 Suggested commit message: `Fix OpenAI configured sampling field forwarding`.
+
+## Reasoning effort correction
+
+Tested source: preserved cycle-17 commit
+`4be3588c94dbf9956e2a25e23a1f943b90e8a975` plus this uncommitted worktree.
+The initiative brief hash was verified. The binding reasoning contract remains
+`0a40f3ad45c593bc779411021e45db569e73d3ecce86c99b201e7f8ebb656809`.
+Stacey's October 17 decision is in PARITY.md, “Reasoning controls by provider,”
+read at mojentic-unify commit `7bbd530d4622ea8ba530b78c8b116c3390da13d5`,
+PARITY.md SHA-256 `c0c231ab35a559ba3bd90ed640d70d9c02c89797b1ab5a809a78daac786cd5ce`.
+Its 3.0 table explicitly requires TypeScript errors for OpenAI Disabled,
+Enabled and XHigh. The 3.1 “native or nothing” rule is not implemented here.
+The six-value public type and Ollama/oMLX mappings are retained from cycle 17.
+
+OpenAI validates unsupported controls before model-registry adaptation,
+recovery initialization, timing or HTTP dispatch. Ordinary/structured calls
+return Err(ValidationError), legacy streams yield one error result, and event
+streams yield one request_failed error with the ValidationError in detail.
+The configuration error identifies reasoningEffort. No HTTP attempt or recovery
+history is invented. Omitted effort and existing Low/Medium/High behavior remain:
+reasoning models send the exact name; ordinary models warn and omit it.
+Unrelated request, recovery and timing implementations are unchanged.
+
+### Shared executable contract and named evidence
+
+`ts-reasoning-effort-v1` is the declarative executable set in
+`src/llm/gateways/__fixtures__/reasoning-effort-v1.json`. Both source public-API
+HTTP tests and the fresh installed consumer load these same cases. Scripted
+responses provide valid completed content/structured JSON and terminal streams;
+production transports send to real loopback HTTP endpoints. This verifies local
+library protocol semantics, not live provider/model capability or efficacy.
+No running-service boundary changed; no dependent or sibling verification is
+required for this unpublished package under the binding library policy.
+
+| Behavior | Named verification |
+| --- | --- |
+| Omit effort; preserve all six controls without boolean/named conflation | `reasoning-effort-http.test.ts`: `preserves the complete $name request body`, including exact full Ollama/oMLX bodies, endpoints, usable response content and terminal stream completion |
+| Preserve OpenAI omitted and Low/Medium/High registry behavior | Same matrix on o3 and gpt-4o: full bodies and exact ordinary-model warning calls |
+| Reject Disabled/Enabled/XHigh with no actual HTTP | `rejects $name with no HTTP requests`, on reasoning and ordinary models; validates error name/code/field/message, event reason/detail, one terminal error, no warning/drop or request |
+| Ordinary, structured, legacy streaming and event streaming, recovery off/on | 224 source cases: four provider/model cases × four routes × two recovery modes × seven effort cases; 48 explicitly rejected cases |
+| Fresh installed artifact exposes identical semantics | `npm run verify:package`: ts-packaged-library-v1 compiles all six installed ReasoningEffort declarations and runs the same 224 effort cases, in addition to the retained 528 sampling/omission cases and earlier package probes |
+
+The proof-first probe `rejects unsupported OpenAI effort before recovery dispatch`
+failed with exit 1 because an actual recovery-enabled o3 HTTP request sent
+Disabled and returned success. After the source guard, the same probe exited 0
+with an explicit configuration error and no HTTP request. Both actual probe logs
+and validated behavioral proof are retained as Foundry execution evidence. The
+expanded matrix supersedes that focused test in the final source.
+
+Caller-selected profiles, Qwen3.8 profile validation, native reasoning history
+serialization and opt-in retention (including oMLX preserve_thinking) remain
+implementation gaps. This bounded correction does not establish coordinated
+release readiness. Versions remain 2.1.0; publication, consumer migrations,
+parent PARITY edits and Git finalization remain outside this worktree task.
+CI for the uncommitted correction remains pending Foundry finalization.
+
+### Tested identities and actual results
+
+The initial full suite exposed two stale cycle-17 expectations that still
+asserted think=true for High. They now expect the exact string high in
+`gateways/ollama.test.ts` (`should preserve the named think level when reasoningEffort is set`)
+and `output-limit-http.test.ts` (`omits unset sampling controls and preserves reasoning controls without an output limit`).
+No production mapping was reverted. The complete gate sequence was rerun after
+these corrections; all commands below exited 0.
+
+| File | Tested SHA-256 |
+| --- | --- |
+| `src/llm/gateways/openai.ts` | `56901cbc1b6c8efa3f2f625e5a7426aaf5b39e44e514184377cf9b65885b56c3` |
+| `src/llm/models.ts` | `226fa5b1c9365be585324498fdfd43fe5b0e5a6c9529aed39cc6d00e6f5e5765` |
+| `src/llm/reasoning-effort-http.test.ts` | `da917dca14ccb284fadbe2bf7cb8fc59eb02a01e68abd7751196ab0df9148d4a` |
+| `src/llm/gateways/__fixtures__/reasoning-effort-v1.json` | `88fb59195f2731be3fa116f17da142e3516b02618a2ed82ec8eea58ada3d419a` |
+| `src/llm/gateways/ollama.test.ts` | `93ee03284cd51b3d268b8b8ca9d66505c84fa87848a89936a68f1d10ddd488e2` |
+| `src/llm/output-limit-http.test.ts` | `241f85a509d238bde41d747af4c3044cee9cdca2e6b636e4334057484bd26db4` |
+| `scripts/verify-package.cjs` | `9682b48204c188be4e7b71332927fe5a12f2c7eddd5e6754ff1991d31254d44a` |
+
+| Command | Actual result |
+| --- | --- |
+| `npm run format` | Exit 0 |
+| `npm run lint` | Exit 0; zero warnings |
+| `npm run format:check` | Exit 0 |
+| `npm test` | Exit 0; 59 suites, 4,468 tests, including all 224 ts-reasoning-effort-v1 source cases |
+| `npm run build` | Exit 0 |
+| `npm run verify:package` | Exit 0; fresh tarball install, public declaration compilation, same 224 effort cases plus retained 528 sampling/omission cases and package probes |
+| `npm test -- --coverage` | Exit 0; 59 suites, 4,468 tests; statements 87.74%, branches 83.50%, functions 90.40%, lines 88.11%; all global 70% thresholds exceeded |
+| `npm audit --omit=dev --audit-level=moderate` | Exit 0; zero vulnerabilities |
+| `npm audit` | Exit 0; zero vulnerabilities including development dependencies |
+| `npm outdated --cache /tmp/mojentic-c18-npm-cache` | Exit 0; no outdated dependencies. Initial default-cache attempt hit the read-only home cache; rerun used a writable cache |
+| `npm run docs:build` | Exit 0; existing VitePress/Rolldown bundle-assignment diagnostics and transform deprecation remain |
+
+Every gate in `.hone-gates.json` passed using its configured command. Verbose
+commands ran through Foundry capture. The final full sequence was
+`npm run lint && npm run format:check && npm test && npm run build && npm run verify:package && npm test -- --coverage && npm audit --omit=dev --audit-level=moderate && npm audit && npm outdated --cache /tmp/mojentic-c18-npm-cache`.
+Documentation was rebuilt after its final edit. No advisory suppression was
+added or changed; package and lockfile versions and runtime VERSION are unchanged.
+The unchanged lockfile SHA-256 is
+`a1fa41bfd32a2ea05fef34c7f3de7eb44c9282f6571d75452f92e3c8fdb65d2a`.
+
+Final packed artifact: `/tmp/mojentic-package-yhX78a/mojentic-2.1.0.tgz`, installed
+into the fresh consumer `/tmp/mojentic-package-yhX78a`.
+Artifact SHA-256: `2fec0daff89cf0dac87c3488a903defb48a9e3b16c62ef1118bed48ed08946d5`.
+Both source and installed-consumer verification passed contract
+`ts-reasoning-effort-v1`, SHA-256
+`88fb59195f2731be3fa116f17da142e3516b02618a2ed82ec8eea58ada3d419a`,
+on the tested base commit plus source hashes above. The installed harness
+reported PASS ts-packaged-library-v1 and PASS ts-reasoning-effort-v1. No live
+provider, other port or dependent repository verification is claimed.
+
+Suggested commit message for Foundry: `Fix OpenAI 3.0 reasoning control rejection and verify effort mappings`.
+Changes remain uncommitted in this task worktree for Foundry; no refs changed.

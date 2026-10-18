@@ -549,7 +549,7 @@ describe('OllamaGateway', () => {
       }
     });
 
-    test('should add think parameter when reasoningEffort is set', async () => {
+    test('should preserve the named think level when reasoningEffort is set', async () => {
       const mockResponse = {
         model: 'llama2',
         created_at: '2023-01-01T00:00:00Z',
@@ -581,7 +581,7 @@ describe('OllamaGateway', () => {
       // Verify think parameter was included in request
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
-      expect(body.think).toBe(true);
+      expect(body.think).toBe('high');
     });
 
     test('should not add think parameter when reasoningEffort is not set', async () => {

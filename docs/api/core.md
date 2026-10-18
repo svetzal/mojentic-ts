@@ -385,7 +385,7 @@ interface CompletionConfig {
     type: 'json_object' | 'text';
     schema?: Record<string, unknown>;
   };
-  reasoningEffort?: 'low' | 'medium' | 'high';
+  reasoningEffort?: 'disabled' | 'enabled' | 'low' | 'medium' | 'high' | 'xhigh';
 }
 ```
 
@@ -402,7 +402,7 @@ Configuration for LLM generation.
 - `stop`: Array of strings that will stop generation
 - `stream`: Whether to stream responses
 - `responseFormat`: Structured output configuration for JSON responses
-- `reasoningEffort`: Extended thinking effort level ('low', 'medium', 'high')
+- `reasoningEffort`: Native reasoning control: disabled/enabled or low/medium/high/xhigh. Omission preserves provider defaults. See [provider mappings](../reasoning-effort.md); OpenAI rejects disabled/enabled/xhigh before HTTP in 3.0.0, including recovery.
   - Ollama: Maps to `think: true` parameter for extended thinking
   - OpenAI: Maps to `reasoning_effort` API parameter for reasoning models (o1, o3, etc.)
   - oMLX: Maps to `reasoning_effort`, unchanged, for all models

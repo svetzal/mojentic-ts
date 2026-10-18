@@ -56,7 +56,7 @@ const providers: readonly Provider[] = [
     },
     defaultReasoningControls: {
       options: { top_p: 0.7, top_k: 8, num_ctx: 4096, stop: ['END'] },
-      think: true,
+      think: 'high',
       stream: false,
     },
     model: 'qwen',

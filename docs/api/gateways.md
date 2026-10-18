@@ -275,7 +275,7 @@ await gateway.pullModel('qwen3:32b', (progress) => {
 | `numCtx` | `options.num_ctx`, when set |
 | `stop` | `options.stop`, when set |
 | `responseFormat` of `json_object` | `format`. The schema, or `"json"` when there is no schema |
-| `reasoningEffort` | `think: true`, for all values |
+| `reasoningEffort` | `think: false/true` for disabled/enabled; exact string for named levels |
 | `frequencyPenalty`, `presencePenalty` | Not sent |
 
 Tools go in `tools`, in the Ollama format.
@@ -343,8 +343,9 @@ When it changes a value, it logs a warning with `console.warn`.
 - For a reasoning model, the gateway sends `max_completion_tokens`, not `max_tokens`.
 - If the model does not accept a temperature, the gateway removes it. If the model accepts only
   some temperatures, the gateway sends `1.0` in place of a value that the model does not accept.
-- The gateway sends `reasoning_effort` only for a reasoning model. For other models, it ignores
-  `reasoningEffort`.
+- The gateway sends Low/Medium/High `reasoning_effort` only for reasoning models;
+  other models warn and omit those levels. Disabled/Enabled/XHigh return an explicit
+  configuration error before registry adaptation or HTTP dispatch.
 - If the model does not support tools, the gateway removes the tools.
 - If the registry does not know the model, it finds the capabilities from the model name. If
   no name pattern agrees, it uses the capabilities of a chat model.
@@ -355,7 +356,7 @@ When it changes a value, it logs a warning with `console.warn`.
 | ------------------ | ------------ |
 | `temperature` | `temperature`, only when set; changed by the model registry |
 | `maxTokens` | `max_tokens` or `max_completion_tokens`, only when set; omitted otherwise |
-| `reasoningEffort` | `reasoning_effort`, for a reasoning model only |
+| `reasoningEffort` | `reasoning_effort` for low/medium/high on reasoning models; disabled/enabled/xhigh fail before HTTP |
 | `responseFormat` | `response_format`. With a schema, `{ type: 'json_schema', json_schema: { name: 'response', schema } }` |
 | `topP` | `top_p`, only when set; explicit zero preserved |
 | `frequencyPenalty` | `frequency_penalty`, only when set; explicit zero preserved |
@@ -478,7 +479,7 @@ const result = await broker.generate([Message.user('Hello')]);
 | `temperature` | `temperature`, only when set; omitted otherwise |
 | `maxTokens` | `max_tokens`, only when set; omitted otherwise. Never `max_completion_tokens` |
 | `topP`, `topK` | `top_p`, `top_k`, when set |
-| `reasoningEffort` | `reasoning_effort`, unchanged, when set |
+| `reasoningEffort` | `enable_thinking: false/true` for disabled/enabled; `reasoning_effort` for named levels |
 | `responseFormat` | `response_format`, as the OpenAI gateway sends it |
 | `numCtx` | Not sent. oMLX sets the context length for each model |
 
@@ -698,10 +699,17 @@ this output-limit correction.
 ### Current 3.0 assessment limitations
 
 The coordinated 3.0 work remains unreleased. Current `reasoningEffort` accepts
-`'low'`, `'medium'` and `'high'`; Ollama currently sends `think: true` for each.
-Disabled, Enabled and XHigh efforts, caller-selected model profiles and opt-in
-native reasoning history are not implemented. Gateway `thinking` output does
-not imply native history retention across broker tool calls.
+all six controls: `'disabled'`, `'enabled'`,
+`'low'`, `'medium'`, `'high'` and `'xhigh'`. Ollama sends boolean `think` only
+for disabled/enabled and exact strings for named levels. oMLX sends top-level
+`enable_thinking` only for disabled/enabled and `reasoning_effort` only for named
+levels. Omission sends neither control. OpenAI rejects disabled/enabled/xhigh
+with `ValidationError` before HTTP on all models, including recovery paths;
+Low/Medium/High retain existing registry adaptation (sent on reasoning models,
+warned and dropped otherwise). Legacy streams yield an error result; event
+streams emit `request_failed` with the configuration error in `detail`.
+Caller-selected model profiles and opt-in native reasoning history remain
+unimplemented. Gateway `thinking` output does not imply native history retention across broker tool calls.
 
 All maintained gateways omit unset `CompletionConfig.temperature`, including
 structured output, streaming and admitted recovery resends. Ollama also omits

@@ -6,6 +6,9 @@ Mojentic supports reasoning effort control, allowing you to enable extended thin
 
 The `reasoningEffort` field on `CompletionConfig` controls how much computational effort the model spends on reasoning before responding:
 
+- **`'disabled'`**: Explicitly disable reasoning where supported
+- **`'enabled'`**: Enable reasoning without selecting a named level
+- **`'xhigh'`**: Select the provider's extra-high named level
 - **`'low'`**: Quick responses with minimal reasoning
 - **`'medium'`**: Balanced reasoning effort
 - **`'high'`**: Extended thinking for complex problems
@@ -35,7 +38,7 @@ if (isOk(result)) {
 
 ### Ollama Gateway
 
-When `reasoningEffort` is set (any value), Ollama receives the `think: true` parameter, enabling extended thinking mode. The model's internal reasoning trace is captured in the `thinking` field of the gateway response.
+Ollama sends `think: false` for `disabled`, `think: true` for `enabled`, and the exact string for `low`, `medium`, `high` or `xhigh`. Omission sends no `think` field. The model's internal reasoning trace is captured in the `thinking` field of the gateway response.
 
 ### OpenAI Gateway
 
@@ -45,7 +48,9 @@ For OpenAI reasoning models (o1, o3 series), the `reasoningEffort` value maps di
 - `'medium'` → `"medium"`
 - `'high'` → `"high"`
 
-For non-reasoning models (GPT-4, GPT-4.1), the parameter is ignored with a warning logged.
+For non-reasoning models, Low/Medium/High are ignored with a warning, preserving the existing model-registry behavior. Omission sends no effort field.
+
+Under the 3.0.0 rule, `disabled`, `enabled` and `xhigh` return `Err(ValidationError)` with `field: 'reasoningEffort'` before HTTP dispatch on every model, including recovery-enabled requests. Legacy streams yield one error result; event streams yield one `request_failed` error with the `ValidationError` in `detail`. These controls are never silently omitted or rewritten on OpenAI. The different 3.1 mapping is outside this release.
 
 ```typescript
 import { OpenAIGateway } from 'mojentic';
@@ -58,6 +63,13 @@ const config: CompletionConfig = {
 
 const result = await broker.generate(messages, undefined, config);
 ```
+
+### oMLX Gateway
+
+oMLX sends top-level `enable_thinking: false` for `disabled` and `enable_thinking: true` for `enabled`. Named levels use top-level `reasoning_effort` with the exact string. Boolean controls send no named effort; named controls send no boolean. Omission sends neither field. These mappings apply to ordinary, structured and streaming requests, with recovery on or off. Provider/model support determines whether the request is accepted.
+
+Caller-selected reasoning profiles, native assistant reasoning history and opt-in retention remain unimplemented. A returned thinking trace does not imply reasoning history is retained.
+
 
 ## Streaming with Reasoning Effort
 
@@ -96,8 +108,8 @@ When using Ollama with reasoning effort enabled, the model's thinking process is
 ```typescript
 // Access thinking traces at the gateway level
 const response = await gateway.generate(model, messages, config);
-if (response.thinking) {
-  console.log('Model reasoning:', response.thinking);
+if (isOk(response) && response.value.thinking) {
+  console.log('Model reasoning:', response.value.thinking);
 }
 ```
 

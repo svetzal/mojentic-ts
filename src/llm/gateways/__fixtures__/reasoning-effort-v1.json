@@ -1,0 +1,103 @@
+{
+  "contract": "ts-reasoning-effort-v1",
+  "cases": [
+    {
+      "name": "omitted",
+      "config": {},
+      "ollama": {},
+      "omlx": {},
+      "openai": {},
+      "openaiRejects": false
+    },
+    {
+      "name": "disabled",
+      "config": {
+        "reasoningEffort": "disabled"
+      },
+      "ollama": {
+        "think": false
+      },
+      "omlx": {
+        "enable_thinking": false
+      },
+      "openai": {},
+      "openaiRejects": true
+    },
+    {
+      "name": "enabled",
+      "config": {
+        "reasoningEffort": "enabled"
+      },
+      "ollama": {
+        "think": true
+      },
+      "omlx": {
+        "enable_thinking": true
+      },
+      "openai": {},
+      "openaiRejects": true
+    },
+    {
+      "name": "low",
+      "config": {
+        "reasoningEffort": "low"
+      },
+      "ollama": {
+        "think": "low"
+      },
+      "omlx": {
+        "reasoning_effort": "low"
+      },
+      "openai": {
+        "reasoning_effort": "low"
+      },
+      "openaiRejects": false
+    },
+    {
+      "name": "medium",
+      "config": {
+        "reasoningEffort": "medium"
+      },
+      "ollama": {
+        "think": "medium"
+      },
+      "omlx": {
+        "reasoning_effort": "medium"
+      },
+      "openai": {
+        "reasoning_effort": "medium"
+      },
+      "openaiRejects": false
+    },
+    {
+      "name": "high",
+      "config": {
+        "reasoningEffort": "high"
+      },
+      "ollama": {
+        "think": "high"
+      },
+      "omlx": {
+        "reasoning_effort": "high"
+      },
+      "openai": {
+        "reasoning_effort": "high"
+      },
+      "openaiRejects": false
+    },
+    {
+      "name": "xhigh",
+      "config": {
+        "reasoningEffort": "xhigh"
+      },
+      "ollama": {
+        "think": "xhigh"
+      },
+      "omlx": {
+        "reasoning_effort": "xhigh"
+      },
+      "openai": {},
+      "openaiRejects": true
+    }
+  ]
+}

@@ -32,6 +32,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 
+- `ReasoningEffort` exposes disabled, enabled, low, medium, high and xhigh.
+  Ollama now sends boolean `think` only for disabled/enabled and exact named
+  strings for the four levels; oMLX uses top-level `enable_thinking` only for
+  boolean controls and `reasoning_effort` only for named levels. Omission sends
+  no reasoning control. Migration: use `enabled` for boolean enablement rather
+  than relying on a named level being coerced to true.
+- OpenAI rejects disabled/enabled/xhigh before HTTP with `ValidationError`
+  (`field: reasoningEffort`) on both reasoning and ordinary models under the
+  3.0.0 rule, including recovery-enabled requests. Legacy streams yield one
+  error result; event streams emit `request_failed` with the configuration
+  error in `detail`. Omitted effort and Low/Medium/High registry adaptation
+  remain unchanged. Migration: omit effort for model defaults or select a
+  supported named level; OpenAI does not yet implement the 3.1 controls.
+  Caller-selected profiles, native reasoning history and opt-in retention
+  remain explicit release gaps.
+
 - OpenAI now forwards explicitly configured `topP`, `frequencyPenalty` and
   `presencePenalty` as `top_p`, `frequency_penalty` and `presence_penalty` on
   ordinary, structured and streaming requests, recovery resends and tool

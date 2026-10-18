@@ -110,7 +110,12 @@ export interface CompletionConfig {
     type: 'json_object' | 'text';
     schema?: Record<string, unknown>;
   };
-  /** Native reasoning control; supported values depend on the provider and model. */
+  /**
+   * Native reasoning control. Ollama uses boolean think for disabled/enabled and exact named levels;
+   * oMLX uses enable_thinking for booleans and reasoning_effort for names. Omit for provider defaults.
+   * OpenAI rejects disabled/enabled/xhigh with ValidationError before dispatch in 3.0.0;
+   * low/medium/high retain model-registry adaptation. Recovery does not change these rules.
+   */
   reasoningEffort?: ReasoningEffort;
   /** Maximum recursive tool iterations (default: 10); null allows unlimited execution. */
   maxToolIterations?: number | null;
