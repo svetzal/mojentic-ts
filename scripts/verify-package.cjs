@@ -553,9 +553,11 @@ async function main() {
   const root = resolve(__dirname, '..');
   const consumer = mkdtempSync(join(tmpdir(), 'mojentic-package-'));
   run('npm', ['run', 'build'], root);
-  const packed = JSON.parse(
+  // npm 11 prints an array of pack results; npm 12 prints an object keyed by package name.
+  const packOutput = JSON.parse(
     run('npm', ['pack', '--json', '--pack-destination', consumer], root)
-  )[0];
+  );
+  const packed = Array.isArray(packOutput) ? packOutput[0] : Object.values(packOutput)[0];
   assert.ok(packed.files.some(({ path }) => path === 'dist/index.js'));
   assert.ok(packed.files.some(({ path }) => path === 'dist/index.d.ts'));
   assert.deepEqual(
