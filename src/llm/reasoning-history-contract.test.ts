@@ -1,5 +1,6 @@
 import * as api from '../index';
 import {
+  contractIdentity,
   verifyContinuation,
   verifyInterrupted,
   verifyControls,
@@ -7,6 +8,9 @@ import {
 } from '../../scripts/reasoning-history-contract.cjs';
 
 describe('ts-native-reasoning-history-v1', () => {
+  beforeAll(() => {
+    console.log('Source contract identity:', JSON.stringify(contractIdentity()));
+  });
   describe.each(['ollama', 'omlx'] as const)('%s HTTP history', (provider) => {
     describe.each([false, true])('recovery=%s', (recovery) => {
       describe.each([false, true])('stream=%s', (stream) => {

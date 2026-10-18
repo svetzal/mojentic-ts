@@ -212,3 +212,31 @@ description: Custom description
 - 📚 Check [VitePress docs](https://vitepress.dev/)
 - 💬 Open an issue
 - 📧 Email: stacey@mojility.com
+
+## Testing without infrastructure
+
+Run `npm test`, `npm test -- --coverage`, and `npm run verify:package` from the
+repository root. After dependencies have been installed, these paths require no
+service, socket, listener, DNS or registry. Package verification creates local
+tarballs for the library and its exact installed runtime dependencies and installs
+them offline into a new consumer directory. It also compiles the installed public
+TypeScript declarations and verifies runtime exports.
+
+Tests call public gateways, brokers and sessions with doubles only at I/O and
+clock boundaries. `scripts/test-support/transport.cjs` routes fetch and recovery
+transport calls to in-process handlers without altering the production Node
+HTTP/HTTPS transport. Keep exact requests, destinations, headers, response bytes,
+identities, lifecycle order, history and completion/error assertions. Do not mock
+recovery, parsers, brokers or sessions.
+
+The Jest setup rejects socket/listener/DNS access, fixes the clock, and advances
+virtual timers after promises and streams drain. No elapsed real time decides a
+test result. Use completion signals for asynchronous work and event order for
+concurrency; use injected clocks/sleepers for deadline, jitter and Retry-After
+assertions. The installed consumer rejects real timer calls as well as network
+access. `src/llm/test-boundary.test.ts` verifies enforcement and a public API
+failure on an unexpected destination.
+
+The current [decision map](../CONFORMANCE-3.0.0.md) and
+[recovery conformance map](../RECOVERY-CONFORMANCE.md) distinguish source and
+packed-consumer verification from verification by other repositories.

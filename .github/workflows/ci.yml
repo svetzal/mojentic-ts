@@ -13,6 +13,7 @@ jobs:
   # Parallel validation jobs
   lint:
     name: Lint
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     if: github.actor != 'github-actions[bot]'
 
@@ -33,6 +34,7 @@ jobs:
 
   format-check:
     name: Format Check
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     if: github.actor != 'github-actions[bot]'
 
@@ -53,6 +55,7 @@ jobs:
 
   security-audit:
     name: Security Audit
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     if: github.actor != 'github-actions[bot]'
 
@@ -73,6 +76,7 @@ jobs:
 
   build:
     name: Build
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     if: github.actor != 'github-actions[bot]'
 
@@ -96,6 +100,7 @@ jobs:
 
   test:
     name: Test
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     if: github.actor != 'github-actions[bot]'
 
@@ -127,6 +132,7 @@ jobs:
   # Documentation deployment (on any release)
   docs:
     name: Deploy Documentation
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     needs: [lint, format-check, build, test, security-audit]
     if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
@@ -166,6 +172,7 @@ jobs:
   # NPM publishing (only on v* releases)
   publish:
     name: Publish to NPM
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     needs: [lint, format-check, build, test, security-audit]
     if: github.event_name == 'release' && github.event.action == 'published' && startsWith(github.event.release.tag_name, 'v')

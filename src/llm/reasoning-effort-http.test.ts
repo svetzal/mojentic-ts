@@ -1,5 +1,4 @@
-import { createServer, Server } from 'node:http';
-import { AddressInfo } from 'node:net';
+import { createEndpoint, Endpoint } from '../../scripts/test-support/transport.cjs';
 import { z } from 'zod';
 import {
   CompletionConfig,
@@ -65,7 +64,7 @@ type Route = (typeof routes)[number];
 const providers = ['ollama', 'omlx', 'openai-reasoning', 'openai-ordinary'] as const;
 type Provider = (typeof providers)[number];
 
-let server: Server;
+let server: Endpoint;
 let host: string;
 let bodies: unknown[];
 let urls: (string | undefined)[];
@@ -73,7 +72,7 @@ let warning: jest.SpyInstance;
 let toolTurn = false;
 
 beforeAll(async () => {
-  server = createServer(async (request, response) => {
+  server = createEndpoint(async (request, response) => {
     const chunks: Buffer[] = [];
     for await (const chunk of request) chunks.push(Buffer.from(chunk));
     const body = JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>;
@@ -117,8 +116,8 @@ beforeAll(async () => {
       )
     );
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  host = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
+  host = `http://127.0.0.1:${server.address().port}`;
 });
 beforeEach(() => {
   warning = jest.spyOn(console, 'warn');

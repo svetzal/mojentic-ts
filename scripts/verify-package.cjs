@@ -1,4 +1,5 @@
 /** Installed-artifact contract ts-packaged-library-v1. Public API only; shared JSON cases. */
+require('./test-support/no-network.cjs');
 const assert = require('node:assert/strict');
 const historyContract = require('../src/llm/gateways/__fixtures__/reasoning-history-v1.json');
 const { verifyAll: verifyReasoningHistory } = require('./reasoning-history-contract.cjs');
@@ -7,7 +8,7 @@ const profileContract = require('../src/llm/gateways/__fixtures__/reasoning-prof
 const samplingContract = require('../src/llm/gateways/__fixtures__/openai-sampling-v1.json');
 const { createHash } = require('node:crypto');
 const { mkdtempSync, readFileSync, writeFileSync } = require('node:fs');
-const { createServer } = require('node:http');
+const { createEndpoint, install } = require('./test-support/transport.cjs');
 const { createRequire } = require('node:module');
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
@@ -17,7 +18,12 @@ function run(command, args, cwd) {
   const result = spawnSync(command, args, {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env, npm_config_cache: join(tmpdir(), 'mojentic-package-npm-cache') },
+    env: {
+      ...process.env,
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require=${join(__dirname, 'test-support/no-network.cjs')}`,
+      npm_config_offline: 'true',
+      npm_config_cache: join(tmpdir(), 'mojentic-package-npm-cache'),
+    },
   });
   process.stdout.write(result.stdout || '');
   process.stderr.write(result.stderr || '');
@@ -26,8 +32,18 @@ function run(command, args, cwd) {
 }
 
 async function verify(consumer) {
+  require('./test-support/no-real-time.cjs');
+  assert.throws(
+    () => require('node:net').connect(443, 'example.com'),
+    /Network\/service access is forbidden/
+  );
+  assert.throws(() => setTimeout(() => {}, 1), /Real timers are forbidden/);
+  console.log('PASS package network and real-time guards');
   const installed = createRequire(join(consumer, 'package.json'));
   const api = installed('mojentic');
+  install(installed('mojentic/dist/llm/recovery-transport.js').CompletionTransportGateway);
+  installed('mojentic/dist/llm/monotonic-clock-gateway.js').MonotonicClockGateway.prototype.now =
+    () => 0;
   await verifyReasoningHistory(api);
   console.log(
     `PASS ${historyContract.contract}: exact continuation, interruption, controls and OpenAI exclusion`
@@ -50,7 +66,7 @@ async function verify(consumer) {
   assert.equal(api.VERSION, installed('mojentic/package.json').version);
   const records = [];
   let replies = [];
-  const server = createServer(async (request, response) => {
+  const server = createEndpoint(async (request, response) => {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
     const body = Buffer.concat(chunks).toString();
@@ -63,7 +79,7 @@ async function verify(consumer) {
     );
     response.end(reply.body);
   });
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise((resolve) => server.activate(0, '127.0.0.1', resolve));
   const host = `http://127.0.0.1:${server.address().port}`;
   const messages = [api.Message.user('packaged contract request')];
   const answer = JSON.stringify({
@@ -87,7 +103,15 @@ async function verify(consumer) {
     const rejected = await gateway.generate('qwen', messages, {
       temperature: 0,
       maxTokens: 19,
-      recovery: { maxAttempts: 2, baseDelayMs: 0, jitter: () => 0, admit: async () => 'reject' },
+      recovery: {
+        maxAttempts: 2,
+        baseDelayMs: 0,
+        sleep: async () => {},
+        monotonicClock: () => 0,
+        wallClock: () => Date.UTC(2026, 0, 1),
+        jitter: () => 0,
+        admit: async () => 'reject',
+      },
     });
     assert.equal(rejected.ok, false);
     assert.ok(rejected.error instanceof api.RecoveryError);
@@ -111,6 +135,9 @@ async function verify(consumer) {
       recovery: {
         maxAttempts: 2,
         baseDelayMs: 0,
+        sleep: async () => {},
+        monotonicClock: () => 0,
+        wallClock: () => Date.UTC(2026, 0, 1),
         jitter: () => 0,
         admit: async () => 'allow',
         onWire: (event) => wire.push(event),
@@ -207,11 +234,8 @@ async function verify(consumer) {
     const terminal = stream.at(-1);
     assert.equal(terminal.type, 'completed');
     assert.equal(terminal.metadata.metadata.first_token_kind, 'thinking');
-    assert.ok(terminal.metadata.metadata.time_to_first_token_ms >= 0);
-    assert.ok(
-      terminal.metadata.metadata.request_duration_ms >=
-        terminal.metadata.metadata.time_to_first_token_ms
-    );
+    assert.equal(terminal.metadata.metadata.time_to_first_token_ms, 0);
+    assert.equal(terminal.metadata.metadata.request_duration_ms, 0);
     assert.equal(terminal.metadata.metadata.usage.time_to_first_token, 0.7);
     assert.deepEqual(JSON.parse(records.at(-1).body), {
       model: 'qwen',
@@ -273,6 +297,9 @@ async function verify(consumer) {
       {
         maxAttempts: 2,
         baseDelayMs: 0,
+        sleep: async () => {},
+        monotonicClock: () => 0,
+        wallClock: () => Date.UTC(2026, 0, 1),
         jitter: () => 0,
         admit: async () => 'allow',
       },
@@ -555,7 +582,11 @@ async function main() {
   run('npm', ['run', 'build'], root);
   // npm 11 prints an array of pack results; npm 12 prints an object keyed by package name.
   const packOutput = JSON.parse(
-    run('npm', ['pack', '--json', '--pack-destination', consumer], root)
+    run(
+      'npm',
+      ['pack', '--offline', '--ignore-scripts', '--json', '--pack-destination', consumer],
+      root
+    )
   );
   const packed = Array.isArray(packOutput) ? packOutput[0] : Object.values(packOutput)[0];
   assert.ok(packed.files.some(({ path }) => path === 'dist/index.js'));
@@ -599,7 +630,38 @@ async function main() {
     })
   );
   writeFileSync(join(consumer, 'package.json'), JSON.stringify({ private: true }));
-  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', artifact], consumer);
+  const dependencies = Object.keys(require('../package.json').dependencies).map((name) => {
+    const output = JSON.parse(
+      run(
+        'npm',
+        [
+          'pack',
+          join(root, 'node_modules', name),
+          '--offline',
+          '--ignore-scripts',
+          '--json',
+          '--pack-destination',
+          consumer,
+        ],
+        consumer
+      )
+    );
+    const dependency = Array.isArray(output) ? output[0] : Object.values(output)[0];
+    return join(consumer, dependency.filename);
+  });
+  run(
+    'npm',
+    [
+      'install',
+      '--offline',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      artifact,
+      ...dependencies,
+    ],
+    consumer
+  );
   writeFileSync(
     join(consumer, 'public-api.ts'),
     `

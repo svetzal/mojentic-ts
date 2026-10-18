@@ -1,6 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { createServer } from 'node:http';
-import { AddressInfo } from 'node:net';
+import { createEndpoint } from '../../scripts/test-support/transport.cjs';
 import { OllamaGateway } from './gateways/ollama';
 import { Message } from './models';
 import { RecoveryError, RecoveryEvent, RecoveryWireEvent } from './recovery';
@@ -10,10 +9,10 @@ it('replacement proof preserves exact public Ollama wire evidence and typed hist
   const captures: RecoveryWireEvent[] = [];
   const events: RecoveryEvent[] = [];
   let closed: () => void = () => undefined;
-  const socketClosed = new Promise<void>((resolve) => {
+  const responseClosed = new Promise<void>((resolve) => {
     closed = resolve;
   });
-  const server = createServer(async (request, response) => {
+  const server = createEndpoint(async (request, response) => {
     const chunks: Buffer[] = [];
     for await (const chunk of request) chunks.push(Buffer.from(chunk));
     requests.push(Buffer.concat(chunks));
@@ -25,9 +24,9 @@ it('replacement proof preserves exact public Ollama wire evidence and typed hist
     response.on('close', closed);
     response.write('{"model":"local","message":{"content":"answer"},"done":false}\n');
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
   const controller = new AbortController();
-  const gateway = new OllamaGateway(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
+  const gateway = new OllamaGateway(`http://127.0.0.1:${server.address().port}`);
   const stream = gateway.generateStream('local', [Message.user('payload-secret')], {
     recovery: {
       maxAttempts: 2,
@@ -54,7 +53,7 @@ it('replacement proof preserves exact public Ollama wire evidence and typed hist
         .map((event) => Buffer.from(event.bytes))
     ).toEqual(requests);
     controller.abort();
-    await socketClosed;
+    await responseClosed;
     const cancelled = await stream.next();
     expect(cancelled).toMatchObject({
       value: { ok: false, error: { outcome: 'cancelled' } },

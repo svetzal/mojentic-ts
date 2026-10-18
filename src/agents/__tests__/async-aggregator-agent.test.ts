@@ -230,24 +230,20 @@ describe('AsyncAggregatorAgent', () => {
       // Start waiting
       const waitPromise = aggregator2.waitForEvents(correlationId, 2000);
 
-      // Add events after a delay via direct receiveEventAsync (will trigger aggregation)
-      setTimeout(() => {
-        aggregator2.receiveEventAsync({
-          type: 'TestEventA',
-          source: 'TestSource',
-          correlationId,
-          dataA: 'async-A',
-        } as TestEventA);
-      }, 100);
+      // Deliver events after waiting has started, without a timer.
+      await aggregator2.receiveEventAsync({
+        type: 'TestEventA',
+        source: 'TestSource',
+        correlationId,
+        dataA: 'async-A',
+      } as TestEventA);
 
-      setTimeout(() => {
-        aggregator2.receiveEventAsync({
-          type: 'TestEventB',
-          source: 'TestSource',
-          correlationId,
-          dataB: 'async-B',
-        } as TestEventB);
-      }, 200);
+      await aggregator2.receiveEventAsync({
+        type: 'TestEventB',
+        source: 'TestSource',
+        correlationId,
+        dataB: 'async-B',
+      } as TestEventB);
 
       const result = await waitPromise;
       expect(isOk(result)).toBe(true);

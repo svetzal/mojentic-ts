@@ -1,13 +1,16 @@
 /** Executable ts-native-reasoning-history-v1; shared by source and fresh installed consumer. */
 const assert = require('node:assert/strict');
-const { createServer } = require('node:http');
+const { createHash } = require('node:crypto');
+const { readFileSync } = require('node:fs');
+const { join } = require('node:path');
+const { createEndpoint } = require('./test-support/transport.cjs');
 const fixture = require('../src/llm/gateways/__fixtures__/reasoning-history-v1.json');
 assert.equal(fixture.contract, 'ts-native-reasoning-history-v1');
 
 async function boundary(run) {
   const records = [];
   const replies = [];
-  const server = createServer(async (request, response) => {
+  const server = createEndpoint(async (request, response) => {
     const buffers = [];
     for await (const part of request) buffers.push(part);
     records.push({ url: request.url, body: JSON.parse(Buffer.concat(buffers).toString()) });
@@ -22,7 +25,7 @@ async function boundary(run) {
     });
     response.end(reply.body);
   });
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise((resolve) => server.activate(0, '127.0.0.1', resolve));
   try {
     await run(`http://127.0.0.1:${server.address().port}`, records, replies);
   } finally {
@@ -92,6 +95,9 @@ async function verifyContinuation(
             recovery: {
               maxAttempts: 2,
               baseDelayMs: 0,
+              sleep: async () => {},
+              monotonicClock: () => 0,
+              wallClock: () => Date.UTC(2026, 0, 1),
               jitter: () => 0,
               admit: async () => 'allow',
             },
@@ -339,7 +345,20 @@ async function verifyAll(api) {
         });
   for (const recovery of [false, true]) await verifyOpenAIExclusion(api, recovery);
 }
+function contractIdentity() {
+  return {
+    contract: fixture.contract,
+    fixtureSha256: createHash('sha256')
+      .update(
+        readFileSync(join(__dirname, '../src/llm/gateways/__fixtures__/reasoning-history-v1.json'))
+      )
+      .digest('hex'),
+    verifierSha256: createHash('sha256').update(readFileSync(__filename)).digest('hex'),
+  };
+}
+
 module.exports = {
+  contractIdentity,
   verifyAll,
   verifyContinuation,
   verifyInterrupted,

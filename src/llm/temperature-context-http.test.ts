@@ -1,11 +1,10 @@
-import { createServer } from 'node:http';
-import { AddressInfo } from 'node:net';
+import { createEndpoint } from '../../scripts/test-support/transport.cjs';
 import { OpenAIGateway, Message } from '../index';
 
 // Executable contract ts-temperature-context-v1: public API, production HTTP transport.
 it('omits sampling defaults on an admitted event-stream resend with identical encoded bodies', async () => {
   const bodies: string[] = [];
-  const server = createServer(async (request, response) => {
+  const server = createEndpoint(async (request, response) => {
     let body = '';
     for await (const chunk of request) body += String(chunk);
     bodies.push(body);
@@ -19,11 +18,11 @@ it('omits sampling defaults on an admitted event-stream resend with identical en
       'data: {"choices":[{"delta":{"content":"hello"}}]}\n\ndata: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
     );
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
   try {
     const gateway = new OpenAIGateway(
       'fixture-key',
-      `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`
+      `http://127.0.0.1:${server.address().port}/v1`
     );
     const events = [];
     for await (const event of gateway.generateStreamEvents('gpt-4o', [Message.user('hello')], {

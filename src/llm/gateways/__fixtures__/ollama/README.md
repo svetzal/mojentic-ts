@@ -23,8 +23,9 @@ Copied byte-for-byte from `svetzal/mojentic-unify` source
 `4b08dcd1d87f520a4c70928c33a2bc84c228093d`, for section 1 of
 `MODEL-METADATA-2026-10.md` (SHA-256
 `a085da1c0d110f9d587a24ace6ac2854b653e1ac28905b3829d94d665b2c906e`).
-The executable replay is `../../model-context-http.test.ts`, using real HTTP
-and the public gateways, as in the existing oMLX HTTP fixture tests.
+The executable replay is `../../model-context-http.test.ts`, using an in-process
+transport double and the public gateways, as in the oMLX protocol fixture tests.
+Replay opens no socket or server and uses deterministic time.
 These captures describe the provider versions above; they are not paired
 consumer/provider verification of a newly released package.
 

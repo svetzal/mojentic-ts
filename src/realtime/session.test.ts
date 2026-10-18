@@ -106,18 +106,13 @@ class EchoTool extends BaseTool {
 
 class SlowAbortableTool extends BaseTool {
   aborted = false;
-  constructor(
-    private readonly tname: string,
-    private readonly delayMs = 100
-  ) {
+  constructor(private readonly tname: string) {
     super();
   }
   async run(_args: ToolArgs, ctx?: ToolRunCtx): Promise<Result<ToolResult, Error>> {
     return new Promise((resolve) => {
-      const t = setTimeout(() => resolve(Ok({ tool: this.tname })), this.delayMs);
       ctx?.signal?.addEventListener('abort', () => {
         this.aborted = true;
-        clearTimeout(t);
         resolve(Err(new Error('aborted')));
       });
     });
@@ -373,7 +368,7 @@ describe('RealtimeVoiceBroker / RealtimeSession', () => {
 
   test('barge-in cancels in-flight response and aborts tool execution', async () => {
     const gateway = new StubGateway();
-    const slow = new SlowAbortableTool('slow', 100);
+    const slow = new SlowAbortableTool('slow');
     const broker = new RealtimeVoiceBroker('gpt-realtime', gateway, {
       modalities: ['audio'],
       tools: [slow],
@@ -439,7 +434,7 @@ describe('RealtimeVoiceBroker / RealtimeSession', () => {
 
   test('interrupt() with onInterrupt=drop does not submit tool outputs', async () => {
     const gateway = new StubGateway();
-    const slow = new SlowAbortableTool('slow', 50);
+    const slow = new SlowAbortableTool('slow');
     const broker = new RealtimeVoiceBroker('gpt-realtime', gateway, {
       modalities: ['text'],
       tools: [slow],
@@ -479,19 +474,9 @@ describe('RealtimeVoiceBroker / RealtimeSession', () => {
 
     await session.interrupt();
 
-    // Drain a bit so the runner unwinds.
-    for (let i = 0; i < 5; i++) {
-      const next = await Promise.race([
-        iter.next(),
-        new Promise<IteratorResult<RealtimeEvent>>((resolve) =>
-          setTimeout(
-            () => resolve({ value: undefined as unknown as RealtimeEvent, done: true }),
-            60
-          )
-        ),
-      ]);
-      if (next.done) break;
-    }
+    // Closing waits for pending tool batches to settle after interruption.
+    await session.close();
+    expect(slow.aborted).toBe(true);
 
     const outputs = gateway.session.sent.filter(
       (e) =>

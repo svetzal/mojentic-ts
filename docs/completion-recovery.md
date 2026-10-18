@@ -392,5 +392,7 @@ session history. Recovery-disabled behavior is unchanged.
 
 The executable local cases are identified as `ts-recovery-typed-errors-v1` in
 `RECOVERY-CONFORMANCE.md`. They reuse the scripted
-loopback HTTP harness; paired consumer/provider verification remains a separate,
-uncompleted initiative requirement.
+in-process transport with deterministic time and no socket or server. Source
+and fresh packed-consumer checks verify local library conformance. Verification
+of a changed boundary between running services remains a separate paired
+consumer/provider responsibility; no such boundary changes in this correction.

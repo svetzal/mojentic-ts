@@ -327,8 +327,8 @@ describe('AsyncDispatcher', () => {
 
       dispatcher.dispatch(terminateEvent);
 
-      // Wait a moment for processing
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Advance the dispatcher polling clock without a real delay.
+      await jest.advanceTimersByTimeAsync(200);
 
       expect(dispatcher.isRunning()).toBe(false);
     });

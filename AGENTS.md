@@ -36,6 +36,24 @@ Review these guidelines to understand the correct patterns, conventions, and bes
 - Document error conditions in JSDoc comments
 
 ### Testing
+- All test and package-conformance execution is in-process: no sockets, listeners,
+  DNS, live services or registry access. This repository has no infrastructure-test exception.
+- Stub only transport, gateway and clock/sleeper boundaries. Exercise caller-facing
+  public APIs; never mock recovery engines, parsers, brokers or sessions.
+- Use the shared `scripts/test-support/transport.cjs` adapter for scripted HTTP
+  exchanges. Preserve full payloads, headers, destinations, response bytes,
+  unmasked attempt identities, lifecycle order and semantic assertions.
+- Jest installs the network guard and a fixed virtual clock. Its runner drains
+  promise/stream work before advancing the next virtual timer; never enable
+  real timers or automatic advancement tied to elapsed real time in a test.
+- Prefer explicit completion signals and controlled promises to arbitrary delays.
+  Timers used to test deadlines/backoff must remain virtual. No wall-clock
+  duration thresholds are permitted; assert exact injected timings or event order.
+- `verify:package` packs the library and installed runtime dependencies locally,
+  installs those tarballs offline into a fresh consumer, compiles public declarations,
+  and runs the shared contracts with network access and real timers forbidden.
+- Keep the same identifiable fixture/verifier set in source and installed-consumer
+  checks. Report both identities; local conformance does not verify an external repository.
 - Tests are co-located with implementation files using `.test.ts` suffix
 - Use Jest for testing with `jest.mock()` for mocking
 - Use descriptive test names: `it('should return error when gateway fails')`

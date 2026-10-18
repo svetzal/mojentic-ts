@@ -8,17 +8,16 @@ import { CompletionEvidence, LlmStreamEvent } from './stream-events';
 import { Ok, Result, unwrap } from '../error';
 import { LlmTool } from './tools';
 import { StreamChunk } from './models';
-import { createServer } from 'node:http';
-import { AddressInfo } from 'node:net';
+import { createEndpoint } from '../../scripts/test-support/transport.cjs';
 import { OMLXGateway } from './gateways/omlx';
 import { Message } from './models';
 import { inspectRecoveryFailure, RecoveryError, RecoveryOptions } from './recovery';
 
-it('measures the first argument before an oMLX terminal failure through real HTTP', async () => {
+it('measures the first argument before an oMLX terminal failure through the in-process transport', async () => {
   let now = 10;
   const clock = jest.spyOn(MonotonicClockGateway.prototype, 'now').mockImplementation(() => now);
   let requests = 0;
-  const server = createServer((_request, response) => {
+  const server = createEndpoint((_request, response) => {
     requests++;
     now = 125;
     response.write('data: {"model":"keepalive","choices":[]}\n\n');
@@ -26,8 +25,8 @@ it('measures the first argument before an oMLX terminal failure through real HTT
       'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{"}}]}}]}\n\n'
     );
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const gateway = new OMLXGateway(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
+  await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
+  const gateway = new OMLXGateway(`http://127.0.0.1:${server.address().port}`);
   const stream = gateway.generateStreamEvents('local', [Message.user('hello')]);
   now = 100;
   try {
@@ -170,7 +169,7 @@ function chunkEvidence(chunk: Result<StreamChunk, Error>): CompletionEvidence | 
   throw chunk.error;
 }
 
-// Real loopback HTTP; only the monotonic clock is controlled.
+// In-process transport with a controlled monotonic clock.
 describe.each(providers)('$name client stream timing', (provider) => {
   describe.each([
     {
@@ -199,7 +198,7 @@ describe.each(providers)('$name client stream timing', (provider) => {
     let disconnect: () => void;
     let clock: jest.SpyInstance;
     let gateway: LlmGateway;
-    const server = createServer((_request, response) => {
+    const server = createEndpoint((_request, response) => {
       requests++;
       if (rejectFirst && requests === 1) {
         response.writeHead(503);
@@ -224,8 +223,8 @@ describe.each(providers)('$name client stream timing', (provider) => {
         .mockReturnValueOnce(100)
         .mockReturnValueOnce(125)
         .mockReturnValue(180);
-      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-      gateway = provider.gateway(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
+      await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
+      gateway = provider.gateway(`http://127.0.0.1:${server.address().port}`);
     });
     afterEach(async () => {
       server.closeAllConnections();
@@ -604,7 +603,7 @@ async function captureTimingProbe(
   const split = frame.length - 4;
   const prefix = provider.keepalive + provider.frame({ content: '' }) + provider.frame({});
   let sendRemainder = (): void => undefined;
-  const server = createServer((_request, response) => {
+  const server = createEndpoint((_request, response) => {
     requests++;
     now = 110;
     response.write(prefix + frame.slice(0, split));
@@ -613,8 +612,8 @@ async function captureTimingProbe(
       response.end(frame.slice(split) + provider.terminal);
     };
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const gateway = provider.gateway(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
+  await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
+  const gateway = provider.gateway(`http://127.0.0.1:${server.address().port}`);
   const observations: TimingObservation[] = [];
   const consume = async (): Promise<void> => {
     for await (const observation of route.stream(gateway, {
@@ -754,7 +753,7 @@ async function legacyTimingProbe(
   let now = 100;
   let requests = 0;
   const clock = jest.spyOn(MonotonicClockGateway.prototype, 'now').mockImplementation(() => now);
-  const server = createServer((_request, response) => {
+  const server = createEndpoint((_request, response) => {
     requests++;
     now = 125;
     response.end(
@@ -765,8 +764,8 @@ async function legacyTimingProbe(
         provider.terminal
     );
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const gateway = provider.gateway(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
+  await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
+  const gateway = provider.gateway(`http://127.0.0.1:${server.address().port}`);
   try {
     return { observations: await collect(route.stream(gateway, recovery)), requests };
   } finally {

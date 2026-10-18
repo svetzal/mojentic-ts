@@ -1,5 +1,4 @@
-import { createServer } from 'node:http';
-import { AddressInfo } from 'node:net';
+import { createEndpoint } from '../../scripts/test-support/transport.cjs';
 import { LlmBroker, OMLXGateway, Message, LlmTool, Ok, unwrap } from '../index';
 
 it('retains exact completed native reasoning in the streaming continuation wire', async () => {
@@ -18,7 +17,7 @@ it('retains exact completed native reasoning in the streaming continuation wire'
     }),
     run: async () => Ok({ temperature: 18 }),
   };
-  const server = createServer(async (request, response) => {
+  const server = createEndpoint(async (request, response) => {
     const buffers: Buffer[] = [];
     for await (const part of request) buffers.push(Buffer.from(part));
     bodies.push(JSON.parse(Buffer.concat(buffers).toString()) as Record<string, unknown>);
@@ -29,11 +28,11 @@ it('retains exact completed native reasoning in the streaming continuation wire'
         : 'data: {"choices":[{"delta":{"content":"18 degrees"}}]}\n\ndata: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
     );
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
   try {
     const broker = new LlmBroker(
       'alias',
-      new OMLXGateway(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)
+      new OMLXGateway(`http://127.0.0.1:${server.address().port}`)
     );
     const visible: string[] = [];
     const config = { temperature: 0, retainReasoning: true };

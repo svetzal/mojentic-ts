@@ -1,5 +1,4 @@
-import { createServer, Server } from 'node:http';
-import { AddressInfo } from 'node:net';
+import { createEndpoint, Endpoint } from '../../scripts/test-support/transport.cjs';
 import { LlmBroker, OpenAIGateway, Message, LlmTool, Ok, unwrap } from '../index';
 
 // ts-openai-sampling-v1: public API and production HTTP, with local scripted replies.
@@ -33,13 +32,13 @@ const answer = JSON.stringify({
 });
 
 describe('OpenAI configured sampling HTTP contract', () => {
-  let server: Server;
+  let server: Endpoint;
   let broker: LlmBroker;
   let replies: { status: number; body: string }[];
   const bodies: string[] = [];
 
   beforeAll(async () => {
-    server = createServer(async (request, response) => {
+    server = createEndpoint(async (request, response) => {
       let body = '';
       for await (const chunk of request) body += String(chunk);
       bodies.push(body);
@@ -47,13 +46,10 @@ describe('OpenAI configured sampling HTTP contract', () => {
       response.writeHead(reply?.status ?? 500, { 'Content-Type': 'application/json' });
       response.end(reply?.body ?? '{}');
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
     broker = new LlmBroker(
       'gpt-4o',
-      new OpenAIGateway(
-        'fixture-key',
-        `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`
-      )
+      new OpenAIGateway('fixture-key', `http://127.0.0.1:${server.address().port}/v1`)
     );
   });
   afterAll(async () => {

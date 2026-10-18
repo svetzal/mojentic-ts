@@ -138,9 +138,14 @@ describe('EventEmitter', () => {
     const emitter = new EventEmitter();
     let asyncHandlerCalled = false;
 
+    let complete: () => void = () => {};
+    const completed = new Promise<void>((resolve) => {
+      complete = resolve;
+    });
     const asyncHandler = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await Promise.resolve();
       asyncHandlerCalled = true;
+      complete();
     };
 
     emitter.subscribe('goal-submitted', asyncHandler);
@@ -155,8 +160,8 @@ describe('EventEmitter', () => {
 
     emitter.emit({ type: 'goal-submitted', state });
 
-    // Wait for async handler to complete
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // Observe handler completion directly.
+    await completed;
     expect(asyncHandlerCalled).toBe(true);
   });
 

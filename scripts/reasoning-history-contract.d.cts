@@ -31,3 +31,9 @@ export function verifyControls(
   }
 ): Promise<void>;
 export function verifyOpenAIExclusion(publicApi: typeof api, recovery: boolean): Promise<void>;
+
+export function contractIdentity(): {
+  contract: string;
+  fixtureSha256: string;
+  verifierSha256: string;
+};

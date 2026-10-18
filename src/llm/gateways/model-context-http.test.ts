@@ -1,5 +1,4 @@
-import * as http from 'http';
-import { AddressInfo } from 'net';
+import { createEndpoint, Endpoint } from '../../../scripts/test-support/transport.cjs';
 import { OMLXGateway } from './omlx';
 import { OllamaGateway } from './ollama';
 import { OpenAIGateway } from './openai';
@@ -20,14 +19,14 @@ interface RequestRecord {
 }
 
 describe('model context metadata over HTTP', () => {
-  let server: http.Server;
+  let server: Endpoint;
   let host: string;
   let body: string;
   let status: number;
   const received: RequestRecord[] = [];
 
   beforeAll(async () => {
-    server = http.createServer((request, response) => {
+    server = createEndpoint((request, response) => {
       let requestBody = '';
       request.setEncoding('utf8');
       request.on('data', (chunk: string) => {
@@ -44,8 +43,8 @@ describe('model context metadata over HTTP', () => {
         response.end(body);
       });
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    host = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
+    host = `http://127.0.0.1:${server.address().port}`;
   });
   afterAll(async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -231,9 +230,9 @@ describe('model context metadata over HTTP', () => {
     );
 
     it('returns a Result error for transport failure', async () => {
-      const offline = http.createServer();
-      await new Promise<void>((resolve) => offline.listen(0, '127.0.0.1', resolve));
-      const url = `http://127.0.0.1:${(offline.address() as AddressInfo).port}`;
+      const offline = createEndpoint();
+      await new Promise<void>((resolve) => offline.activate(0, '127.0.0.1', resolve));
+      const url = `http://127.0.0.1:${offline.address().port}`;
       await new Promise<void>((resolve) => offline.close(() => resolve()));
 
       expect(await getModelContextWindow(makeGateway(url), 'wanted')).toEqual({

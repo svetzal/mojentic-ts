@@ -1,8 +1,8 @@
-/** Public loopback conformance. No fetch mocks, no live inference, no private engine tests. */
+/** Public API conformance with an in-process transport double and virtual time. */
 import { strict as assert } from 'node:assert';
 import { inspect } from 'node:util';
-import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
-import { AddressInfo } from 'node:net';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createEndpoint, Endpoint } from '../../scripts/test-support/transport.cjs';
 import { LlmBroker } from './broker';
 import { ChatSession } from './chat-session';
 import { LlmGateway } from './gateway';
@@ -136,7 +136,7 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 }
 
 describe.each(providers)('$name public HTTP recovery', (provider) => {
-  let server: Server;
+  let server: Endpoint;
   let url: string;
   let replies: Reply[];
   let sends: Send[];
@@ -147,7 +147,7 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
     events = [];
     wires = [];
     replies = [];
-    server = createServer(async (request, response) => {
+    server = createEndpoint(async (request, response) => {
       const chunks: Buffer[] = [];
       for await (const chunk of request) chunks.push(Buffer.from(chunk));
       sends.push({
@@ -159,8 +159,8 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
       const reply = replies.shift() ?? jsonReply(599, { error: 'unexpected send' });
       reply(response, request);
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
+    url = `http://127.0.0.1:${server.address().port}`;
   });
   afterEach(async () => {
     if (process.env.MOJENTIC_RECOVERY_EVIDENCE === '1') {
@@ -1251,15 +1251,15 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
       'rejects HTTP %s redirects before reaching a second endpoint',
       async (status) => {
         const redirected: Buffer[] = [];
-        const destination = createServer(async (request, response) => {
+        const destination = createEndpoint(async (request, response) => {
           const chunks: Buffer[] = [];
           for await (const chunk of request) chunks.push(Buffer.from(chunk));
           redirected.push(Buffer.concat(chunks));
           jsonReply(200, provider.success(content))(response, request);
         });
-        await new Promise<void>((resolve) => destination.listen(0, '127.0.0.1', resolve));
+        await new Promise<void>((resolve) => destination.activate(0, '127.0.0.1', resolve));
         try {
-          const port = (destination.address() as AddressInfo).port;
+          const port = destination.address().port;
           replies = [jsonReply(status, {}, { Location: `http://127.0.0.1:${port}/redirected` })];
           const error = failed(await call(operation, policy({ maxAttempts: 1 })));
 

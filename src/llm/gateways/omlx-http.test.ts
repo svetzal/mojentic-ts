@@ -1,13 +1,7 @@
-/**
- * OMLXGateway over real HTTP: the real fetch against a local server, not a mock of fetch.
- *
- * The mocked tests in omlx.test.ts hand the gateway Response objects built in the test. These
- * tests check that the same fixtures parse when they arrive over a socket with real headers.
- */
+/** Public oMLX protocol fixtures through an in-process HTTP transport double. */
 
 import * as fs from 'fs';
-import * as http from 'http';
-import { AddressInfo } from 'net';
+import { createEndpoint, Endpoint } from '../../../scripts/test-support/transport.cjs';
 import * as path from 'path';
 import { OMLXGateway } from './omlx';
 import { Message } from '../models';
@@ -40,14 +34,14 @@ function unwrap<T>(result: Result<T, Error>): T {
   return result.value;
 }
 
-describe('OMLXGateway over real HTTP', () => {
+describe('OMLXGateway over in-process HTTP', () => {
   const replies = new Map<string, Reply>();
   const received: ReceivedRequest[] = [];
-  let server: http.Server;
+  let server: Endpoint;
   let host: string;
 
   beforeAll(async () => {
-    server = http.createServer((request, response) => {
+    server = createEndpoint((request, response) => {
       received.push({
         method: request.method,
         url: request.url,
@@ -60,8 +54,8 @@ describe('OMLXGateway over real HTTP', () => {
         response.end(reply?.body ?? '');
       });
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    host = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
+    host = `http://127.0.0.1:${server.address().port}`;
   });
 
   afterAll(async () => {
@@ -87,7 +81,7 @@ describe('OMLXGateway over real HTTP', () => {
     ]);
   });
 
-  it('should parse a chat completion and read the Warning header from the socket', async () => {
+  it('should parse a chat completion and read the Warning header from the transport', async () => {
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     replies.set('POST /v1/chat/completions', {
       headers: { 'Content-Type': 'application/json', Warning: WARNING },

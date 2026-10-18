@@ -60,9 +60,8 @@ describe('CurrentDatetimeTool', () => {
         const value = result.value as Record<string, unknown>;
         const timestamp = value.timestamp as number;
 
-        // Timestamp should be reasonable (after 2020, before 2030)
-        expect(timestamp).toBeGreaterThan(1_577_836_800);
-        expect(timestamp).toBeLessThan(1_893_456_000);
+        // The clock is fixed by the test runner.
+        expect(timestamp).toBe(Date.UTC(2026, 0, 1) / 1000);
       }
     });
 

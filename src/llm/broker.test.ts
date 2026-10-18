@@ -345,6 +345,7 @@ describe('LlmBroker', () => {
     test('should dispatch a batch of tool calls in parallel when using ParallelToolRunner', async () => {
       const messages: LlmMessage[] = [{ role: MessageRole.User, content: 'Use both tools' }];
 
+      let sequence = 0;
       class TimingTool implements LlmTool {
         startedAt = -1;
         completedAt = -1;
@@ -369,9 +370,9 @@ describe('LlmBroker', () => {
           };
         }
         async run(): Promise<Result<Record<string, unknown>, Error>> {
-          this.startedAt = Date.now();
+          this.startedAt = sequence++;
           await new Promise((r) => setTimeout(r, this.delayMs));
-          this.completedAt = Date.now();
+          this.completedAt = sequence++;
           return Ok({ name: this.toolName });
         }
       }
@@ -406,7 +407,8 @@ describe('LlmBroker', () => {
       const result = await parallelBroker.generate(messages, [t1, t2]);
 
       expect(isOk(result)).toBe(true);
-      expect(Math.abs(t1.startedAt - t2.startedAt)).toBeLessThan(50);
+      expect(t1.startedAt).toBeLessThan(t2.completedAt);
+      expect(t2.startedAt).toBeLessThan(t1.completedAt);
     });
 
     test('should pass config with reasoningEffort to gateway', async () => {

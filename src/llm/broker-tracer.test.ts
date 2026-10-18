@@ -152,7 +152,7 @@ describe('LlmBroker Tracer Integration', () => {
       expect(llmResponseEvent.model).toBe('test-model');
       expect(llmResponseEvent.content).toBe('Hello! How can I help you?');
       expect(llmResponseEvent.correlationId).toBe(correlationId);
-      expect(llmResponseEvent.callDurationMs).toBeGreaterThanOrEqual(0);
+      expect(llmResponseEvent.callDurationMs).toBe(0);
     });
 
     test('should record tool call events', async () => {
@@ -201,7 +201,7 @@ describe('LlmBroker Tracer Integration', () => {
       expect(toolCallEvent.result).toEqual({ result: 'Tool executed successfully' });
       expect(toolCallEvent.caller).toBe('LlmBroker');
       expect(toolCallEvent.correlationId).toBe(correlationId);
-      expect(toolCallEvent.callDurationMs).toBeGreaterThanOrEqual(0);
+      expect(toolCallEvent.callDurationMs).toBe(0);
     });
 
     test('should use same correlationId for recursive calls', async () => {

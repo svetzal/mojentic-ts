@@ -6,6 +6,8 @@ import { ParallelToolRunner, SerialToolRunner, ToolCallExecution } from './runne
 import { BaseTool, LlmTool, ToolArgs, ToolDescriptor, ToolResult, ToolRunCtx } from './tool';
 import { Err, Ok, Result } from '../../error';
 
+let sequence = 0;
+
 class SpyTool extends BaseTool {
   startedAt: number = -1;
   completedAt: number = -1;
@@ -20,10 +22,10 @@ class SpyTool extends BaseTool {
   }
 
   async run(_args: ToolArgs, ctx?: ToolRunCtx): Promise<Result<ToolResult, Error>> {
-    this.startedAt = Date.now();
+    this.startedAt = sequence++;
     this.receivedSignal = ctx?.signal;
     await new Promise((resolve) => setTimeout(resolve, this.delayMs));
-    this.completedAt = Date.now();
+    this.completedAt = sequence++;
     return this.outcome;
   }
 
@@ -116,13 +118,10 @@ describe('ParallelToolRunner', () => {
     const b = new SpyTool('b', 50);
     const runner = new ParallelToolRunner(4);
 
-    const start = Date.now();
     await runner.runBatch([exec('1', 'a'), exec('2', 'b')], [a, b]);
-    const elapsed = Date.now() - start;
 
-    // Sequential would take ~100ms; parallel should take ~50ms.
-    expect(elapsed).toBeLessThan(95);
-    expect(Math.abs(a.startedAt - b.startedAt)).toBeLessThan(20);
+    expect(a.startedAt).toBeLessThan(b.completedAt);
+    expect(b.startedAt).toBeLessThan(a.completedAt);
   });
 
   test('respects maxConcurrency = 1 (effectively serial)', async () => {

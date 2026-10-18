@@ -14,10 +14,6 @@ describe('DateResolverTool', () => {
     jest.setSystemTime(new Date('2025-03-15T12:00:00Z').getTime()); // Saturday, March 15, 2025
   });
 
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
   describe('descriptor', () => {
     it('should return tool descriptor', () => {
       const descriptor = tool.descriptor();

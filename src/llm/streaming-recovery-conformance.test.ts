@@ -1,8 +1,8 @@
 /** Public deterministic HTTP evidence for both streaming forms and all completion adapters. */
 import { strict as assert } from 'node:assert';
 import { inspect } from 'node:util';
-import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
-import { AddressInfo } from 'node:net';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createEndpoint, Endpoint } from '../../scripts/test-support/transport.cjs';
 import { Ok, Result } from '../error';
 import { LlmBroker } from './broker';
 import { ChatSession } from './chat-session';
@@ -140,7 +140,7 @@ function truncated(text: string, status = 200): Reply {
     setTimeout(() => response.destroy(), 10);
   };
 }
-let server: Server;
+let server: Endpoint;
 let url: string;
 let replies: Reply[];
 let requests: Buffer[];
@@ -165,7 +165,7 @@ beforeEach(async () => {
       captures.push(event);
     },
   };
-  server = createServer(async (request, response) => {
+  server = createEndpoint(async (request, response) => {
     const parts: Buffer[] = [];
     for await (const part of request) parts.push(Buffer.from(part));
     requests.push(Buffer.concat(parts));
@@ -174,8 +174,8 @@ beforeEach(async () => {
     assert(reply, 'unexpected actual send');
     reply(response, request);
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
+  url = `http://127.0.0.1:${server.address().port}`;
 });
 afterEach(async () => {
   if (process.env.MOJENTIC_STREAMING_EVIDENCE === '1') {
@@ -2097,7 +2097,7 @@ for (const provider of providers) {
       }
     );
 
-    it('closes an active socket while consumer is paused before delivering cancellation', async () => {
+    it('closes an active response while consumer is paused before delivering cancellation', async () => {
       const controller = new AbortController();
       let close: () => void = () => undefined;
       const closed = new Promise<void>((resolve) => {

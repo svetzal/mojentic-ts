@@ -1,6 +1,5 @@
 import samplingContract from './gateways/__fixtures__/openai-sampling-v1.json';
-import { createServer, Server } from 'node:http';
-import { AddressInfo } from 'node:net';
+import { createEndpoint, Endpoint } from '../../scripts/test-support/transport.cjs';
 import { z } from 'zod';
 import {
   LlmBroker,
@@ -164,7 +163,7 @@ const limits: readonly { name: string; config?: CompletionConfig }[] = [
   { name: 'explicit limit', config: { maxTokens: 37 } },
   { name: 'explicit zero', config: { maxTokens: 0 } },
 ];
-// ts-temperature-context-v1 extends the existing real HTTP harness, including
+// ts-temperature-context-v1 extends the in-process transport harness, including
 // complete bodies rather than field-only assertions. Scripted replies are local fixtures.
 interface SamplingCase {
   readonly name: string;
@@ -243,7 +242,7 @@ const tool: LlmTool = {
 // Local executable conformance set ts-output-limit-v1. HTTP responses are probe
 // fixtures, not independently verified provider contracts.
 describe.each(providers)('$name output-limit HTTP contract', (provider) => {
-  let server: Server;
+  let server: Endpoint;
   let host: string;
   let failures: number;
   let toolPending: boolean;
@@ -251,7 +250,7 @@ describe.each(providers)('$name output-limit HTTP contract', (provider) => {
   const requests: Record<string, unknown>[] = [];
 
   beforeAll(async () => {
-    server = createServer((request, response) => {
+    server = createEndpoint((request, response) => {
       let bytes = '';
       request.setEncoding('utf8');
       request.on('data', (chunk: string) => {
@@ -334,8 +333,8 @@ describe.each(providers)('$name output-limit HTTP contract', (provider) => {
         );
       });
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    host = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
+    host = `http://127.0.0.1:${server.address().port}`;
   });
   afterAll(async () => {
     server.closeAllConnections();

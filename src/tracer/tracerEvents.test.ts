@@ -18,7 +18,7 @@ describe('TracerEvent', () => {
       const correlationId = randomUUID();
       const event = new LLMCallTracerEvent('gpt-4', [], 0.7, undefined, correlationId);
 
-      expect(event.timestamp).toBeGreaterThanOrEqual(now);
+      expect(event.timestamp).toBe(now);
       expect(event.correlationId).toBe(correlationId);
     });
 

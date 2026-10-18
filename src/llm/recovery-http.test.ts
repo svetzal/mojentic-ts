@@ -1,15 +1,14 @@
-import { createServer, Server } from 'node:http';
-import { AddressInfo } from 'node:net';
+import { createEndpoint, Endpoint } from '../../scripts/test-support/transport.cjs';
 import { LlmBroker } from './broker';
 import { OllamaGateway } from './gateways/ollama';
 import { CompletionConfig, Message } from './models';
 
-let server: Server;
+let server: Endpoint;
 let url: string;
 const requests: Buffer[] = [];
 beforeEach(async () => {
   requests.length = 0;
-  server = createServer(async (request, response) => {
+  server = createEndpoint(async (request, response) => {
     const chunks: Buffer[] = [];
     for await (const chunk of request) chunks.push(Buffer.from(chunk));
     requests.push(Buffer.concat(chunks));
@@ -23,8 +22,8 @@ beforeEach(async () => {
       );
     }
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  await new Promise<void>((resolve) => server.activate(0, '127.0.0.1', resolve));
+  url = `http://127.0.0.1:${server.address().port}`;
 });
 afterEach(async () => {
   server.closeAllConnections();
