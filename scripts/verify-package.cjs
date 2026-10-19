@@ -1,6 +1,7 @@
 /** Installed-artifact contract ts-packaged-library-v1. Public API only; shared JSON cases. */
 require('./test-support/no-network.cjs');
 const assert = require('node:assert/strict');
+const boundaryContract = require('./test-boundary-contract.cjs');
 const historyContract = require('../src/llm/gateways/__fixtures__/reasoning-history-v1.json');
 const { verifyAll: verifyReasoningHistory } = require('./reasoning-history-contract.cjs');
 const reasoningContract = require('../src/llm/gateways/__fixtures__/reasoning-effort-v1.json');
@@ -33,17 +34,18 @@ function run(command, args, cwd) {
 
 async function verify(consumer) {
   require('./test-support/no-real-time.cjs');
-  assert.throws(
-    () => require('node:net').connect(443, 'example.com'),
-    /Network\/service access is forbidden/
-  );
   assert.throws(() => setTimeout(() => {}, 1), /Real timers are forbidden/);
-  console.log('PASS package network and real-time guards');
+  console.log('PASS package real-time guard');
   const installed = createRequire(join(consumer, 'package.json'));
   const api = installed('mojentic');
   install(installed('mojentic/dist/llm/recovery-transport.js').CompletionTransportGateway);
   installed('mojentic/dist/llm/monotonic-clock-gateway.js').MonotonicClockGateway.prototype.now =
     () => 0;
+  await boundaryContract.verify(api);
+  console.log(
+    'PASS installed boundary contract:',
+    JSON.stringify(boundaryContract.contractIdentity())
+  );
   await verifyReasoningHistory(api);
   console.log(
     `PASS ${historyContract.contract}: exact continuation, interruption, controls and OpenAI exclusion`
@@ -605,6 +607,7 @@ async function main() {
       integrity: packed.integrity,
       source: run('git', ['rev-parse', 'HEAD'], root).trim(),
       contract: 'ts-packaged-library-v1',
+      boundaryContract: boundaryContract.contractIdentity(),
       profileContract: profileContract.contract,
       profileContractSha256: createHash('sha256')
         .update(

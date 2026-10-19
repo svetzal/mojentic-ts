@@ -95,7 +95,6 @@ async function dispatch(url, options = {}) {
         response.emit('close');
       }
     };
-    request.socket = { destroy: response.destroy };
     signal?.addEventListener(
       'abort',
       () => {

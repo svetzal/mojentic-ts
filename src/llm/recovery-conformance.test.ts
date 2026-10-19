@@ -1,7 +1,7 @@
 /** Public API conformance with an in-process transport double and virtual time. */
 import { strict as assert } from 'node:assert';
 import { inspect } from 'node:util';
-import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { TransportRequest, TransportResponse } from '../../scripts/test-support/transport.cjs';
 import { createEndpoint, Endpoint } from '../../scripts/test-support/transport.cjs';
 import { LlmBroker } from './broker';
 import { ChatSession } from './chat-session';
@@ -25,7 +25,7 @@ import { StreamEventError } from './stream-events';
 import retryAfterFixtures from './retry-after-fixtures.json';
 import temperatureFixtures from './session-temperature-fixtures.json';
 
-type Reply = (response: ServerResponse, request: IncomingMessage) => void;
+type Reply = (response: TransportResponse, request: TransportRequest) => void;
 interface Send {
   readonly bytes: Buffer;
   readonly path: string | undefined;
@@ -1327,8 +1327,8 @@ describe.each(providers)('$name public HTTP recovery', (provider) => {
     });
     it('retains transport causes and accounts for failed sends without hidden retries', async () => {
       replies = [
-        (_response, request) => {
-          request.socket.destroy();
+        (response) => {
+          response.destroy();
         },
         jsonReply(200, provider.success(content)),
       ];

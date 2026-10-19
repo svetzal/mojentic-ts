@@ -1,7 +1,7 @@
 /** Public deterministic HTTP evidence for both streaming forms and all completion adapters. */
 import { strict as assert } from 'node:assert';
 import { inspect } from 'node:util';
-import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { TransportRequest, TransportResponse } from '../../scripts/test-support/transport.cjs';
 import { createEndpoint, Endpoint } from '../../scripts/test-support/transport.cjs';
 import { Ok, Result } from '../error';
 import { LlmBroker } from './broker';
@@ -24,7 +24,7 @@ import retryAfterFixtures from './retry-after-fixtures.json';
 import temperatureFixtures from './session-temperature-fixtures.json';
 
 type Output = Result<StreamChunk, Error> | LlmStreamEvent;
-type Reply = (response: ServerResponse, request: IncomingMessage) => void;
+type Reply = (response: TransportResponse, request: TransportRequest) => void;
 interface Provider {
   readonly name: 'ollama' | 'omlx' | 'openai';
   readonly gateway: (url: string) => LlmGateway;
@@ -2057,7 +2057,7 @@ for (const provider of providers) {
         });
         const reply =
           phase === 'active'
-            ? (response: ServerResponse) => response.flushHeaders()
+            ? (response: TransportResponse) => response.flushHeaders()
             : respond('{}', 503);
         replies.push((response, request) => {
           reply(response, request);

@@ -3,7 +3,7 @@
 This correction changes test support, tooling, workflows and documentation only.
 Library implementations, public APIs, fixture decisions, dependencies and package
 versions are unchanged. The tested base is
-`dcec7d48906fc7f2cd61cdcc6f5df45f63b1875f` plus this uncommitted worktree diff.
+`2863cec9a37b4e192f3fea8534b3352e067ab1ff` plus this uncommitted worktree diff.
 Foundry owns Git finalization. No external repository was modified or verified.
 
 The binding mission parts 1–3 remain transient completion recovery (including the
@@ -17,7 +17,7 @@ between running services or repositories changes in this correction.
 
 ## Execution policy and replacements
 
-All existing behavioral tests survive. The `*-http.test.ts` names identify HTTP
+All existing library behavioral contracts survive. The `*-http.test.ts` names identify HTTP
 protocol contracts; they now use `scripts/test-support/transport.cjs`, never a
 socket or server. The ordinary and streaming conformance suites use the same
 adapter. It supplies scripted response streams to fetch and to the
@@ -36,8 +36,17 @@ realtime interruption awaits batch settlement rather than racing a real timeout.
 
 Jest rejects socket, listener and DNS access and advances virtual timers only
 after promise/stream work drains. No timer is advanced by elapsed real time.
-`test-boundary.test.ts` asserts those access failures and the exact public gateway
-error for an unconfigured destination. Package verification preloads the same
+`test-boundary.test.ts` and the fresh installed consumer both execute
+`ts-in-process-boundary-v1` from `scripts/test-boundary-contract.cjs`. It checks
+every installed denial function without constructing sockets or listeners, then
+asserts the exact public gateway error for an unconfigured destination and an
+empty transport record before exercising a configured destination. The accepted
+exchange asserts the full method, destination, path, headers and request bytes,
+and the caller-visible reply. Server-specific Node types and request socket
+facades have been replaced by the adapter’s own `TransportRequest` and
+`TransportResponse` interfaces; truncation still uses the same response
+destruction path. `TransportRequest` retains the in-process `Readable` methods
+used by existing event-driven consumers. Package verification preloads the same
 network guard in subprocesses and forbids real timers in the installed consumer.
 It packs the library and exact locally installed runtime dependencies, installs
 those tarballs offline in a fresh directory, compiles installed declarations and
@@ -113,16 +122,21 @@ not independently authored mocks or schema-only checks.
 The source and installed matrices also share `ts-reasoning-effort-v1`,
 `ts-reasoning-profiles-v1`, `ts-openai-sampling-v1`, and
 `ts-temperature-context-v1`; the encompassing artifact verifier is
-`ts-packaged-library-v1`. Hashes below identify the executable inputs of this run.
+`ts-packaged-library-v1`. The shared destination verifier is
+`ts-in-process-boundary-v1`; both contexts print its identical SHA-256 identity.
+Hashes below identify the executable inputs of this run.
 
 | Executable input | SHA-256 |
 | --- | --- |
-| `scripts/test-support/no-network.cjs` | `1b92b5659ae20866fc397f31ad042593f1e24792f5fb47a5638f0120bae1f6cc` |
+| `scripts/test-support/no-network.cjs` | `834a675e87494f804ef98bf2d3c7be94156b215a5170d93dfd0178735bdf220a` |
+| `scripts/test-support/transport.d.cts` | `d6657245c9eca32eb2232a34b78a0c9961cf24d4281665a0651d8c6a07f46d5e` |
+| `scripts/test-boundary-contract.cjs` | `1edde9ba1c0fd9fddc03f775b9991b136ad34fd6a39c2009eb779876cef75a46` |
+| `scripts/test-boundary-contract.d.cts` | `99d45866fe2c3470293ddee42f1abdf650a058e026c35875be6f002d4eaaf971` |
 | `scripts/test-support/no-real-time.cjs` | `8e9bc2f9f573ce28e8926b1a7bf0774a656a4e1a27d16906ea9aed61622b538e` |
 | `scripts/test-support/jest-setup.cjs` | `7f653231ef75b25a9eab234ed75fd390b9cc9c3cfb21b40bfcbf32e1f7e94b21` |
 | `scripts/reasoning-history-contract.cjs` | `7dbe7699c677c80a1f550ac3e64ad7f8392a42f9cc6b95a804e098b1d97255a4` |
-| `scripts/verify-package.cjs` | `e3e4b5856c0a209dab578a9d6c66c47f2fd30fc281a291308d6ea87fd49d0ef1` |
-| `scripts/test-support/transport.cjs` | `22dc3a03448d87d7b37b8a62f6f466ea1ea21f7256c7784e9fa63238aa7ef312` |
+| `scripts/verify-package.cjs` | `811455fa805d90c9837ac5c762ca9c28b8158157d72ba7c471d41641b88f94e2` |
+| `scripts/test-support/transport.cjs` | `ffacf511b4cb28747a10bd87810af77d704c13460e84d2cbb8b57f50a194ce3f` |
 | `src/llm/gateways/__fixtures__/reasoning-history-v1.json` | `bc4157be6010770537c998626fe11a10e300435c869afaa9a47b57cbc388f2d8` |
 | `src/llm/gateways/__fixtures__/reasoning-effort-v1.json` | `88fb59195f2731be3fa116f17da142e3516b02618a2ed82ec8eea58ada3d419a` |
 | `src/llm/gateways/__fixtures__/reasoning-profiles-v1.json` | `9219cfb8d8f4f787513a2c5984d1db3fc78301118979016bddd27af6faaf21be` |
@@ -144,14 +158,23 @@ parent contract was read at `36f1cd9a2c89b8ad48384ab15a8ad25c4bb387ad`.
 | `npm run format` | Exit 0 |
 | `npm run lint` | Exit 0; zero warnings |
 | `npm run format:check` | Exit 0 |
-| `npm test` | Exit 0; 63 suites, 5,030 tests; network access denied |
+| `npm test -- --runInBand src/llm/test-boundary.test.ts` | Exit 0; shared public-API destination contract. A temporary unknown-origin fallback produced exit 1 at the semantic rejection assertion; exact-origin dispatch restored exit 0. |
+| `npm test -- --runInBand src/llm/recovery-conformance.test.ts src/llm/streaming-recovery-conformance.test.ts src/llm/reasoning-history-contract.test.ts` | Exit 0; 3 suites, 2,209 tests; ordinary/streaming semantics and shared native-history contracts preserved |
+| `npm test` | Exit 0; 63 suites, 5,029 tests; network access denied |
 | `npm test -- --coverage` | Exit 0; statements 87.68%, branches 83.82%, functions 90.12%, lines 88.00%; all exceed the configured 70% floors |
 | `npm run build` | Exit 0; also rebuilt by the final package check |
-| `npm run verify:package` | Exit 0; fresh offline tarball install, declaration compile, runtime exports and all retained contract matrices; network and real-timer rejection probes passed |
+| `npm run verify:package` | Exit 0; fresh offline tarball install, declaration compile, runtime exports and all retained contract matrices; network and real-timer rejection and shared public-API destination contracts passed |
 | `npm audit --omit=dev --audit-level=moderate` | Exit 0; zero vulnerabilities |
 | `npm audit` | Exit 0; zero vulnerabilities, including development dependencies |
-| `env npm_config_cache=/tmp/mojentic-outdated-cache npm outdated` | Exit 1; informational: gpt-tokenizer 4.0.3 installed, 4.1.0 wanted/latest; dependencies unchanged. Rerun with writable cache after the default read-only cache failed |
+| `npm outdated --cache /tmp/mojentic-correction-npm-cache` | Exit 1; informational: gpt-tokenizer 4.0.3 installed, 4.1.0 wanted/latest; dependencies unchanged |
 | `npm run docs:build` | Exit 0; existing VitePress/Rolldown plugin/bundle diagnostics and esbuild transform deprecation remain |
+
+The source and installed consumer both passed `ts-in-process-boundary-v1` with
+verifier SHA-256
+`1edde9ba1c0fd9fddc03f775b9991b136ad34fd6a39c2009eb779876cef75a46`.
+They assert the identical destination rejection and full configured exchange
+against the base commit above plus this worktree; the installed consumer uses the
+packed artifact rather than another repository’s executable snapshot.
 
 The final source/consumer logs agree on the native-history fixture hash
 `bc4157be6010770537c998626fe11a10e300435c869afaa9a47b57cbc388f2d8`

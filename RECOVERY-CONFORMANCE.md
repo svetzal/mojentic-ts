@@ -56,8 +56,13 @@ The transport double's response destruction represents I/O interruption; it does
 not establish remote inference termination.
 
 `scripts/test-support/no-network.cjs` rejects sockets, listeners and DNS.
-`test-boundary.test.ts` verifies rejection and the caller-visible gateway error
-for unexpected service access. Jest uses fixed virtual time without a real
+`test-boundary.test.ts` and the installed consumer run the identical
+`ts-in-process-boundary-v1` executable. It verifies installed guard integrity and
+rejection without socket/listener construction, then verifies an exact gateway
+error and empty handler records for an unknown destination, followed by the full
+configured request and caller-visible reply. Transport consumers depend only on
+the adapter’s `TransportRequest`/`TransportResponse` types; interruption uses
+response destruction with unchanged lifecycle semantics. Jest uses fixed virtual time without a real
 sleep or a wall-clock threshold. Tool concurrency asserts start/completion order;
 agent and realtime tests observe completion and interruption directly.
 
