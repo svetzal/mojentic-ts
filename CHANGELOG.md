@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Updated the dev-only transitive dependency `follow-redirects` (via
+  `audify` → `cmake-js` → `axios`) from 1.16.1 to 1.16.3 to remediate
+  GHSA-mrwp-f3q8-3g9p. Lockfile only; the published package is unaffected.
+
 ## [3.0.0] - 2026-10-18
 
 ### Added
