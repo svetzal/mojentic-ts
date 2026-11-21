@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated the dev-only transitive dependency `follow-redirects` (via
   `audify` → `cmake-js` → `axios`) from 1.16.1 to 1.16.3 to remediate
   GHSA-mrwp-f3q8-3g9p. Lockfile only; the published package is unaffected.
+- Added npm overrides `glob >=14.0.2` and `minimatch >=11.0.1` so the
+  dev-only Jest toolchain (`@jest/reporters`, `jest-config`, `jest-runtime`,
+  `test-exclude`) resolves glob 14.0.6 (was 13.0.6 and 10.5.0) and
+  minimatch 11.0.9 (was 10.2.6 and 9.0.9). This fixes GHSA-3g3m-2fjr-6pw4
+  and GHSA-g3hv-75wg-m249. Jest 30.5.2 and test-exclude 8.0.0, the latest
+  releases, still require `glob ^13`, so an override is needed for now.
+  The published package is unaffected.
 
 ## [3.0.0] - 2026-10-18
 
